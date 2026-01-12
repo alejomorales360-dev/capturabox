@@ -1,0 +1,2639 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>App Consolidado</title>
+
+<style>
+body {
+  margin: 0;
+  font-family: 'Segoe UI', Arial;
+  background: #f2f2f2;
+}
+
+/* ====== CONTENEDORES ====== */
+.pantalla {
+  display: none;
+  padding: 20px;
+}
+
+.visible {
+  display: block;
+}
+
+/* ====== LOGIN ====== */
+input, button, select {
+  width: 100%;
+  padding: 12px;
+  margin-top: 10px;
+  border-radius: 8px;
+  border: 1px solid #ccc;
+  font-size: 16px;
+}
+
+button {
+  background: #0077b6;
+  color: #fff;
+  border: none;
+}
+
+/* ====== CARDS ====== */
+.card {
+  background: #fff;
+  padding: 16px;
+  border-radius: 10px;
+  margin-bottom: 15px;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+  font-size: 18px;
+  font-weight: 600;
+}
+.card:active {
+  background: #e1f5fe;
+}
+
+.fotoBox {
+  padding: 10px;
+  margin-bottom: 12px;
+  border-radius: 8px;
+  border-left: 6px solid red;
+  background: #f8d7da; /* rojo suave */
+}
+
+.fotoPendiente {
+  border-left-color: red;
+  background: #f8d7da;
+}
+
+.fotoIncompleta {
+  border-left-color: orange;
+  background: #fff3cd;
+}
+
+.fotoOK {
+  border-left-color: green;
+  background: #d4edda;
+}
+.selloBox {
+  background: #f2f2f2;
+  padding: 10px;
+  margin-bottom: 12px;
+  border-left: 6px solid #0077b6;
+  border-radius: 8px;
+}
+
+.spinner {
+  border: 5px solid #eee;
+  border-top: 5px solid #0077b6;
+  border-radius: 50%;
+  width: 35px;
+  height: 35px;
+  animation: girar 0.8s linear infinite;
+}
+
+@keyframes girar {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.bloqueResumen {
+  padding: 10px;
+  margin: 10px 0;
+  background: #f3f3f3;
+  border-radius: 6px;
+}
+
+.itemContenedor {
+  background: white;
+  padding: 10px;
+  margin: 6px 0;
+  border-radius: 6px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+}
+
+.itemContenedor button {
+  margin-top: 8px;
+  width: 100%;
+}
+
+.enviadoOK {
+  background: #d4f8d4; /* verde suave */
+  border-left: 8px solid #2ecc71; 
+  padding: 15px;
+  margin-bottom: 15px;
+  border-radius: 6px;
+}
+
+.botonVer {
+  margin-top: 10px;
+  width: 100%;
+  background: #0b7dda;
+  color: white;
+  border: none;
+  padding: 10px;
+  border-radius: 5px;
+  font-size: 16px;
+}
+#login .card {
+  max-width: 380px;
+  margin: 0 auto;
+  margin-top: 20px;
+}
+
+#login-logo {
+  width: 140px;
+  display: block;
+  margin: 20px auto;
+}
+
+#login .card {
+    max-width: 380px;
+    padding: 26px;
+    margin: 40px auto;
+}
+
+.password-wrapper {
+    position: relative;
+}
+
+.password-wrapper .show-pass {
+    position: absolute;
+    right: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    cursor: pointer;
+}
+
+.detalle-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.detalle-grid img {
+  width: 90px;
+  height: 90px;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 1px solid #bbb;
+  cursor: pointer;
+  transition: transform 0.2s;
+}
+
+.detalle-grid img:hover {
+  transform: scale(1.05);
+}
+
+.card-contenedor {
+  background: #ffffff;
+  border-left: 6px solid #0077b6; /* azul estilo Maersk */
+  padding: 14px 16px;
+  border-radius: 10px;
+  margin-bottom: 16px;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.08);
+  font-size: 14px;
+}
+
+.card-contenedor b {
+  color: #003049;
+}
+
+.card-contenedor span {
+  font-weight: 500;
+}
+
+@media (max-width: 600px) {
+  .card-contenedor {
+    font-size: 13px;
+    padding: 12px;
+  }
+}
+
+.foto-wrapper {
+  position: relative;
+  display: inline-block;
+}
+
+.foto-wrapper img {
+  width: 90px;
+  height: 90px;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 1px solid #ccc;
+  margin: 6px;
+}
+
+.btn-eliminar-foto {
+  position: absolute;
+  top: -10px;          /* 🔼 sobresale un poco */
+  right: -35px;        /* 🔼 bien a la esquina */
+  background: none;
+  border: none;
+  color: #ff0000;     /* rojo fuerte */
+  font-size: 28px;    /* más grande */
+  font-weight: 900;  /* más gruesa */
+  cursor: pointer;
+  line-height: 1;
+  padding: 0;
+  z-index: 10;
+  text-shadow:
+    0 0 2px #000,
+    0 0 4px #000;     /* contraste sobre la foto */
+}
+
+
+.btn-eliminar-foto:hover {
+  transform: scale(1.3);
+}
+
+/* ===== CARD CONTENEDOR DESTACADA ===== */
+.card-contenedor {
+  background: #ffffff;
+  border-left: 10px solid #0077b6;
+  border-radius: 14px;
+  padding: 18px 20px;
+  margin-bottom: 20px;
+  box-shadow: 0 6px 16px rgba(0,0,0,0.12);
+}
+
+/* TÍTULO */
+.card-contenedor .titulo {
+  font-size: 14px;
+  font-weight: 700;
+  color: #555;
+  letter-spacing: 1px;
+  margin-bottom: 6px;
+}
+
+/* CONTENEDOR MUY DESTACADO */
+.card-contenedor .contenedor-num {
+  font-size: 32px;
+  font-weight: 900;
+  letter-spacing: 2px;
+  color: #003049;
+  background: #e3f2fd;
+  padding: 10px 14px;
+  border-radius: 10px;
+  text-align: center;
+  margin-bottom: 14px;
+}
+
+/* GRID DE DATOS */
+.card-contenedor .grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px 14px;
+  font-size: 15px;
+}
+
+.card-contenedor .grid b {
+  color: #003049;
+}
+
+/* MOBILE */
+@media (max-width: 600px) {
+  .card-contenedor .contenedor-num {
+    font-size: 26px;
+  }
+}
+
+
+</style>
+</head>
+
+<body>
+
+<!-- ============ LOGIN NUEVO ============ -->
+<section id="login" class="pantalla visible">
+  <div class="card" id="login_card" style="max-width:420px; margin:auto;">
+
+    <img id="login-logo"
+      src="https://upload.wikimedia.org/wikipedia/commons/6/6c/Maersk_Group_Logo.jpeg"
+      alt="Maersk logo"
+      style="width:120px; display:block; margin:0 auto 15px auto;">
+
+<label for="login_rut" style="font-weight:600;">RUT</label>
+
+<div class="input-wrapper">
+  <input
+    id="login_rut"
+    maxlength="12"
+    placeholder="Ej: 12345678-9"
+    oninput="formatoRutAuto(this)"
+    style="
+      width:100%;
+      padding:12px 14px;
+      font-size:20px;
+      border:2px solid #0077b6;
+      border-radius:8px;
+      text-align:center;
+      box-sizing:border-box;
+    "
+  >
+</div>
+
+
+
+<label for="login_clave" style="text-align:left; font-weight:600;">Clave</label>
+
+<div style="position:relative; width:100%;">
+  <input
+    id="login_clave"
+    type="password"
+    placeholder="Ingresa tu clave"
+    style="
+      width: 100%;
+      height: 48px;
+      border: 2px solid #0097d9;
+      border-radius: 8px;
+      font-size: 20px;
+      text-align: center;
+      background:#ffffff;
+      padding-right: 40px; /* espacio para el ojo */
+      box-sizing: border-box;
+    "
+  >
+  <span onclick="toggleClaveLogin()" 
+    style="
+      position:absolute;
+      right:12px;
+      top:50%;
+      transform:translateY(-50%);
+      cursor:pointer;
+      font-size:20px;
+      user-select:none;
+    ">
+    👁
+  </span>
+</div>
+
+<!-- MENSAJE ERROR -->
+<div id="login_error"
+  style="
+    display:none;
+    margin-top:14px;
+    padding:10px;
+    background:#ffd6d6;
+    color:#a30000;
+    font-weight:600;
+    border-radius:8px;
+    text-align:center;
+  ">
+</div>
+
+<!-- MENSAJE OK -->
+<div id="login_ok"
+  style="
+    display:none;
+    margin-top:14px;
+    padding:10px;
+    background:#d4edda;
+    color:#155724;
+    font-weight:600;
+    border-radius:8px;
+    text-align:center;
+  ">
+  ✔ Acceso concedido
+</div>
+
+<button onclick="login()"
+  style="
+    width: 100%;
+    margin-top: 20px;
+    background:#0077b6;
+    color:white;
+    padding: 14px;
+    font-size: 18px;
+    border:none;
+    border-radius:8px;
+    font-weight:bold;
+    cursor:pointer;
+  ">
+  Ingresar
+</button>
+
+
+  </div>
+</section>
+
+<!-- ================= MENÚ ================= -->
+<div id="pantallaMenu" class="pantalla">
+  <h2>Menú Principal</h2>
+
+  <div class="card" onclick="ir('pantallaCodigo')">
+    📦 Consolidado con Código de Barras
+  </div>
+
+  <div class="card" onclick="ir('pantallaSinCodigo')">
+    📝 Consolidado sin Código de Barras
+  </div>
+
+  <div class="card" onclick="abrirResumen()">
+    📊 Resumen / Continuar Contenedores
+</div>
+
+
+  <button onclick="logout()">Cerrar sesión</button>
+</div>
+
+<!-- ================= CONSOLIDADO CON CÓDIGO ================= -->
+<div id="pantallaCodigo" class="pantalla">
+  <h2>Con Código de Barras</h2>
+  <button onclick="ir('pantallaDatosContenedor')">Ingresar Datos del Contenedor</button>
+  <button onclick="ir('pantallaMenu')">Volver</button>
+</div>
+
+<!-- ================= CONSOLIDADO SIN CÓDIGO ================= -->
+<div id="pantallaSinCodigo" class="pantalla">
+  <h2>Sin Código de Barras</h2>
+  <button onclick="ir('pantallaDatosContenedor')">Ingresar Datos del Contenedor</button>
+  <button onclick="ir('pantallaMenu')">Volver</button>
+</div>
+
+<!-- ================= RESUMEN ================= -->
+<div id="pantallaResumen" class="pantalla">
+
+    <h2>Resumen / Continuar Contenedores</h2>
+
+    <div id="listaPendientes" class="bloqueResumen">
+        <h3>Pendientes en el dispositivo (Offline)</h3>
+        <div id="contenedoresPendientes"></div>
+    </div>
+
+    <div id="listaEnviados" class="bloqueResumen">
+        <h3>Consolidados Enviados</h3>
+        <div id="contenedoresEnviados"></div>
+    </div>
+
+    <button class="btnVolver" onclick="ir('pantallaMenu')">Volver</button>
+
+</div>
+
+
+<!-- ================= DATOS DEL CONTENEDOR ================= -->
+<div id="pantallaDatosContenedor" class="pantalla">
+  <h2>Datos del Contenedor</h2>
+
+  <!-- CLIENTE -->
+  <label>Cliente</label>
+  <select id="dc_cliente">
+    <option value="">Seleccione…</option>
+    <option>ARAUCO</option>
+    <option>FORACTION</option>
+    <option>JCE</option>
+    <option>CMPC</option>
+    <option>OCHOCO</option>
+    <option>CONSORCIO</option>
+    <option>INCHALAM</option>
+    <option>FORESTAL LEONERA</option>
+    <option>MASISA</option>
+  </select>
+
+  <!-- LÍNEA NAVIERA -->
+  <label>Línea Naviera</label>
+  <select id="dc_linea">
+    <option value="">Seleccione…</option>
+    <option>MAERSK</option>
+    <option>MSC</option>
+    <option>ONE</option>
+    <option>HAPAG-LLOYD</option>
+    <option>ZIM</option>
+    <option>COSCO</option>
+    <option>HYUNDAI</option>
+  </select>
+
+  <!-- CONTENEDOR DESGLOSADO -->
+  <label>Contenedor (Sigla - Numeración - Dígito)</label>
+
+  <div style="display:flex; gap:10px;">
+      <input id="cnt_sigla"
+       maxlength="4"
+       placeholder="MRKU"
+       style="text-transform:uppercase;"
+       oninput="
+         this.value = this.value
+           .toUpperCase()
+           .replace(/[^A-Z]/g,'');
+       ">
+      <input id="cnt_num"
+       maxlength="6"
+       placeholder="123456"
+       inputmode="numeric"
+       oninput="
+         this.value = this.value.replace(/[^0-9]/g,'');
+       ">
+      <input id="cnt_dv"
+       maxlength="1"
+       placeholder="7"
+       inputmode="numeric"
+       oninput="
+         this.value = this.value.replace(/[^0-9]/g,'');
+       ">
+  </div>
+
+  <!-- TARA -->
+  <label>Tara (kg)</label>
+  <input id="dc_tara"
+       maxlength="4"
+       placeholder="Ej: 3800"
+       inputmode="numeric"
+       oninput="
+         this.value = this.value.replace(/[^0-9]/g,'');
+       ">
+
+  <!-- MAX GROSS -->
+  <label>Max Gross (kg)</label>
+  <input id="dc_gross"
+       maxlength="5"
+       placeholder="Ej: 30480"
+       inputmode="numeric"
+       oninput="
+         this.value = this.value.replace(/[^0-9]/g,'');
+       ">
+
+  <!-- TIPO -->
+  <label>Tipo de Contenedor</label>
+  <select id="dc_tipo">
+    <option value="">Seleccione…</option>
+    <option value="4510">40' High Cube (4510)</option>
+    <option value="4000">40' STD (4000)</option>
+    <option value="2010">20' STD (2010)</option>
+  </select>
+
+  <button onclick="continuarCaptura()">Continuar</button>
+  <button onclick="ir('pantallaMenu')">Volver</button>
+</div>
+
+
+<!-- ================= CAPTURA LOTES ================= -->
+<div id="pantallaCapturaLotes" class="pantalla">
+<div style="font-weight:600; margin-bottom:6px; color:#555;">
+  📦 Datos del contenedor
+</div>
+ <div id="resumenContenedor" class="card-contenedor">
+
+  <div class="titulo">📦 CONTENEDOR</div>
+
+  <div class="contenedor-num" id="rc_contenedor"></div>
+
+  <div class="grid">
+    <div><b>Cliente:</b> <span id="rc_cliente"></span></div>
+    <div><b>Tipo:</b> <span id="rc_tipo"></span></div>
+
+    <div><b>Tara:</b> <span id="rc_tara"></span> kg</div>
+    <div><b>Max Gross:</b> <span id="rc_gross"></span> kg</div>
+
+    <div><b>Sello Línea:</b> <span id="rc_selloLinea"></span></div>
+    <div><b>Sello SAG:</b> <span id="rc_selloSAG"></span></div>
+  </div>
+
+</div>
+
+  <h3>📌 Escanear lote</h3>
+
+<input id="scannerInput"
+       placeholder="Escanee el código..."
+       autofocus
+       style="font-size:22px; padding:15px; font-weight:bold; text-align:center;">
+
+<p style="font-size:12px; color:#555;">
+  *Use el láser del dispositivo Zebra. Escaneo automático activo.*
+</p>
+
+  <div id="ultimoLote" style="background:#e3f2fd; padding:12px; border-radius:8px; margin-top:10px; display:none;">
+    <b>Lote:</b> <span id="ul_lote"></span><br>
+    <b>Entrega:</b> <span id="ul_entrega"></span><br>
+    <b>Peso:</b> <span id="ul_peso"></span> kg<br>
+    <b>Volumen:</b> <span id="ul_vol"></span> m³<br>
+  </div>
+
+  <h3>TOTALES</h3>
+  <div style="background:#fff; padding:12px; border-radius:8px;">
+    Lotes: <span id="tot_cant">0</span><br>
+    Peso total: <span id="tot_peso">0</span> kg<br>
+    Volumen total: <span id="tot_vol">0</span> m³
+  </div>
+<button onclick="mostrarResumenLotes()" 
+        style="background:#444; color:white; margin-bottom:15px;">
+    Ver resumen de lotes
+</button>
+
+<h3>📸 Fotos obligatorias</h3>
+
+<!-- CONTENEDOR VACÍO -->
+<div id="box_vacio" class="fotoBox fotoPendiente">
+  <label><b>Contenedor vacío (mínimo 1 foto)</b> — 
+    <span id="count_vacio">0/1</span></label>
+
+  <button onclick="agregarFoto('vacio')">📸 Agregar foto</button>
+  <div id="preview_vacio"></div>
+</div>
+
+<!-- CARGA -->
+<div id="box_carga" class="fotoBox fotoPendiente">
+  <label><b>Fotos de la carga (mínimo 2 fotos)</b> — 
+    <span id="count_carga">0/2</span></label>
+
+  <button onclick="agregarFoto('carga')">📸 Agregar foto</button>
+  <div id="preview_carga"></div>
+</div>
+
+<!-- CONTENEDOR COMPLETO -->
+<div id="box_completo" class="fotoBox fotoPendiente">
+  <label><b>Contenedor completo (mínimo 2 fotos)</b> — 
+    <span id="count_completo">0/2</span></label>
+
+  <button onclick="agregarFoto('completo')">📸 Agregar foto</button>
+  <div id="preview_completo"></div>
+</div>
+
+<!-- SELLO -->
+<h3>🔐 Sellos</h3>
+
+<div class="selloBox">
+    <label><b>Sello Línea (obligatorio)</b></label>
+    <input id="sello_linea"
+       placeholder="Ej: MLCL5886548"
+       style="font-size:18px; font-weight:bold; text-transform:uppercase;"
+       oninput="this.value = this.value.toUpperCase();">
+</div>
+
+<div class="selloBox">
+    <label><b>Sello SAG (opcional)</b></label>
+    <input id="sello_sag"
+       placeholder="Ej: SAG44587"
+       style="font-size:18px; text-transform:uppercase;"
+       oninput="this.value = this.value.toUpperCase();">
+</div>
+
+<div id="box_sello" class="fotoBox fotoPendiente">
+  <label><b>Contenedor con sello puesto (mínimo 2 fotos)</b> — 
+    <span id="count_sello">0/2</span></label>
+
+  <button onclick="agregarFoto('sello')">📸 Agregar foto</button>
+  <div id="preview_sello"></div>
+</div>
+
+
+
+  <button onclick="guardarParcial()">Guardar Parcial</button>
+  <button style="background:#006400;" onclick="guardarConsolidadoFinal()">Guardar Final</button>
+  <button onclick="ir('pantallaMenu')">Volver</button>
+  
+</div>
+
+<!-- Modal resumen -->
+<div id="modalResumen" 
+     style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; 
+            background:rgba(0,0,0,0.6); padding:30px; box-sizing:border-box;">
+  
+  <div style="background:white; padding:20px; border-radius:12px; max-height:90%; overflow:auto;">
+      <h3>Resumen de lotes ingresados</h3>
+      <table border="1" width="100%" style="border-collapse:collapse;">
+          <thead>
+              <tr>
+                  <th>Lote</th>
+                  <th>Entrega</th>
+                  <th>Peso</th>
+                  <th>Volumen</th>
+              </tr>
+          </thead>
+          <tbody id="tablaResumen"></tbody>
+      </table>
+
+      <button onclick="cerrarResumen()" 
+              style="margin-top:20px; background:#0077b6; color:white;">
+          Cerrar
+      </button>
+  </div>
+</div>
+
+<!-- ================= DETALLE CONSOLIDADO ================= -->
+<div id="pantallaDetalleConsolidado" class="pantalla">
+  <h2>Detalle del Consolidado</h2>
+
+  <div id="detalleContenedor" 
+       style="background:white; padding:15px; border-radius:10px; margin-bottom:20px;">
+    Cargando datos...
+  </div>
+
+
+  <h3>Lotes</h3>
+  <table border="1" width="100%" style="border-collapse:collapse; background:white;">
+    <thead>
+      <tr>
+        <th>Lote</th>
+        <th>Entrega</th>
+        <th>Peso</th>
+        <th>Volumen</th>
+      </tr>
+    </thead>
+    <tbody id="detalleLotes"></tbody>
+  </table>
+
+  <button onclick="ir('pantallaResumen')" 
+          style="margin-top:20px; background:#0077b6; color:white;">
+    Volver
+  </button>
+</div>
+
+
+<script>
+/* ---------------------------------------------------------
+   VARIABLES GLOBALES
+--------------------------------------------------------- */
+let datosCont = {};
+let registros = [];
+/* =========================================================
+   ACTUALIZAR TOTALES (peso, volumen y cantidad de lotes)
+========================================================= */
+function actualizarTotales() {
+
+  let totalLotes = registros.length;
+  let totalPeso = registros.reduce((sum, r) => sum + Number(r.peso), 0);
+  let totalVolumen = registros.reduce(
+  (sum, r) => sum + (Number(r.volumen) || 0),
+  0
+);
+
+
+  // Mostrar en pantalla
+  document.getElementById("tot_cant").innerText = totalLotes;
+  document.getElementById("tot_peso").innerText = totalPeso.toFixed(1);
+  document.getElementById("tot_vol").innerText = totalVolumen.toFixed(2);
+
+  // Guardar en datosCont
+  datosCont.totalLotes = totalLotes;
+  datosCont.totalPeso = totalPeso;
+  datosCont.totalVolumen = totalVolumen;
+}
+
+
+let fotos = {
+  vacio: [],
+  carga: [],
+  completo: [],
+  sello: []
+};
+
+async function abrirResumen() {
+  ir("pantallaResumen");
+
+  await cargarPendientesIndexedDB();
+  await cargarEnviadosSheet();
+}
+
+async function cargarPendientesIndexedDB() {
+  const contDiv = document.getElementById("contenedoresPendientes");
+  contDiv.innerHTML = "<i>Cargando...</i>";
+
+  const todos = await obtenerJobsPendientes();
+
+  // Sólo mostramos jobs que tiene sentido reanudar en el dispositivo
+  const jobs = todos.filter(j =>
+    j.status === "parcial" ||
+    j.status === "pendiente" ||
+    j.status === "error"
+  );
+
+  contDiv.innerHTML = "";
+
+  if (jobs.length === 0) {
+    contDiv.innerHTML = "<p>No hay consolidados pendientes.</p>";
+    return;
+  }
+
+  jobs.forEach(job => {
+    const div = document.createElement("div");
+    div.className = "itemContenedor";
+
+    // Colores según estado
+    if (job.status === "parcial") {
+      div.style.background = "#ffe5e5";   // rojizo suave
+    } else if (job.status === "pendiente") {
+      div.style.background = "#fff8d1";   // amarillo suave
+    } else if (job.status === "error") {
+      div.style.background = "#ffd1d1";   // rojo más fuerte
+    }
+
+const info = normalizarConsolidado(job);
+
+div.innerHTML = `
+  ${renderDatosContenedor(info, info)}
+  <small>
+    Estado: ${job.status}<br>
+    Inicio: ${info.creado}<br>
+    Última actualización: ${info.actualizado}
+  </small>
+  <br>
+  <button onclick="reanudarLocal('${info.contenedor}')">
+    Reanudar
+  </button>
+`;
+
+
+
+    contDiv.appendChild(div);
+  });
+}
+
+
+function reanudarLocal(contenedor) {
+
+  // Normalizar contenedor (quitar espacios repetidos)
+  const cont = contenedor.replace(/\s+/g, " ").trim();
+
+  buscarEnLocal(cont).then(info => {
+    if (!info) {
+      alert("Error: no se encontró local.");
+      return;
+    }
+
+    cargarDatosLocal(info);
+  });
+}
+
+
+async function cargarEnviadosSheet() {
+
+  const div = document.getElementById("contenedoresEnviados");
+  div.innerHTML = "<i>Cargando...</i>";
+
+  const payload = { accion: "listarEnviados" };
+
+  let res = await fetch(URL_GAS, {
+    method: "POST",
+    body: JSON.stringify(payload)
+  });
+
+  const data = await res.json();
+
+  div.innerHTML = "";
+
+  if (!data.ok || !data.data || data.data.length === 0) {
+    div.innerHTML = "<p>No hay consolidados enviados.</p>";
+    return;
+  }
+
+  data.data.forEach(c => {
+
+    const box = document.createElement("div");
+    box.className = "itemContenedor enviadoOK";
+
+
+
+const info = normalizarConsolidado(c);
+
+box.innerHTML = `
+  ${renderDatosContenedor(info, {
+    totalLotes: info.totalLotes,
+    totalPeso: info.totalPeso,
+    totalVolumen: info.totalVolumen
+  })}
+
+  <button class="botonVer" onclick="abrirConsolidado('${info.contenedor}')">
+    Ver Detalle
+  </button>
+`;
+
+
+
+
+    div.appendChild(box);
+  });
+}
+
+const URL_GAS = "https://script.google.com/macros/s/AKfycbz6XiNxsWYGxtTSkouRW0jYczCgYk5Wi85jf5f54E629v96oTTiDwL4p62w2cldJMmt/exec";
+
+/* =========================================================
+   COLA LOCAL OFFLINE (IndexedDB)
+   Guarda consolidado + fotos en el dispositivo
+========================================================= */
+const DB_NAME   = "ConsolidadoDB";
+const DB_VER    = 1;
+const DB_STORE  = "jobs";
+let   dbInstance = null;
+
+function openDB() {
+  return new Promise((resolve, reject) => {
+    if (dbInstance) return resolve(dbInstance);
+
+    const req = indexedDB.open(DB_NAME, DB_VER);
+
+    req.onupgradeneeded = (ev) => {
+      const db = ev.target.result;
+      if (!db.objectStoreNames.contains(DB_STORE)) {
+        db.createObjectStore(DB_STORE, { keyPath: "id", autoIncrement: true });
+      }
+    };
+
+    req.onsuccess = (ev) => {
+      dbInstance = ev.target.result;
+      resolve(dbInstance);
+    };
+
+    req.onerror = (ev) => reject(ev.target.error);
+  });
+}
+
+async function guardarEnIndexedDB(job, contenedor) {
+
+  const db = await openDB();
+
+  return new Promise((resolve, reject) => {
+
+    const tx = db.transaction(DB_STORE, "readwrite");
+    const st = tx.objectStore(DB_STORE);
+
+    // Buscar si existe uno con el mismo contenedor
+    const req = st.getAll();
+
+    req.onsuccess = () => {
+      const rows = req.result || [];
+
+      const existente = rows.find(j => j.datosCont?.contenedor === contenedor);
+
+      if (existente) {
+        job.id = existente.id;   // ← IMPORTANTE
+      }
+      
+            // ✅ Evitar DataError: si id viene undefined/null, NO debe existir la propiedad
+      if (job.id === undefined || job.id === null) {
+        delete job.id;
+      }
+
+      const r2 = st.put(job);    // INSERTA o ACTUALIZA
+      r2.onsuccess = () => resolve();
+      r2.onerror = (e) => reject(e.target.error);
+    };
+
+    req.onerror = (e) => reject(e.target.error);
+  });
+}
+
+
+async function obtenerJobsPendientes() {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx  = db.transaction(DB_STORE, "readonly");
+    const st  = tx.objectStore(DB_STORE);
+    const req = st.getAll();
+
+    req.onsuccess = () => {
+      const todos = req.result || [];
+      // AHORA devolvemos TODOS los jobs y filtramos según el caso
+      resolve(todos);
+    };
+    req.onerror = (e) => reject(e.target.error);
+  });
+}
+
+
+
+
+async function iniciarSesion() {
+    const rut = document.getElementById("usuario").value.trim();
+    const clave = document.getElementById("clave").value.trim();
+
+    document.getElementById("msgErrorRut").style.display = "none";
+    document.getElementById("msgLoginError").style.display = "none";
+
+    if (!validarRUT(rut)) {
+        document.getElementById("msgErrorRut").style.display = "block";
+        return;
+    }
+
+    let body = {
+        accion: "login",
+        rut: rut,
+        clave: clave
+    };
+
+    try {
+        const res = await fetch(URL_GAS, {
+            method: "POST",
+            body: JSON.stringify(body)
+        });
+
+        const data = await res.json();
+
+        if (data.ok) {
+            localStorage.setItem("usuario", rut);
+            ir("pantallaMenu");
+        } else {
+            document.getElementById("msgLoginError").style.display = "block";
+        }
+
+    } catch (e) {
+        alert("Error conectando con el servidor");
+        console.error(e);
+    }
+}
+
+function ir(id) {
+  document.querySelectorAll(".pantalla").forEach(p => p.classList.remove("visible"));
+  document.getElementById(id).classList.add("visible");
+
+  // Ocultar mensaje de error del login si vuelves a él
+  if (id === "login") {
+    document.getElementById("login_error").style.display = "none";
+  }
+}
+
+function logout() {
+  sessionStorage.clear();
+  localStorage.removeItem("usuario");
+
+  // Ocultar todo
+  document.querySelectorAll(".pantalla").forEach(p => p.classList.remove("visible"));
+
+  // Mostrar login
+  document.getElementById("login").classList.add("visible");
+}
+
+
+async function verificarContenedorExistente(contenedor) {
+  const payload = {
+    accion: "buscarContenedor",
+    contenedor: contenedor
+  };
+
+  const res = await fetch(URL_GAS, {
+    method: "POST",
+    body: JSON.stringify(payload)
+  });
+
+  return await res.json(); // devuelve {existe: true/false, registros:[...]}
+}
+
+/* ---------------------------------------------------------
+   DATOS DEL CONTENEDOR
+--------------------------------------------------------- */
+
+async function continuarCaptura() {
+
+  // 🔒 VALIDACIÓN OBLIGATORIA
+  if (!validarDatosContenedor()) return;
+
+  // --- tu código sigue normal debajo ---
+
+  // 1) Armar contenedor completo ANTES DE USARLO
+  const cont = 
+      cnt_sigla.value.trim().toUpperCase() + " " +
+      cnt_num.value.trim() + " " +
+      cnt_dv.value.trim();
+
+  if (!cont || cont.length < 6) {
+    alert("Ingrese un contenedor válido.");
+    return;
+  }
+
+  // 2) Resetear datos y preparar nuevo consolidado
+ datosCont = {
+  cliente: dc_cliente.value,
+  linea: dc_linea.value,
+  contenedor: cont,
+  tara: Number(dc_tara.value),
+  maxgross: Number(dc_gross.value),
+  tipo: dc_tipo.value
+};
+
+
+  registros = [];
+  fotos = { vacio: [], carga: [], completo: [], sello: [] };
+
+  tot_peso.innerText = "0";
+  tot_vol.innerText  = "0";
+  tot_cant.innerText = "0";
+
+  sello_linea.value = "";
+  sello_sag.value = "";
+
+  document.querySelectorAll("[id^='preview_']").forEach(d => d.innerHTML = "");
+  actualizarContadoresFotos();
+
+  // 3) Buscar si existe en local
+  const local = await buscarEnLocal(cont);
+  if (local) {
+    if (confirm("⚠️ Este contenedor tiene datos pendientes sin enviar.\n¿Desea reanudar localmente?")) {
+      cargarDatosLocal(local);
+      return;
+    }
+  }
+
+  // 4) Verificar si existe en la nube
+  const info = await verificarContenedorExistente(cont);
+  if (info.existe) {
+    alert("⚠️ Este contenedor ya fue enviado y no puede ser modificado.");
+    return;
+  }
+
+
+  // 5) Cargar datos en pantalla y continuar
+  mostrarDatosContenedor();
+actualizarContadoresFotos();
+actualizarEstadoFotos();
+
+  ir("pantallaCapturaLotes");
+}
+
+function toNumber(v, def = 0) {
+  if (v === null || v === undefined || v === "") return def;
+  if (typeof v === "number") return Number.isFinite(v) ? v : def;
+
+  const s = String(v).trim();
+  if (!s) return def;
+
+  // Soporta "1.234,56" y "1234.56"
+  const norm = s.replace(/\s/g, "").replace(/\./g, "").replace(",", ".");
+  const n = Number(norm);
+  return Number.isFinite(n) ? n : def;
+}
+
+function normalizarConsolidado(raw) {
+  const esLocal = !!raw.datosCont;
+  const datos = esLocal ? raw.datosCont : raw;
+
+  // Lotes como arreglo (local) o (si viene) como arreglo en nube
+  const lotesArr = esLocal
+    ? (raw.registros || [])
+    : (Array.isArray(raw.lotes) ? raw.lotes : []);
+
+  // ✅ Si en la nube NO viene arreglo, usar el número raw.lotes o raw.totalLotes
+  const totalLotes = esLocal
+    ? lotesArr.length
+    : (Array.isArray(raw.lotes)
+        ? raw.lotes.length
+        : toNumber((raw.totalLotes ?? raw.lotes ?? 0), 0));
+
+  return {
+    contenedor: datos.contenedor || "—",
+    cliente: datos.cliente || "—",
+    linea: datos.linea || "—",
+    tipo: datos.tipo || "—",
+    tara: toNumber(datos.tara, 0),
+    maxgross: (datos.maxgross ?? datos.gross ?? "No informado"),
+    selloLinea: datos.selloLinea || "No informado",
+    selloSAG: datos.selloSAG || "No informado",
+
+    totalLotes,
+    totalPeso: toNumber((raw.totalPeso ?? 0), 0),
+    totalVolumen: toNumber((raw.totalVolumen ?? raw.totalVol ?? 0), 0),
+
+    creado: raw.creado || "—",
+    actualizado: raw.actualizado || "—",
+
+    lotes: lotesArr
+  };
+}
+
+
+
+function mostrarDatosContenedor() {
+
+  // Mostrar campos normales
+  document.getElementById("rc_cliente").innerText     = datosCont.cliente    || "";
+  document.getElementById("rc_contenedor").innerText = datosCont.contenedor || "";
+  document.getElementById("rc_tara").innerText       = datosCont.tara       || "";
+
+  // Max Gross — soporte para gross y/o maxgross
+  document.getElementById("rc_gross").innerText =
+      datosCont.maxgross || datosCont.gross || "No informado";
+
+  document.getElementById("rc_tipo").innerText = datosCont.tipo || "";
+
+  // SELLOS — ahora usando datosCont (correcto)
+  document.getElementById("rc_selloLinea").textContent =
+      datosCont.selloLinea || "No informado";
+
+  document.getElementById("rc_selloSAG").textContent =
+      datosCont.selloSAG || "No informado";
+}
+
+
+async function cargarContenedorExistente(contenedor) {
+
+  const payload = {
+    accion: "cargarContenedor",
+    contenedor: contenedor
+  };
+
+  const res = await fetch(URL_GAS, {
+    method: "POST",
+    body: JSON.stringify(payload)
+  });
+
+  const info = await res.json();
+
+  if (!info.ok) {
+    alert("Error al cargar contenedor: " + info.msg);
+    return;
+  }
+
+  const datos = info.datos;
+
+  // 🟦 Restaurar datos principales
+  datosCont.cliente    = datos.cliente;
+  datosCont.linea      = datos.linea;
+  datosCont.tara       = datos.tara;
+  datosCont.maxgross = datos.gross;
+  datosCont.tipo       = datos.tipo;
+  datosCont.contenedor = datos.contenedor;
+
+  // 🟦 MOSTRARLOS EN PANTALLA
+  mostrarDatosContenedor();
+
+  // 🟦 Restaurar lotes
+  registros = datos.lotes || [];
+
+  // actualizar totales
+  let tPeso = 0, tVol = 0;
+  registros.forEach(r => {
+    tPeso += Number(r.peso);
+    tVol  += Number(r.volumen);
+  });
+
+  tot_peso.innerText = tPeso;
+  tot_vol.innerText  = tVol;
+  tot_cant.innerText = registros.length;
+
+  ultimoLote.style.display = registros.length > 0 ? "block" : "none";
+
+  // 🟦 Restaurar fotos desde Drive
+  fotos = {
+    vacio:    [],
+    carga:    [],
+    completo: [],
+    sello:    []
+  };
+
+  datos.fotos.forEach(f => {
+    const n = f.nombre.toUpperCase();
+
+    if (n.includes("VACIO"))      fotos.vacio.push(f);
+    else if (n.includes("CARGA")) fotos.carga.push(f);
+    else if (n.includes("COMPLETO")) fotos.completo.push(f);
+    else if (n.includes("SELLO")) fotos.sello.push(f);
+  });
+
+  actualizarContadoresFotos();
+  ir("pantallaCapturaLotes");
+}
+
+function agregarPreviewFotoExistente(url, nombre) {
+  const tipos = ["vacio", "carga", "completo", "sello"];
+
+  // buscar contenedor de visualización según nombre
+  let destino = "vacio";
+  const lower = nombre.toLowerCase();
+
+  if (lower.includes("carga")) destino = "carga";
+  if (lower.includes("comp"))  destino = "completo";
+  if (lower.includes("sello")) destino = "sello";
+
+  const box = document.getElementById("preview_" + destino);
+
+  const img = document.createElement("img");
+  img.src = url;
+  img.className = "fotoPreview";
+  img.title = nombre;
+
+  box.appendChild(img);
+}
+
+/* ---------------------------------------------------------
+   ESCÁNER ZEBRA MC930
+--------------------------------------------------------- */
+const scannerInput = document.getElementById("scannerInput");
+
+scannerInput.addEventListener("keydown", e => {
+  if (e.key === "Enter") {
+    e.preventDefault();
+    procesarScanner();
+  }
+});
+
+function procesarScanner() {
+  const codigo = scannerInput.value.trim();
+  if (!codigo) return;
+  procesarLoteEscaneado(codigo);
+  scannerInput.value = "";
+  setTimeout(() => scannerInput.focus(), 50);
+}
+
+
+async function procesarLoteEscaneado(codigo) {
+
+  /* ====================================================
+     1) VALIDAR QUE LOTE EXISTA EN LA BASE LotesDB
+  ==================================================== */
+  let payload = { accion: "buscarLote", lote: codigo };
+
+  let res = await fetch(URL_GAS, {
+    method: "POST",
+    body: JSON.stringify(payload)
+  });
+
+  let data = await res.json();
+
+  if (!data.ok) {
+    alert("❌ El lote " + codigo + " NO existe en la base.");
+    return;
+  }
+
+  /* ====================================================
+     2) VALIDAR LOTE NO USADO EN OTRO CONTENEDOR
+  ==================================================== */
+  if (data.asignado && data.asignado !== datosCont.contenedor) {
+    alert(
+      "⚠️ LOTE YA UTILIZADO\n\n" +
+      "Contenedor asignado: " + data.asignado + "\n" +
+      "No se puede usar nuevamente."
+    );
+    return;
+  }
+
+  /* ====================================================
+     3) VALIDAR ENTREGA CONSISTENTE
+  ==================================================== */
+  if (registros.length > 0) {
+    let entregaActual = registros[0].entrega;
+    if (data.entrega !== entregaActual) {
+      alert(
+        "⚠️ ENTREGA DIFERENTE\n\n" +
+        "Entrega actual: " + entregaActual + "\n" +
+        "Entrega lote: " + data.entrega
+      );
+      return;
+    }
+  }
+
+  /* ====================================================
+     4) VALIDAR NAVE CONSISTENTE
+  ==================================================== */
+  if (registros.length > 0) {
+    let naveActual = registros[0].nave;
+    if (data.nave !== naveActual) {
+      alert(
+        "⚠️ NAVE DIFERENTE\n\n" +
+        "Nave actual: " + naveActual + "\n" +
+        "Nave lote: " + data.nave
+      );
+      return;
+    }
+  }
+
+  /* ====================================================
+     5) VALIDAR CLIENTE CONSISTENTE
+  ==================================================== */
+  if (data.cliente !== datosCont.cliente) {
+    alert(
+      "⚠️ CLIENTE INCORRECTO\n\n" +
+      "Cliente del contenedor: " + datosCont.cliente + "\n" +
+      "Cliente del lote: " + data.cliente
+    );
+    return;
+  }
+
+  /* ====================================================
+     6) MOSTRAR DATOS EN PANTALLA
+  ==================================================== */
+  ul_lote.innerText    = data.lote;
+  ul_entrega.innerText = data.entrega;
+  ul_peso.innerText    = data.peso;
+  ul_vol.innerText     = data.volumen;
+
+  ultimoLote.style.display = "block";
+
+// =============================================
+//  VALIDAR LOTE DUPLICADO (CORREGIDO)
+// =============================================
+const existe = registros.some(r => r.lote === data.lote);
+
+if (existe) {
+    setTimeout(() => {
+        alert("⚠️ Este lote ya fue ingresado:\n" + data.lote);
+    }, 50);
+    return; // DETIENE EL PROCESO
+}
+
+
+  /* ====================================================
+     7) AGREGAR AL REGISTRO ACTUAL
+  ==================================================== */
+  registros.push({
+    lote: data.lote,
+    entrega: data.entrega,
+    peso: Number(data.peso),
+    volumen: Number(
+  String(data.volumen)
+    .replace(/\./g, "")   // elimina separador de miles si viene
+    .replace(",", ".")    // coma → punto decimal
+),
+    nave: data.nave,
+    cliente: data.cliente
+  });
+
+  actualizarTotales();
+
+  /* ====================================================
+     8) VALIDACIÓN DE PESO
+  ==================================================== */
+  const pesoTotal = registros.reduce((t, r) => t + r.peso, 0);
+  const tara = Number(datosCont.tara);
+  const maxgross = Number(datosCont.maxgross);
+
+  if (pesoTotal + tara > maxgross) {
+    alert(
+      "⚠️ ATENCIÓN PESO EXCEDIDO\n\n" +
+      "Peso total: " + pesoTotal +
+      "\nTara: " + tara +
+      "\nMax Gross: " + maxgross
+    );
+  }
+
+ 
+}
+
+
+
+/* ---------------------------------------------------------
+   GUARDADO PARCIAL -> ACTUALIZA O CREA 1 SOLO REGISTRO
+--------------------------------------------------------- */
+async function guardarParcial() {
+  try {
+    if (!datosCont.contenedor) {
+      alert("Primero completa los datos del contenedor.");
+      return;
+    }
+
+    const cont = datosCont.contenedor;
+
+// ===========================================
+//  EVITAR DUPLICADOS DE FOTOS EN GUARDO PARCIAL
+// ===========================================
+// ✅ Las fotos YA están en base64 → copiar tal cual
+const fotosBase64 = {
+  vacio:    [...fotos.vacio],
+  carga:    [...fotos.carga],
+  completo: [...fotos.completo],
+  sello:    [...fotos.sello]
+};
+
+
+    // Totales actuales
+    const totalPeso = registros.reduce((a,b)=>a+(b.peso||0),0);
+    const totalVol  = registros.reduce((a,b)=>a+(b.volumen||0),0);
+
+    // Buscamos job existente (PARCIAL)
+    const db = await openDB();
+    let existente = null;
+
+    await new Promise((resolve,reject)=>{
+      const tx = db.transaction(DB_STORE, "readonly");
+      const st = tx.objectStore(DB_STORE);
+      const req = st.getAll();
+
+      req.onsuccess = () => {
+        const rows = req.result || [];
+        existente = rows.find(j => j.datosCont?.contenedor === cont);
+        resolve();
+      };
+      req.onerror = reject;
+    });
+
+    const fecha = new Date().toLocaleString();
+
+let job;
+
+if (existente) {
+  // actualizar
+  job = {
+  creado: existente.creado,
+  actualizado: fecha,
+  status: "parcial",
+  supervisor: localStorage.getItem("usuario") || "",
+
+  datosCont: {
+    ...datosCont,
+    selloLinea: sello_linea.value.trim(),
+    selloSAG:   sello_sag.value.trim(),
+    gross:      dc_gross.value.trim()
+  },
+
+  registros: [...registros],
+  fotos: fotosBase64,
+  totalPeso,
+  totalVolumen: totalVol
+};
+
+// ✅ Mantener ID existente (numérico)
+job.id = existente.id;
+
+} else {
+  // crear nuevo sin ID
+  job = {
+    creado: fecha,
+    actualizado: fecha,
+    status: "parcial",
+
+    supervisor: localStorage.getItem("usuario") || "",
+
+    datosCont: {
+      ...datosCont,
+      selloLinea: sello_linea.value.trim(),
+      selloSAG:   sello_sag.value.trim(),
+      gross:   dc_gross.value.trim()
+    },
+
+    registros: [...registros],
+    fotos: fotosBase64,
+    totalPeso,
+    totalVolumen: totalVol
+  };
+}
+
+
+
+    // Guardar (INSERT o UPDATE según corresponda)
+    await new Promise((resolve, reject) => {
+      const tx = db.transaction(DB_STORE, "readwrite");
+      const st = tx.objectStore(DB_STORE);
+
+      if (existente) {
+        job.id = existente.id; // IMPORTANTE → sobrescribir
+      }
+
+      const req = st.put(job);
+      req.onsuccess = () => resolve();
+      req.onerror   = (e) => reject(e.target.error);
+    });
+
+    limpiarFormularioDespuesDeGuardar();
+    alert("📌 Guardado parcial actualizado correctamente.");
+
+  } catch (err) {
+    console.error(err);
+    alert("Error al guardar parcialmente: " + err.message);
+  }
+}
+
+
+
+
+/* ---------------------------------------------------------
+   MANEJO DE FOTOS (HTML + KODULAR)
+--------------------------------------------------------- */
+function agregarFoto(tipo) {
+
+  const input = document.createElement("input");
+  input.type = "file";
+  input.accept = "image/*";
+  input.capture = "environment"; // 👈 FUERZA CÁMARA TRASERA
+  input.style.display = "none";
+
+  input.onchange = async () => {
+    if (!input.files || !input.files[0]) return;
+
+    const file = input.files[0];
+
+    // 1️⃣ Convertir a base64
+    const b64 = await fileToBase64(file);
+
+    // 2️⃣ Guardar en memoria
+    fotos[tipo].push(b64);
+
+    // 3️⃣ Descargar automáticamente en el dispositivo
+    guardarFotoLocal(file, tipo, fotos[tipo].length);
+
+    // 4️⃣ Actualizar UI
+    actualizarPreviews(tipo);
+    actualizarContadoresFotos();
+    actualizarEstadoFotos();
+  };
+
+  document.body.appendChild(input);
+  input.click();
+  document.body.removeChild(input);
+}
+
+function guardarFotoLocal(file, tipo, index) {
+
+  // 🔤 Nombre IGUAL al de Drive
+  const nombre =
+    datosCont.contenedor.replace(/\s+/g, "_") +
+    "_" +
+    tipo.toUpperCase() +
+    "_FOTO_" +
+    index +
+    ".jpg";
+
+  const url = URL.createObjectURL(file);
+
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = nombre;
+
+  document.body.appendChild(a);
+  a.click();
+
+  setTimeout(() => {
+    URL.revokeObjectURL(url);
+    document.body.removeChild(a);
+  }, 500);
+}
+
+
+
+function actualizarPreviews(tipo) {
+  const cont = document.getElementById("preview_" + tipo);
+  cont.innerHTML = "";
+
+  fotos[tipo].forEach((b64, i) => {
+
+    // 🔲 Contenedor de la foto
+    const wrap = document.createElement("div");
+    wrap.className = "foto-wrapper";
+
+    // 🖼 Imagen
+    const img = document.createElement("img");
+    if (typeof b64 === "string" && b64.startsWith("http")) {
+      img.src = b64;
+    } else {
+      img.src = "data:image/jpeg;base64," + b64;
+    }
+
+    // ❌ Botón eliminar
+    const btn = document.createElement("button");
+    btn.className = "btn-eliminar-foto";
+    btn.innerHTML = "✕";
+    btn.onclick = () => eliminarFoto(tipo, i);
+
+    // Ensamblar
+    wrap.appendChild(img);
+    wrap.appendChild(btn);
+    cont.appendChild(wrap);
+  });
+
+  actualizarEstadoFotos();
+}
+
+function eliminarFoto(tipo, index) {
+  if (!confirm("¿Eliminar esta foto?")) return;
+
+  // 1️⃣ Eliminar del array
+  fotos[tipo].splice(index, 1);
+
+  // 2️⃣ Volver a pintar previews
+  actualizarPreviews(tipo);
+
+  // 3️⃣ Actualizar contadores y semáforo
+  actualizarContadoresFotos();
+  actualizarEstadoFotos();
+}
+
+function actualizarBloqueFotos(tipo, min, idBox) {
+  const box  = document.getElementById(idBox);
+  const cant = fotos[tipo].length;
+
+  if (cant === 0)       box.className = "fotoBox fotoPendiente";
+  else if (cant < min)  box.className = "fotoBox fotoIncompleta";
+  else                  box.className = "fotoBox fotoOK";
+}
+
+
+/* ---------------------------------------------------------
+   VALIDAR FOTOS ANTES DE GUARDAR
+--------------------------------------------------------- */
+function validarFotos() {
+
+  const contar = (tipo) => fotos[tipo].length;
+
+  if (contar("vacio") < 1) {
+    alert("Debes subir al menos 1 foto del contenedor vacío.");
+    return false;
+  }
+  if (contar("carga") < 2) {
+    alert("Debes subir al menos 2 fotos de la carga.");
+    return false;
+  }
+  if (contar("completo") < 2) {
+    alert("Debes subir al menos 2 fotos del contenedor completo.");
+    return false;
+  }
+  if (contar("sello") < 2) {
+    alert("Debes subir al menos 2 fotos del contenedor sellado.");
+    return false;
+  }
+  if (!sello_linea.value.trim()) {
+    alert("El sello de línea es obligatorio.");
+    return false;
+  }
+
+  return true;
+}
+
+
+
+/* ---------------------------------------------------------
+   SUBIR FOTOS AL GAS
+--------------------------------------------------------- */
+function fileToBase64(fileOrString) {
+  return new Promise(resolve => {
+    // Si ya viene en base64 (string), la devolvemos tal cual
+    if (typeof fileOrString === "string") {
+      return resolve(fileOrString);
+    }
+
+    // Si es un File / Blob, lo convertimos
+    const reader = new FileReader();
+    reader.onload = () => {
+      const base64 = reader.result.split(",")[1];
+      resolve(base64);
+    };
+    reader.readAsDataURL(fileOrString);
+  });
+}
+
+
+async function subirGrupo(tipo) {
+
+  const promesas = fotos[tipo].map(async (b64, i) => {
+
+    const payload = {
+      accion: "subirFoto",
+      cliente: datosCont.cliente,
+      contenedor: datosCont.contenedor,
+      nombre: tipo.toUpperCase() + "_FOTO_" + (i + 1),
+      base64: b64
+    };
+
+    const res = await fetch(URL_GAS, {
+      method: "POST",
+      body: JSON.stringify(payload)
+    });
+
+    return res.text();
+  });
+
+  return Promise.all(promesas);
+}
+
+
+
+
+/* ---------------------------------------------------------
+   GUARDADO FINAL -> GUARDA EN COLA LOCAL (OFFLINE)
+--------------------------------------------------------- */
+async function guardarConsolidadoFinal() {
+  try {
+    console.log("👉 Guardar Final corregido (sin duplicar jobs)");
+
+    if (!validarFotos()) return;
+    if (!datosCont.contenedor) {
+      alert("Faltan los datos del contenedor.");
+      return;
+    }
+
+    const cont = datosCont.contenedor.trim();
+
+    // 1️⃣ Buscar si ya existe un job previo (parcial)
+    const jobs = await obtenerJobsPendientes();
+    const existente = jobs.find(j =>
+  j.datosCont &&
+  j.datosCont.contenedor &&
+  j.datosCont.contenedor.trim() === cont
+) || null;
+
+
+const fotosBase64 = {
+  vacio:    [...fotos.vacio],
+  carga:    [...fotos.carga],
+  completo: [...fotos.completo],
+  sello:    [...fotos.sello]
+};
+
+
+
+    // 3️⃣ Totales
+    const totalPeso = registros.reduce((a,b)=>a+b.peso,0);
+    const totalVol  = registros.reduce((a,b)=>a+b.volumen,0);
+
+    // 4️⃣ Armar el job FINAL (NO se duplica)
+    const fecha = new Date().toISOString();
+
+const job = {
+  creado: existente ? existente.creado : fecha,
+  actualizado: fecha,
+  status: "pendiente",
+  supervisor: localStorage.getItem("usuario") || "",
+
+  datosCont: {
+    ...datosCont,
+    selloLinea: sello_linea.value.trim(),
+    selloSAG:   sello_sag.value.trim(),
+    gross:      dc_gross.value.trim()
+  },
+
+  registros: [...registros],
+  totalPeso,
+  totalVolumen: totalVol,
+  fotos: fotosBase64
+};
+
+
+// ✅ Solo si existe, asignar ID (numérico)
+if (existente && existente.id !== undefined && existente.id !== null) {
+  job.id = existente.id;
+}
+
+
+    // 5️⃣ Guardar SIN duplicar (update si existe)
+    await guardarEnIndexedDB(job, cont);
+
+    alert("✅ Consolidado Final guardado correctamente.");
+    procesarColaEnvio();
+    limpiarFormularioDespuesDeGuardar();
+
+
+  } catch (err) {
+    console.error("❌ Error Guardar Final:", err);
+    alert("Error al guardar: " + err.message);
+  }
+}
+
+
+function actualizarContadoresFotos() {
+  count_vacio.innerText    = `${fotos.vacio.length}/1`;
+  count_carga.innerText    = `${fotos.carga.length}/2`;
+  count_completo.innerText = `${fotos.completo.length}/2`;
+  count_sello.innerText    = `${fotos.sello.length}/2`;
+}
+
+
+
+
+function actualizarEstadoFotos() {
+  actualizarBloqueFotos("vacio",    1, "box_vacio");
+  actualizarBloqueFotos("carga",    2, "box_carga");
+  actualizarBloqueFotos("completo", 2, "box_completo");
+  actualizarBloqueFotos("sello",    2, "box_sello");
+}
+
+
+function limpiarFormularioDespuesDeGuardar() {
+
+  console.log("🧹 Limpiando formulario y reiniciando app...");
+
+  // 1. Resetear datos del contenedor
+  datosCont = {};
+
+  // 2. Resetear lotes
+  registros = [];
+  tot_peso.innerText = "0";
+  tot_vol.innerText = "0";
+  tot_cant.innerText = "0";
+
+  // NO resetear fotos aquí
+
+
+  // 4. Borrar previews reales que sí existen
+  document.querySelectorAll("[id^='preview_']").forEach(div => div.innerHTML = "");
+
+  // 5. Borrar sellos
+  sello_linea.value = "";
+  sello_sag.value = "";
+
+  // 6. Limpiar inputs del contenedor
+  dc_cliente.value = "";
+  dc_linea.value = "";
+  cnt_sigla.value = "";
+  cnt_num.value = "";
+  cnt_dv.value = "";
+  dc_tara.value = "";
+  dc_gross.value = "";
+  dc_tipo.value = "";
+
+  // 7. Limpiar datos visibles en la pantalla de lotes
+  rc_cliente.innerText = "";
+  rc_contenedor.innerText = "";
+  rc_tara.innerText = "";
+  rc_gross.innerText = "";
+  rc_tipo.innerText = "";
+
+  // 8. Volver al menú principal (ID correcto)
+  ir("pantallaMenu");
+
+  console.log("✔ Formulario reseteado correctamente.");
+}
+
+
+
+/* ---------------------------------------------------------
+   RESUMEN DE LOTES (BOTÓN "Ver resumen de lotes")
+--------------------------------------------------------- */
+function mostrarResumenLotes() {
+    const tbody = document.getElementById("tablaResumen");
+    tbody.innerHTML = ""; // Limpia la tabla
+
+    registros.forEach((r, index) => {
+        const fila = document.createElement("tr");
+
+        fila.innerHTML = `
+            <td>${r.lote}</td>
+            <td>${r.entrega}</td>
+            <td>${r.peso}</td>
+            <td>${r.volumen}</td>
+            <td>
+                <button onclick="eliminarLote(${index})"
+                    style="background:#c62828; color:white; padding:4px 10px;
+                           border:none; border-radius:6px;">
+                    Eliminar
+                </button>
+            </td>
+        `;
+
+        tbody.appendChild(fila);
+    });
+
+    document.getElementById("modalResumen").style.display = "block";
+}
+
+function eliminarLote(i) {
+    if (!confirm("¿Eliminar este lote?")) return;
+
+    registros.splice(i, 1);   // elimina del array
+    actualizarTotales();      // recalcula totales
+    mostrarResumenLotes();    // refresca tabla
+}
+
+function cerrarResumen() {
+  document.getElementById("modalResumen").style.display = "none";
+}
+function mostrarCargando(msg = "Guardando...") {
+  const div = document.createElement("div");
+  div.id = "cargandoModal";
+  div.style = `
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: rgba(0,0,0,0.6);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 9999;
+  `;
+  div.innerHTML = `
+    <div style="
+      background:white;
+      padding:25px;
+      border-radius:12px;
+      font-size:20px;
+      font-weight:bold;
+      text-align:center;
+      width:250px;
+      box-shadow:0 0 10px #0003;">
+      ${msg}<br><br>
+      <div class="spinner"></div>
+    </div>
+  `;
+  document.body.appendChild(div);
+}
+
+function ocultarCargando() {
+  const m = document.getElementById("cargandoModal");
+  if (m) m.remove();
+}
+
+/* =========================================================
+   ENVÍO EN SEGUNDO PLANO DE LA COLA LOCAL
+========================================================= */
+
+let procesandoCola = false;
+
+async function enviarJobAlServidor(job) {
+  console.log("🚚 Enviando job ID:", job.id, job);
+
+  // 1) Subir fotos primero, usando el mismo endpoint "subirFoto"
+  for (const tipo of ["vacio","carga","completo","sello"]) {
+    const arr = (job.fotos && job.fotos[tipo]) ? job.fotos[tipo] : [];
+    for (let i = 0; i < arr.length; i++) {
+     const payloadFoto = {
+  accion: "subirFoto",
+  cliente: job.datosCont.cliente,   // 👈 CLAVE
+  contenedor: job.datosCont.contenedor,
+  nombre: tipo.toUpperCase() + "_FOTO_" + (i+1),
+  base64: arr[i]
+};
+
+      const resFoto = await fetch(URL_GAS, {
+        method: "POST",
+        body: JSON.stringify(payloadFoto)
+      });
+
+      const txtFoto = await resFoto.text();
+      if (!txtFoto || txtFoto.startsWith("ERROR")) {
+        throw new Error("Error al subir foto " + tipo + ": " + txtFoto);
+      }
+    }
+  }
+
+
+
+  // 2) Enviar el consolidado a la planilla
+const payload = {
+  accion:     "guardarConsolidado",
+  supervisor: job.supervisor || localStorage.getItem("usuario") || "",
+
+  cliente:    job.datosCont.cliente,
+  linea:      job.datosCont.linea,
+  contenedor: job.datosCont.contenedor,
+  tara:       job.datosCont.tara,
+
+  // MAX GROSS – obligatorio
+  maxgross:   job.datosCont.maxgross || job.datosCont.gross || "No informado",
+
+  tipo:       job.datosCont.tipo || "SIN_TIPO",
+
+  totalLotes:  job.registros.length,
+  totalPeso:   job.totalPeso,
+  totalVolumen: job.totalVolumen,
+
+  // SELLOS – ahora sí los envía
+  selloLinea: job.datosCont.selloLinea || "No informado",
+  selloSAG:   job.datosCont.selloSAG   || "No informado",
+
+  lotes: job.registros
+};
+
+
+
+  const res = await fetch(URL_GAS, {
+    method: "POST",
+    body: JSON.stringify(payload)
+  });
+  const txt = await res.text();
+
+  if (txt.trim() !== "OK") {
+    throw new Error("Servidor respondió: " + txt);
+  }
+
+  console.log("✅ Job enviado OK, respuesta GAS:", txt);
+}
+
+/* =========================================================
+   BORRAR JOB DE INDEXEDDB DESPUÉS DE ENVIAR
+========================================================= */
+async function borrarJobDeCola(id) {
+
+  console.log("🗑️ Eliminando job ID:", id);
+
+  const db = await openDB();
+
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(DB_STORE, "readwrite");
+    const st = tx.objectStore(DB_STORE);
+    const req = st.delete(id);
+
+    req.onsuccess = () => {
+      console.log("✔ Eliminado correctamente:", id);
+      resolve();
+    };
+
+    req.onerror = (e) => {
+      console.error("❌ Error al eliminar job:", e.target.error);
+      reject(e.target.error);
+    };
+  });
+}
+
+
+
+async function procesarColaEnvio() {
+  if (procesandoCola) return;
+  if (!navigator.onLine) {
+    console.log("Sin conexión, no se procesa la cola.");
+    return;
+  }
+
+  procesandoCola = true;
+  try {
+    const todos = await obtenerJobsPendientes();
+
+    // 🚫 NO enviamos "parcial"
+ const jobs = todos.filter(j =>
+  j.status === "pendiente" || j.status === "error"
+);
+
+
+    console.log("📦 Jobs enviados en cola:", jobs.length);
+
+    for (const job of jobs) {
+  try {
+
+    job.status = "enviando";
+    await guardarEnIndexedDB(job, job.datosCont.contenedor);
+
+    await enviarJobAlServidor(job);
+    await borrarJobDeCola(job.id);
+
+  } catch (err) {
+    job.status = "error";
+    await guardarEnIndexedDB(job, job.datosCont.contenedor);
+  }
+}
+
+  } finally {
+    procesandoCola = false;
+  }
+}
+
+// ====== BUCLES DESACTIVADOS ======
+// 🔄 Auto-envío cada 20 segundos + al volver online
+// setInterval(procesarColaEnvio, 20000);
+// window.addEventListener("online", procesarColaEnvio);
+
+console.warn("⛔ Auto-envío desactivado. La cola NO se procesa automáticamente.");
+
+
+async function buscarEnLocal(contenedor) {
+
+  // Normalizar para comparar correctamente
+  const cont = contenedor.replace(/\s+/g, " ").trim();
+
+  const jobs = await obtenerJobsPendientes();
+
+  const job = jobs.find(j => {
+    if (!j.datosCont?.contenedor) return false;
+
+    const localCont = j.datosCont.contenedor.replace(/\s+/g, " ").trim();
+    return localCont === cont;
+  });
+
+  return job || null;
+}
+
+
+
+
+function cargarDatosLocal(job) {
+  // 1) Restaurar datos base
+  datosCont = { ...job.datosCont };
+  registros = Array.isArray(job.registros) ? [...job.registros] : [];
+
+  // 2) Restaurar fotos (base64)
+  fotos = {
+    vacio:    (job.fotos && job.fotos.vacio)    ? [...job.fotos.vacio]    : [],
+    carga:    (job.fotos && job.fotos.carga)    ? [...job.fotos.carga]    : [],
+    completo: (job.fotos && job.fotos.completo) ? [...job.fotos.completo] : [],
+    sello:    (job.fotos && job.fotos.sello)    ? [...job.fotos.sello]    : []
+  };
+
+  // 3) Pintar resumen superior
+  rc_cliente.textContent    = datosCont.cliente || "";
+  rc_contenedor.textContent = datosCont.contenedor || "";
+  rc_tara.textContent       = datosCont.tara || "";
+  rc_gross.textContent =
+  datosCont.maxgross || datosCont.gross || "No informado";
+  rc_tipo.textContent       = datosCont.tipo || "";
+
+  // 4) Restaurar sellos en inputs
+  sello_linea.value = (datosCont.selloLinea || "").trim();
+  sello_sag.value   = (datosCont.selloSAG || "").trim();
+
+  // 5) Totales
+  const totalPeso = Number(job.totalPeso || 0);
+  const totalVol  = Number(job.totalVolumen || 0);
+  tot_peso.innerText = totalPeso.toFixed(0);
+  tot_vol.innerText  = totalVol.toFixed(3);
+  tot_cant.innerText = String(registros.length);
+
+  // 6) Miniaturas + contadores + semáforo
+  actualizarPreviews("vacio");
+  actualizarPreviews("carga");
+  actualizarPreviews("completo");
+  actualizarPreviews("sello");
+  actualizarContadoresFotos();
+  actualizarEstadoFotos();
+
+
+  // 7) Ir a la pantalla correcta (reanudar)
+  ir("pantallaCapturaLotes");
+}
+
+
+
+function resetearTodo() {
+  // Vaciar datos del contenedor
+  datosCont = {};
+
+  // Vaciar registros de lotes
+  registros = [];
+  tot_peso.innerText = "0";
+  tot_vol.innerText = "0";
+  tot_cant.innerText = "0";
+
+  // Vaciar fotos
+  fotos = {
+    vacio: [],
+    carga: [],
+    completo: [],
+    sello: []
+  };
+
+  // Borrar vista de últimas fotos agregadas
+  document.querySelectorAll(".vista-foto").forEach(e => e.remove());
+
+  // Resetear contadores visuales
+  actualizarContadoresFotos();
+
+  // Limpiar formularios del contenedor
+  dc_cliente.value = "";
+  dc_linea.value = "";
+  cnt_sigla.value = "";
+  cnt_num.value = "";
+  cnt_dv.value = "";
+  dc_tara.value = "";
+  dc_gross.value = "";
+  dc_tipo.value = "";
+
+  // Reset de datos visibles en la pantalla de lotes
+  document.getElementById("rc_cliente").innerText = "";
+  document.getElementById("rc_contenedor").innerText = "";
+  document.getElementById("rc_tara").innerText = "";
+  document.getElementById("rc_gross").innerText = "";
+  document.getElementById("rc_tipo").innerText = "";
+
+  // Ir al menú principal
+  ir("menuPrincipal");
+}
+
+function mostrarDetalleConsolidado() {
+
+  const raw = JSON.parse(sessionStorage.getItem("detalleConsolidado"));
+  if (!raw) {
+    console.warn("❌ No hay detalleConsolidado en sessionStorage");
+    return;
+  }
+
+  console.log("📦 RAW DETALLE =>", raw);
+
+  const esLocal = raw.fotos && !Array.isArray(raw.fotos);
+
+
+  const datos = esLocal ? raw.datosCont : raw;
+  const lotes = esLocal ? (raw.registros || []) : (raw.lotes || []);
+
+  // ===== DATOS =====
+  const linkCarpeta =
+  raw.carpetaFotos ||
+  raw.datos?.carpetaFotos ||
+  raw.datosCont?.carpetaFotos ||
+  "";
+
+document.getElementById("detalleContenedor").innerHTML = `
+  <b>Contenedor:</b> ${datos.contenedor}<br>
+  <b>Cliente:</b> ${datos.cliente}<br>
+  <b>Línea:</b> ${datos.linea}<br>
+  <b>Tara:</b> ${datos.tara}<br>
+  <b>Max Gross:</b> ${datos.maxgross || datos.gross || "No informado"}<br>
+  <b>Tipo:</b> ${datos.tipo}<br>
+  <b>Sello Línea:</b> ${datos.selloLinea || "No informado"}<br>
+  <b>Sello SAG:</b> ${datos.selloSAG || "No informado"}<br>
+  <b>Total Lotes:</b> ${lotes.length}<br>
+  <b>Peso Total:</b> ${raw.totalPeso || 0} kg<br>
+  <b>Volumen Total:</b> ${raw.totalVolumen || raw.totalVol || 0} m³
+  ${
+    linkCarpeta
+      ? `<br><br>
+         <a href="${linkCarpeta}" target="_blank"
+            style="display:inline-block;
+                   background:#0b74de;
+                   color:white;
+                   padding:10px 16px;
+                   border-radius:8px;
+                   text-decoration:none;
+                   font-weight:600;">
+           📂 Ver fotos en Drive
+         </a>`
+      : ""
+  }
+`;
+
+
+  // ===== LOTES =====
+  const tbody = document.getElementById("detalleLotes");
+  tbody.innerHTML = "";
+  lotes.forEach(l => {
+    tbody.innerHTML += `
+      <tr>
+        <td>${l.lote}</td>
+        <td>${l.entrega}</td>
+        <td>${l.peso}</td>
+        <td>${l.volumen}</td>
+      </tr>
+    `;
+  });
+
+  // ===== FOTOS =====
+const fotosDetalle = { vacio: [], carga: [], completo: [], sello: [] };
+
+if (raw.fotos) {
+
+  // 🔵 LOCAL → base64
+  if (!Array.isArray(raw.fotos)) {
+    fotosDetalle.vacio    = raw.fotos.vacio    || [];
+    fotosDetalle.carga    = raw.fotos.carga    || [];
+    fotosDetalle.completo = raw.fotos.completo || [];
+    fotosDetalle.sello    = raw.fotos.sello    || [];
+  }
+
+  // 🟢 DRIVE → URLs
+  else {
+    raw.fotos.forEach(f => {
+      const nombre = (f.nombre || "").toUpperCase();
+      const url = f.url || "";
+
+      if (!url) return;
+
+      if (nombre.includes("VACIO"))      fotosDetalle.vacio.push(url);
+      else if (nombre.includes("CARGA")) fotosDetalle.carga.push(url);
+      else if (nombre.includes("COMPLETO")) fotosDetalle.completo.push(url);
+      else if (nombre.includes("SELLO")) fotosDetalle.sello.push(url);
+    });
+  }
+}
+
+console.log("🖼️ FOTOS DETALLE FINAL:", fotosDetalle);
+
+
+}
+
+
+// =========================================================
+// VER DETALLE DE UN CONSOLIDADO ENVIADO
+// =========================================================
+async function abrirConsolidado(contenedor) {
+
+  // 1️⃣ BUSCAR PRIMERO EN LOCAL (IndexedDB)
+  const local = await buscarEnLocal(contenedor);
+
+  if (local) {
+    console.log("📦 Abriendo consolidado LOCAL", local);
+
+    sessionStorage.setItem("detalleConsolidado", JSON.stringify({
+      origen: "local",
+      ...local
+    }));
+
+    mostrarDetalleConsolidado();
+    ir("pantallaDetalleConsolidado");
+    return;
+  }
+
+  // 2️⃣ SI NO EXISTE LOCAL → IR A DRIVE (GAS)
+  try {
+    const payload = {
+      accion: "traerConsolidado",
+      contenedor
+    };
+
+    const res = await fetch(URL_GAS, {
+      method: "POST",
+      body: JSON.stringify(payload)
+    });
+
+    const data = await res.json();
+
+    if (!data.ok) {
+      alert("No se pudo cargar el consolidado.");
+      return;
+    }
+
+    sessionStorage.setItem("detalleConsolidado", JSON.stringify({
+      origen: "drive",
+      ...data.data
+    }));
+
+    mostrarDetalleConsolidado();
+    ir("pantallaDetalleConsolidado");
+
+  } catch (e) {
+    alert("Error cargando consolidado");
+    console.error(e);
+  }
+}
+
+
+
+
+function toggleClaveLogin() {
+  const c = document.getElementById("login_clave");
+  c.type = (c.type === "password") ? "text" : "password";
+}
+function guardarCredencialesLocales(rut, clave, nombre, rol) {
+  const data = { rut, clave, nombre, rol };
+  localStorage.setItem("credencialesOffline", JSON.stringify(data));
+}
+
+function validarOffline(rut, clave) {
+  const data = JSON.parse(localStorage.getItem("credencialesOffline") || "{}");
+  if (!data.rut) return false;
+  return data.rut === rut && data.clave === clave;
+}
+
+async function login() {
+  const rut = document.getElementById("login_rut").value.trim();
+  const clave = document.getElementById("login_clave").value.trim();
+  const err = document.getElementById("login_error");
+  const ok = document.getElementById("login_ok");
+
+  err.style.display = "none";
+  ok.style.display = "none";
+
+  if (!rut || !clave) {
+    err.innerText = "Debes ingresar tu RUT y Clave.";
+    err.style.display = "block";
+    return;
+  }
+
+  // ==========================
+  //   🔵 LOGIN OFFLINE
+  // ==========================
+  if (!navigator.onLine) {
+   if (validarOffline(rut, clave)) {
+  const offline = JSON.parse(localStorage.getItem("credencialesOffline"));
+
+  // ⭐ GUARDAR SUPERVISOR DESDE CREDENCIALES OFFLINE
+  datosCont.supervisor = offline.nombre;
+  datosCont.rol = offline.rol;
+
+  ok.style.display = "block";
+  setTimeout(() => ir("pantallaMenu"), 600);
+  return;
+}
+
+
+    err.innerText = "Sin conexión y no existen credenciales guardadas.";
+    err.style.display = "block";
+    return;
+  }
+
+  // ==========================
+  //   🟢 LOGIN ONLINE
+  // ==========================
+  try {
+    const payload = { accion: "login", rut, clave };
+    const res = await fetch(URL_GAS, {
+      method: "POST",
+      body: JSON.stringify(payload)
+    });
+
+    const data = await res.json();
+
+    if (!data.ok) {
+      err.innerText = "❌ RUT o Clave incorrectos.";
+      err.style.display = "block";
+      return;
+    }
+
+    // 🟢 Guardar credenciales para modo offline
+    guardarCredencialesLocales(rut, clave, data.nombre, data.rol);
+
+// ⭐ GUARDAR SUPERVISOR PARA CONSOLIDADO
+datosCont.supervisor = data.nombre;
+datosCont.rol = data.rol; // opcional si quieres usarlo después
+
+    ok.style.display = "block";
+    setTimeout(() => ir("pantallaMenu"), 600);
+
+  } catch (e) {
+    err.innerText = "Error de conexión.";
+    err.style.display = "block";
+  }
+}
+
+
+function formatoRutAuto(input) {
+  let v = input.value.replace(/[^0-9kK]/g, "");
+
+  if (v.length > 1) {
+    input.value = v.slice(0, -1) + "-" + v.slice(-1);
+  } else {
+    input.value = v;
+  }
+
+  if (input.value.length > 10) {
+    input.value = input.value.slice(0, 10);
+  }
+}
+
+function mostrarMensajeSAG(lote) {
+  alert(
+    "⚠️ ATENCIÓN – CARGA CON CONTROL SAG\n\n" +
+    "El lote " + lote + " corresponde a una carga con control SAG.\n\n" +
+    "Antes de continuar, asegúrese de:\n" +
+    "• Instalar correctamente el Sello SAG\n" +
+    "• Registrar el número de Sello SAG\n" +
+    "• Tomar las fotografías obligatorias del sello\n\n" +
+    "NO CONTINUAR SIN CUMPLIR ESTOS PASOS."
+  );
+}
+
+
+
+
+function renderDatosContenedor(datos, totales) {
+  return `
+    <b>${datos.contenedor}</b><br>
+    Cliente: ${datos.cliente}<br>
+    Línea: ${datos.linea}<br>
+    Tipo: ${datos.tipo}<br>
+    Tara: ${datos.tara} kg<br>
+    Max Gross: ${datos.maxgross || datos.gross || "No informado"} kg<br>
+    Sello Línea: ${datos.selloLinea || "No informado"}<br>
+    Sello SAG: ${datos.selloSAG || "No informado"}<br>
+    Lotes: ${totales.totalLotes ?? 0}<br>
+    Peso Total: ${totales.totalPeso ?? 0} kg<br>
+    Volumen Total: ${totales.totalVolumen ?? 0} m³<br>
+  `;
+}
+
+function validarDatosContenedor() {
+
+  if (!dc_cliente.value) {
+    alert("⚠️ Debe seleccionar el cliente.");
+    return false;
+  }
+
+  if (!dc_linea.value) {
+    alert("⚠️ Debe seleccionar la línea naviera.");
+    return false;
+  }
+
+  if (!cnt_sigla.value || cnt_sigla.value.length !== 4) {
+    alert("⚠️ La sigla del contenedor debe tener 4 letras.");
+    return false;
+  }
+
+  if (!cnt_num.value || cnt_num.value.length !== 6) {
+    alert("⚠️ La numeración del contenedor debe tener 6 números.");
+    return false;
+  }
+
+  if (!cnt_dv.value || cnt_dv.value.length !== 1) {
+    alert("⚠️ El dígito verificador del contenedor es obligatorio.");
+    return false;
+  }
+
+  if (!dc_tara.value || Number(dc_tara.value) <= 0) {
+    alert("⚠️ Debe ingresar la tara del contenedor.");
+    return false;
+  }
+
+  if (!dc_gross.value || Number(dc_gross.value) <= 0) {
+    alert("⚠️ Debe ingresar el Max Gross del contenedor.");
+    return false;
+  }
+
+  if (!dc_tipo.value) {
+    alert("⚠️ Debe seleccionar el tipo de contenedor.");
+    return false;
+  }
+if (!/^[A-Z]{4}$/.test(cnt_sigla.value)) {
+  alert("⚠️ La sigla del contenedor debe tener exactamente 4 letras (A–Z).");
+  return false;
+}
+
+if (!/^[0-9]{6}$/.test(cnt_num.value)) {
+  alert("⚠️ La numeración del contenedor debe tener exactamente 6 números.");
+  return false;
+}
+
+if (!/^[0-9]{1}$/.test(cnt_dv.value)) {
+  alert("⚠️ El dígito verificador debe ser 1 número.");
+  return false;
+}
+// TARA: exactamente 4 números
+if (!/^[0-9]{4}$/.test(dc_tara.value)) {
+  alert("⚠️ La tara debe tener exactamente 4 números (kg).");
+  return false;
+}
+
+// MAX GROSS: exactamente 5 números
+if (!/^[0-9]{5}$/.test(dc_gross.value)) {
+  alert("⚠️ El Max Gross debe tener exactamente 5 números (kg).");
+  return false;
+}
+
+  return true; // ✅ todo OK
+}
+
+
+
+
+</script>
+
+</body>
+</html>
