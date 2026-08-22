@@ -1,4 +1,4 @@
-const CACHE_NAME = "capturabox-shell-v2";
+const CACHE_NAME = "capturabox-shell-v3";
 const APP_SHELL = [
   "./CAPTURABOX.html",
   "./manifest.json",
@@ -33,6 +33,23 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
+  // El documento HTML principal: red primero, para no quedar pegado a una
+  // versión vieja mientras haya conexión. Si falla la red, se usa el caché
+  // como respaldo offline.
+  if (request.mode === "navigate" || request.destination === "document") {
+    event.respondWith(
+      fetch(request)
+        .then((response) => {
+          const copy = response.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
+          return response;
+        })
+        .catch(() => caches.match(request))
+    );
+    return;
+  }
+
+  // El resto de la carcasa (íconos, manifest): caché primero.
   event.respondWith(
     caches.match(request).then((cached) => {
       if (cached) return cached;
