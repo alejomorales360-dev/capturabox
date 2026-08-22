@@ -1,0 +1,1402 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CapturaBox — Pantalla Operativa</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<style>
+  :root{
+    --bg-1:#0a1420;
+    --bg-2:#000000;
+    --gold:#e0a52c;
+    --teal:#17a2a0;
+    --indigo:#7c6cd8;
+    --sage:#3fae6a;
+    --amber:#e0a52c;
+    --ink:#f2f6f9;
+    --muted:#7f92a3;
+    --card:#101c2b;
+    --card-line:rgba(255,255,255,.07);
+    --numfont:"Segoe UI",Arial,Helvetica,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  html,body{
+    width:100vw;height:100vh;overflow:hidden;
+    background:radial-gradient(ellipse at 15% 0%, var(--bg-1) 0%, var(--bg-2) 70%);
+    color:var(--ink);
+    font-family:"Segoe UI",Helvetica,Arial,sans-serif;
+  }
+  .ic{width:1em;height:1em;display:inline-block;vertical-align:middle;}
+
+  .wrap{
+    width:100vw;height:100vh;
+    padding:1.7vh 1.7vw;
+    display:grid;
+    grid-template-columns:1fr 21vw;
+    grid-template-rows:auto auto auto 1fr auto;
+    gap:1.3vh 1.4vw;
+  }
+
+  /* ===== HEADER (ocupa las 2 columnas) ===== */
+  header{grid-column:1 / -1;display:flex;align-items:center;justify-content:space-between;}
+  .brand{display:flex;align-items:center;gap:.9vw;}
+  .brand .logo{
+    width:2.6vw;height:2.6vw;min-width:34px;min-height:34px;background:var(--gold);border-radius:.55vw;
+    display:flex;align-items:center;justify-content:center;color:#1a1300;font-size:1.35vw;
+  }
+  .brand .txt{display:flex;flex-direction:column;line-height:1.15;}
+  .brand .word{font-size:1.55vw;font-weight:800;letter-spacing:.02em;}
+  .brand .word b{color:var(--gold);font-weight:800;}
+  .brand .sub{display:flex;align-items:center;gap:.7vw;margin-left:1.1vw;padding-left:1.1vw;border-left:1px solid var(--card-line);}
+  .brand .sub .a{font-size:.95vw;font-weight:700;letter-spacing:.02em;}
+  .brand .sub .b{font-size:.68vw;color:var(--muted);letter-spacing:.14em;text-transform:uppercase;}
+
+  .status-pill{
+    display:flex;align-items:center;gap:.5vw;background:rgba(63,174,106,.12);
+    border:1px solid rgba(63,174,106,.35);border-radius:999px;padding:.5vh 1vw;
+  }
+  .status-pill .dot{width:.55vw;height:.55vw;border-radius:50%;background:var(--sage);box-shadow:0 0 6px var(--sage);transition:background .3s;}
+  .status-pill .dot.stale{background:#c1633f;box-shadow:0 0 6px #c1633f;}
+  .status-pill .txt{font-size:.72vw;}
+  .status-pill .txt b{color:var(--sage);font-weight:700;letter-spacing:.05em;}
+  .status-pill .txt .sub{display:block;color:var(--muted);font-size:.9em;}
+
+  .clockbox{display:flex;align-items:center;gap:.7vw;}
+  .clockbox .ic{color:var(--gold);font-size:1.5vw;}
+  .clockbox .time{font-family:var(--numfont);font-variant-numeric:tabular-nums;font-size:1.9vw;font-weight:800;line-height:1;}
+  .clockbox .date{font-size:.75vw;color:var(--muted);margin-top:.15vh;text-transform:capitalize;}
+
+  /* ===== BOTÓN HISTÓRICO ===== */
+  .btn-hist{
+    display:flex;align-items:center;gap:.45vw;cursor:pointer;
+    background:rgba(124,108,216,.14);border:1px solid rgba(124,108,216,.4);
+    color:#b9aef0;border-radius:999px;padding:.55vh 1.05vw;
+    font-size:.72vw;font-weight:700;letter-spacing:.04em;text-transform:uppercase;
+    transition:background .2s, transform .12s;
+  }
+  .btn-hist:hover{background:rgba(124,108,216,.26);}
+  .btn-hist:active{transform:scale(.96);}
+  .btn-hist .ic{font-size:.95vw;}
+
+  /* ===== MAIN (fila 2, col izquierda) ===== */
+  main{grid-column:1;display:grid;grid-template-columns:1fr 1.75fr;gap:1.4vw;height:31vh;}
+
+  .card{background:var(--card);border:1px solid var(--card-line);border-radius:.9vw;}
+
+  .ring-card{
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    padding:1.2vh 1.5vw;position:relative;
+  }
+  .ring-card .label{font-size:.68vw;letter-spacing:.08em;text-transform:uppercase;font-weight:600;color:var(--muted);margin-bottom:.8vh;text-align:center;}
+  .ring-body{display:flex;align-items:center;justify-content:center;gap:1.6vw;}
+  .ring-wrap{position:relative;width:min(12.5vw,26vh);height:min(12.5vw,26vh);flex-shrink:0;}
+  .ring-wrap svg{width:100%;height:100%;transform:rotate(-90deg);}
+  .ring-center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;}
+  .ring-center .pct{font-family:var(--numfont);font-variant-numeric:tabular-nums;font-weight:800;font-size:2.05vw;line-height:1;color:var(--sage);transition:color .4s;}
+  .ring-center .tag{margin-top:.5vh;font-size:.65vw;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);}
+  .ring-side{display:flex;flex-direction:column;gap:1vh;}
+  .ring-side-row{display:flex;align-items:center;gap:.6vw;}
+  .ring-mini-ic{width:1.9vw;height:1.9vw;min-width:22px;min-height:22px;border-radius:.4vw;display:flex;align-items:center;justify-content:center;font-size:.9vw;flex-shrink:0;}
+  .ring-side .n{font-family:var(--numfont);font-variant-numeric:tabular-nums;font-size:1.15vw;font-weight:800;}
+  .ring-side .l{font-size:.66vw;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;}
+  .ring-foot{position:absolute;bottom:1.3vh;left:0;right:0;text-align:center;font-size:.66vw;color:var(--muted);letter-spacing:.04em;}
+  .ring-foot b{color:var(--ink);}
+
+  .kpi-grid{display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;gap:1.1vw;min-height:0;}
+  .kpi{padding:1vh 1.1vw;display:flex;flex-direction:column;justify-content:center;gap:.35vh;}
+  .kpi-top{display:flex;align-items:center;gap:.7vw;}
+  .kpi-ic{width:2.1vw;height:2.1vw;min-width:26px;min-height:26px;border-radius:.5vw;display:flex;align-items:center;justify-content:center;font-size:1.05vw;flex-shrink:0;}
+  .kpi-txt .l{font-size:.68vw;color:var(--muted);letter-spacing:.05em;text-transform:uppercase;line-height:1.2;}
+  .kpi-txt .v{font-family:var(--numfont);font-variant-numeric:tabular-nums;font-weight:800;font-size:1.65vw;line-height:1.1;margin-top:.15vh;transition:color .35s;}
+  .kpi-txt .v small{font-size:.6vw;color:var(--muted);font-weight:400;margin-left:.25vw;}
+  .kpi-break{font-size:.68vw;color:var(--muted);padding-left:2.8vw;}
+  .kpi-break b{color:var(--ink);font-weight:700;}
+
+  .flash{color:var(--gold) !important;}
+
+  /* ===== FILA MEDIA (trend + resumen) ===== */
+  .midrow{grid-column:1;display:grid;grid-template-columns:1.5fr 1fr;gap:1.4vw;height:22vh;}
+  .midrow .card{padding:1.2vh 1.3vw;display:flex;flex-direction:column;min-height:0;}
+  .midrow .t{font-size:.74vw;letter-spacing:.05em;text-transform:uppercase;font-weight:600;margin-bottom:.8vh;text-align:center;}
+  .midrow .card:first-child .t{color:var(--teal);}
+  .midrow .card:last-child .t{color:var(--gold);}
+  .canvas-wrap{flex:1;position:relative;min-height:0;}
+
+  .resumen-row{display:flex;align-items:center;gap:.8vw;flex:1;}
+  .resumen-item{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.4vh;text-align:center;}
+  .resumen-ic{width:2vw;height:2vw;min-width:24px;min-height:24px;border-radius:.45vw;display:flex;align-items:center;justify-content:center;font-size:1vw;color:var(--gold);background:rgba(224,165,44,.12);}
+  .resumen-item .v{font-family:var(--numfont);font-variant-numeric:tabular-nums;font-weight:800;font-size:1.4vw;}
+  .resumen-item .l{font-size:.6vw;color:var(--muted);letter-spacing:.04em;text-transform:uppercase;}
+
+  /* ===== BOTTOM (tablas) ===== */
+  .bottom{grid-column:1;display:grid;grid-template-columns:1fr 1fr 1fr;gap:1.4vw;min-height:0;}
+  .bottom .card{padding:1.1vh 1.2vw;display:flex;flex-direction:column;min-height:0;overflow:hidden;}
+  .table-scroll{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;}
+  .bottom .t{display:flex;align-items:center;justify-content:center;gap:.55vw;font-size:.76vw;letter-spacing:.04em;text-transform:uppercase;font-weight:600;margin-bottom:.7vh;flex-shrink:0;}
+  .bottom .card:nth-child(1) .t{color:var(--gold);}
+  .bottom .card:nth-child(2) .t{color:var(--indigo);}
+  .bottom .card:nth-child(3) .t{color:var(--sage);}
+  .bottom .t .ic-round{width:1.6vw;height:1.6vw;min-width:19px;min-height:19px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.82vw;flex-shrink:0;}
+  table.act-table{width:100%;border-collapse:collapse;font-size:.72vw;}
+  table.act-table thead th{
+    text-align:left;color:var(--muted);font-weight:600;letter-spacing:.04em;text-transform:uppercase;
+    font-size:.6vw;padding:.3vh .2vw;border-bottom:1px solid var(--card-line);
+  }
+  table.act-table tbody td{padding:.4vh .2vw;border-bottom:1px solid rgba(255,255,255,.04);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  table.act-table tbody tr:last-child td{border-bottom:none;}
+  table.act-table .dotcell{width:1vw;}
+  table.act-table .rowdot{width:.5vw;height:.5vw;border-radius:50%;background:var(--sage);display:inline-block;}
+  .act-empty{color:var(--muted);font-size:.75vw;text-align:center;padding:1.5vh 0;}
+
+  /* ===== SIDEBAR NAVES ===== */
+  .sidebar{grid-column:2;grid-row:2 / -1;display:flex;flex-direction:column;min-height:0;}
+  .sidebar-card{flex:1;display:flex;flex-direction:column;min-height:0;padding:1.2vh 1.2vw;}
+  .sidebar-title{display:flex;align-items:center;justify-content:center;gap:.55vw;font-size:.78vw;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--gold);margin-bottom:1vh;}
+  .sidebar-title .ic{color:var(--gold);font-size:1vw;}
+  .nave-list{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:1vh;}
+  .nave-card{background:rgba(255,255,255,.025);border:1px solid var(--card-line);border-radius:.6vw;padding:.9vh .9vw;}
+  .nave-card-top{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:.6vh;gap:.4vw;}
+  .nave-card-name{font-size:.9vw;font-weight:800;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0;}
+  .nave-card-tags{display:flex;align-items:center;gap:.35vw;flex-shrink:0;}
+  .nave-card-badge{font-size:.6vw;color:var(--sage);background:rgba(63,174,106,.12);border-radius:999px;padding:.2vh .6vw;white-space:nowrap;}
+  /* Chip de semana (WK33) */
+  .nave-wk{
+    font-size:.6vw;font-weight:800;letter-spacing:.05em;white-space:nowrap;
+    color:#b9aef0;background:rgba(124,108,216,.18);
+    border:1px solid rgba(124,108,216,.4);border-radius:999px;padding:.2vh .55vw;
+  }
+  .nave-wk.actual{color:#1a1300;background:var(--gold);border-color:var(--gold);}
+  .nave-client-block{padding-top:.6vh;margin-top:.6vh;border-top:1px solid var(--card-line);}
+  .nave-client-block:first-of-type{border-top:none;margin-top:0;}
+  .nave-client-name{font-size:.65vw;color:var(--gold);font-weight:700;margin-bottom:.4vh;letter-spacing:.03em;text-transform:uppercase;}
+  .nave-bar-bg{background:rgba(255,255,255,.08);border-radius:4px;height:.5vh;overflow:hidden;margin-bottom:.6vh;}
+  .nave-bar-fill{height:100%;border-radius:4px;transition:width .8s ease;}
+  .nave-stats{display:flex;justify-content:space-between;text-align:center;}
+  .nave-stats div{flex:1;}
+  .nave-stats .n{font-family:var(--numfont);font-variant-numeric:tabular-nums;font-weight:800;font-size:.95vw;}
+  .nave-stats .n.gold{color:var(--gold);}
+  .nave-stats .l{font-size:.55vw;color:var(--muted);letter-spacing:.05em;text-transform:uppercase;}
+
+  .footer-note{
+    grid-column:1 / -1;text-align:center;font-size:.68vw;color:var(--muted);
+    display:flex;align-items:center;justify-content:center;gap:.4vw;padding-top:.2vh;
+  }
+
+  /* ============================================================
+     VISTA HISTÓRICA (capa completa sobre el dashboard)
+     ============================================================ */
+  .hist-overlay{
+    position:fixed;inset:0;z-index:9000;display:none;
+    background:radial-gradient(ellipse at 15% 0%, #0a1420 0%, #000 70%);
+    padding:2vh 2vw;flex-direction:column;
+    animation:histIn .25s ease;
+  }
+  .hist-overlay.open{display:flex;}
+  @keyframes histIn{from{opacity:0;transform:scale(.985);}to{opacity:1;transform:scale(1);}}
+
+  .hist-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:1.6vh;flex-shrink:0;}
+  .hist-head .ttl{display:flex;align-items:center;gap:.8vw;}
+  .hist-head .ttl .ic{color:var(--indigo);font-size:1.7vw;}
+  .hist-head .ttl .a{font-size:1.4vw;font-weight:800;}
+  .hist-head .ttl .b{font-size:.72vw;color:var(--muted);letter-spacing:.12em;text-transform:uppercase;margin-top:.2vh;}
+  .hist-close{
+    cursor:pointer;background:rgba(255,255,255,.08);border:1px solid var(--card-line);
+    color:var(--ink);border-radius:.6vw;padding:.7vh 1.3vw;font-size:.85vw;font-weight:700;
+  }
+  .hist-close:hover{background:rgba(255,255,255,.16);}
+  .hist-autoclose{font-size:.66vw;color:var(--muted);margin-right:1vw;}
+
+  .hist-body{flex:1;display:grid;grid-template-columns:1.15fr .95fr .9fr;grid-template-rows:auto auto 1fr;gap:1.2vh 1.2vw;min-height:0;}
+  .hist-chart{grid-column:1;grid-row:1 / 3;}
+  .hist-vol{grid-column:2;grid-row:1 / 3;}
+  .hist-comp{grid-column:3;grid-row:1;}
+  .hist-records{grid-column:3;grid-row:2;}
+  .hist-naves{grid-column:1 / -1;grid-row:3;min-height:0;}
+  .hist-card{background:var(--card);border:1px solid var(--card-line);border-radius:.9vw;padding:1.3vh 1.4vw;display:flex;flex-direction:column;min-height:0;}
+  .hist-card .t{font-size:.78vw;letter-spacing:.05em;text-transform:uppercase;font-weight:600;margin-bottom:1vh;color:var(--teal);flex-shrink:0;}
+  .hist-vol .t{color:var(--sage);}
+  .hist-comp .t{color:var(--gold);}
+  .hist-records .t{color:#d98cc4;}
+  .hist-naves .t{color:var(--indigo);}
+  .hist-canvas{flex:1;position:relative;min-height:16vh;}
+
+  /* ---- Récords ---- */
+  .rec-grid{display:flex;flex-direction:column;gap:.75vh;flex:1;justify-content:center;}
+  .rec-row{display:flex;align-items:center;gap:.7vw;}
+  .rec-ic{
+    width:1.9vw;height:1.9vw;min-width:23px;min-height:23px;border-radius:.42vw;flex-shrink:0;
+    display:flex;align-items:center;justify-content:center;font-size:.95vw;
+  }
+  .rec-txt{flex:1;min-width:0;}
+  .rec-txt .l{font-size:.6vw;color:var(--muted);letter-spacing:.05em;text-transform:uppercase;line-height:1.2;}
+  .rec-txt .v{font-family:var(--numfont);font-variant-numeric:tabular-nums;font-weight:800;font-size:.95vw;line-height:1.25;}
+  .rec-txt .v small{font-size:.62vw;color:var(--muted);font-weight:600;margin-left:.3vw;}
+  .rec-wk{font-size:.6vw;font-weight:800;color:#b9aeff;background:rgba(124,108,216,.16);border-radius:999px;padding:.15vh .5vw;white-space:nowrap;}
+
+  .comp-grid{display:flex;flex-direction:column;gap:1.1vh;flex:1;justify-content:center;}
+  .comp-row{display:flex;align-items:center;justify-content:space-between;gap:.8vw;}
+  .comp-row .l{font-size:.72vw;color:var(--muted);letter-spacing:.04em;text-transform:uppercase;}
+  .comp-row .v{font-family:var(--numfont);font-variant-numeric:tabular-nums;font-weight:800;font-size:1.35vw;}
+  .comp-delta{font-size:.78vw;font-weight:800;border-radius:999px;padding:.25vh .7vw;white-space:nowrap;}
+  .comp-delta.up{color:var(--sage);background:rgba(63,174,106,.14);}
+  .comp-delta.down{color:#c1633f;background:rgba(193,99,63,.14);}
+  .comp-delta.flat{color:var(--muted);background:rgba(255,255,255,.06);}
+
+  .hist-scroll{flex:1;min-height:0;overflow-y:auto;}
+  table.hist-table{width:100%;border-collapse:collapse;font-size:.78vw;}
+  table.hist-table thead th{
+    position:sticky;top:0;background:var(--card);
+    text-align:left;color:var(--muted);font-weight:600;letter-spacing:.04em;text-transform:uppercase;
+    font-size:.64vw;padding:.5vh .4vw;border-bottom:1px solid var(--card-line);
+  }
+  table.hist-table tbody td{padding:.55vh .4vw;border-bottom:1px solid rgba(255,255,255,.04);}
+  table.hist-table tbody tr.wk-actual{background:rgba(224,165,44,.07);}
+  .mini-bar-bg{background:rgba(255,255,255,.08);border-radius:4px;height:.6vh;overflow:hidden;width:100%;min-width:60px;}
+  .mini-bar-fill{height:100%;border-radius:4px;}
+  .pill-ok{font-size:.64vw;font-weight:800;color:var(--sage);background:rgba(63,174,106,.14);border-radius:999px;padding:.2vh .6vw;}
+  .pill-no{font-size:.64vw;font-weight:800;color:#c1633f;background:rgba(193,99,63,.14);border-radius:999px;padding:.2vh .6vw;}
+  .pill-curso{font-size:.64vw;font-weight:800;color:var(--gold);background:rgba(224,165,44,.14);border-radius:999px;padding:.2vh .6vw;}
+</style>
+</head>
+<body>
+  <div class="wrap">
+
+    <header>
+      <div class="brand">
+        <div class="logo">
+          <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+            <polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/>
+          </svg>
+        </div>
+        <div class="txt"><div class="word">Captura<b>Box</b></div></div>
+        <div class="sub">
+          <div>
+            <div class="a" id="bodegaNombre">Bodega</div>
+            <div class="b">Dashboard operativo</div>
+          </div>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:1.2vw;">
+        <div class="btn-hist" id="btnHistorico" onclick="abrirHistorico()">
+          <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>
+          </svg>
+          Histórico
+        </div>
+        <div class="status-pill">
+          <span class="dot" id="dotEstado"></span>
+          <div class="txt"><b>EN LÍNEA</b><span class="sub" id="txtActualizado">Cargando…</span></div>
+        </div>
+        <div class="clockbox">
+          <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+          </svg>
+          <div><div class="time" id="reloj">--:--</div><div class="date" id="fechaHoy">—</div></div>
+        </div>
+      </div>
+    </header>
+
+    <main>
+      <div class="card ring-card">
+        <div class="label">Ocupación de bodega</div>
+        <div class="ring-body">
+        <div class="ring-wrap">
+          <svg viewBox="0 0 220 220">
+            <circle cx="110" cy="110" r="96" fill="none" stroke="rgba(255,255,255,.07)" stroke-width="16"/>
+            <circle id="ringProgress" cx="110" cy="110" r="96" fill="none" stroke="#3fae6a" stroke-width="16"
+                    stroke-linecap="round" stroke-dasharray="603" stroke-dashoffset="603"
+                    style="transition:stroke-dashoffset 1s ease, stroke 1s ease;"/>
+          </svg>
+          <div class="ring-center">
+            <div class="pct" id="ringPct">—<span style="font-size:.55em;">%</span></div>
+            <div class="tag" id="ringTag">cargando</div>
+          </div>
+        </div>
+        <div class="ring-side">
+          <div class="ring-side-row">
+            <div class="ring-mini-ic" style="background:rgba(224,165,44,.15);color:var(--gold);">
+              <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+            </div>
+            <div><div class="n" id="stockUsado">—</div><div class="l">m³ usados</div></div>
+          </div>
+          <div class="ring-side-row">
+            <div class="ring-mini-ic" style="background:rgba(63,174,106,.15);color:var(--sage);">
+              <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+            </div>
+            <div><div class="n" id="stockLibre">—</div><div class="l">m³ libres</div></div>
+          </div>
+        </div>
+        </div>
+        <div class="ring-foot">Capacidad total <b id="stockCapacidad">—</b> m³</div>
+      </div>
+
+      <div class="kpi-grid">
+        <div class="card kpi">
+          <div class="kpi-top">
+            <div class="kpi-ic" style="background:rgba(23,162,160,.15);color:var(--teal);">
+              <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+            </div>
+            <div class="kpi-txt"><div class="l">Consolidados hoy</div><div class="v" id="kpiBox">—</div></div>
+          </div>
+          <div class="kpi-break" id="kpiBoxBreak"></div>
+          <div style="border-top:1px solid rgba(255,255,255,.08); margin-top:8px; padding-top:8px;">
+            <div style="display:flex; align-items:center; gap:8px;">
+              <span style="color:#e0a52c; font-size:11px; font-weight:700;">⏳ EN PROCESO</span>
+              <span style="color:#e0a52c; font-size:20px; font-weight:800;" id="kpiParciales">—</span>
+            </div>
+            <div style="font-size:10px; color:rgba(255,255,255,.4); margin-top:2px;" id="kpiParcialesBreak"></div>
+          </div>
+        </div>
+
+        <div class="card kpi">
+          <div class="kpi-top">
+            <div class="kpi-ic" style="background:rgba(63,174,106,.15);color:var(--sage);">
+              <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+            </div>
+            <div class="kpi-txt"><div class="l">Recepción hoy · camiones</div><div class="v" id="kpiCamiones">—</div></div>
+          </div>
+          <div class="kpi-break" id="kpiCamionesBreak"></div>
+        </div>
+
+        <div class="card kpi">
+          <div class="kpi-top">
+            <div class="kpi-ic" style="background:rgba(124,108,216,.15);color:var(--indigo);">
+              <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+            </div>
+            <div class="kpi-txt"><div class="l">Volumen movilizado hoy</div><div class="v" id="kpiM3">—</div></div>
+          </div>
+          <div class="kpi-break" id="kpiM3Break"></div>
+        </div>
+
+        <div class="card kpi">
+          <div class="kpi-top">
+            <div class="kpi-ic" style="background:rgba(224,165,44,.15);color:var(--gold);">
+              <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            </div>
+            <div class="kpi-txt"><div class="l">Clientes activos hoy</div><div class="v" id="kpiClientes">—</div></div>
+          </div>
+          <div class="kpi-break" id="kpiClientesBreak"></div>
+        </div>
+      </div>
+    </main>
+
+    <div class="midrow">
+      <div class="card">
+        <div class="t">Contenedores consolidados — esta semana (lun–sáb)</div>
+        <div class="canvas-wrap"><canvas id="cvsTendencia"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="t">Resumen general — semana</div>
+        <div class="resumen-row">
+          <div class="resumen-item">
+            <div class="resumen-ic">
+              <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+            </div>
+            <div class="v" id="resVolumen">—</div><div class="l">m³ movilizados</div>
+          </div>
+          <div class="resumen-item">
+            <div class="resumen-ic">
+              <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            </div>
+            <div class="v" id="resCamiones">—</div><div class="l">recepciones</div>
+          </div>
+          <div class="resumen-item">
+            <div class="resumen-ic">
+              <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+            </div>
+            <div class="v" id="resContenedores">—</div><div class="l">consolidados</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="bottom">
+      <div class="card">
+        <div class="t">
+          <span class="ic-round" style="background:rgba(224,165,44,.15);color:var(--gold);">
+            <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          </span>
+          Últimas recepciones
+        </div>
+        <div class="table-scroll">
+        <table class="act-table"><thead><tr><th></th><th>Fecha</th><th>Hora fin</th><th>Patente</th><th>Cliente</th><th>m³</th></tr></thead>
+          <tbody id="listRecepciones"><tr><td colspan="6" class="act-empty">Cargando…</td></tr></tbody>
+        </table>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="t">
+          <span class="ic-round" style="background:rgba(124,108,216,.15);color:var(--indigo);">
+            <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+          </span>
+          Últimos consolidados
+        </div>
+        <div class="table-scroll">
+        <table class="act-table"><thead><tr><th></th><th>Contenedor</th><th>Cliente</th><th>Nave</th></tr></thead>
+          <tbody id="listConsolidados"><tr><td colspan="4" class="act-empty">Cargando…</td></tr></tbody>
+        </table>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="t">
+          <span class="ic-round" style="background:rgba(63,174,106,.15);color:var(--sage);">
+            <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+          </span>
+          Últimos lotes preparados
+        </div>
+        <div class="table-scroll">
+        <table class="act-table"><thead><tr><th></th><th>Lote</th><th>Cliente</th><th>Ubicación</th><th>m³</th></tr></thead>
+          <tbody id="listPreparados"><tr><td colspan="5" class="act-empty">Cargando…</td></tr></tbody>
+        </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="sidebar">
+      <div class="card sidebar-card">
+        <div class="sidebar-title">
+          <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="3"/><line x1="12" y1="22" x2="12" y2="8"/><path d="M5 12H2a10 10 0 0 0 20 0h-3"/></svg>
+          Naves de la semana
+        </div>
+        <div class="nave-list" id="listNaves"><div class="act-empty">Cargando…</div></div>
+      </div>
+    </div>
+
+    <div class="footer-note">
+      <svg class="ic" style="width:.9em;height:.9em;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+      Los datos se actualizan automáticamente cada 3 minutos
+    </div>
+
+  </div>
+
+  <!-- ============ VISTA HISTÓRICA ============ -->
+  <div class="hist-overlay" id="histOverlay">
+    <div class="hist-head">
+      <div class="ttl">
+        <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>
+        </svg>
+        <div>
+          <div class="a">Histórico por semana</div>
+          <div class="b" id="histSubtitulo">Avance de naves · CapturaBox</div>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;">
+        <span class="hist-autoclose" id="histAutoclose"></span>
+        <button class="hist-close" onclick="cerrarHistorico()">✕ Volver al dashboard</button>
+      </div>
+    </div>
+
+    <div class="hist-body">
+      <div class="hist-card hist-chart">
+        <div class="t">Contenedores consolidados por semana</div>
+        <div class="hist-canvas"><canvas id="cvsHistorico"></canvas></div>
+      </div>
+
+      <div class="hist-card hist-vol">
+        <div class="t">Volumen m³ y camiones por semana</div>
+        <div class="hist-canvas"><canvas id="cvsHistVolumen"></canvas></div>
+      </div>
+
+      <div class="hist-card hist-comp">
+        <div class="t">Semana actual vs. anteriores</div>
+        <div class="comp-grid" id="histComparativa">
+          <div class="act-empty">Cargando…</div>
+        </div>
+      </div>
+
+      <div class="hist-card hist-records">
+        <div class="t">Días destacados</div>
+        <div class="rec-grid" id="histRecords">
+          <div class="act-empty">Cargando…</div>
+        </div>
+      </div>
+
+      <div class="hist-card hist-naves">
+        <div class="t">Naves por semana · cumplimiento</div>
+        <div class="hist-scroll">
+          <table class="hist-table">
+            <thead><tr>
+              <th>Semana</th><th>Nave</th><th>Cliente</th>
+              <th>Consolidados</th><th>Meta</th><th>Saldo</th>
+              <th style="width:22%;">Avance</th><th>Estado</th>
+            </tr></thead>
+            <tbody id="histNavesBody"><tr><td colspan="8" class="act-empty">Cargando…</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+const URL_GAS = "https://script.google.com/macros/s/AKfycbyoZ-jLyPxm-NKGr5mLxmptDkVH_5NrvoIzPaRFNYEFGkCKrzf_lDJ8L88PNLDFIQv_/exec";
+
+const REFRESCO_DATOS_MS = 180 * 1000;
+let ultimaActualizacion = null;
+let chartTendencia = null;
+let ultimoSnapshot = {};
+
+/* Datos de naves guardados para la vista histórica */
+let navesCache = [];
+
+const PALETA = ['#e0a52c', '#17a2a0', '#7c6cd8', '#3fae6a', '#c1633f', '#8fa8b8'];
+function colorCliente(nombre) {
+  let hash = 0;
+  const str = String(nombre || '');
+  for (let i = 0; i < str.length; i++) hash = (hash * 31 + str.charCodeAt(i)) >>> 0;
+  return PALETA[hash % PALETA.length];
+}
+
+/* Número de semana ISO de una fecha — para saber cuál es "la actual" */
+function semanaISO(fecha) {
+  const d = new Date(Date.UTC(fecha.getFullYear(), fecha.getMonth(), fecha.getDate()));
+  const diaNum = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - diaNum);
+  const inicioAnio = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  return Math.ceil((((d - inicioAnio) / 86400000) + 1) / 7);
+}
+const SEMANA_ACTUAL = semanaISO(new Date());
+
+function tickReloj() {
+  const ahora = new Date();
+  document.getElementById('reloj').textContent =
+    ahora.toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' });
+  document.getElementById('fechaHoy').textContent =
+    ahora.toLocaleDateString('es-CL', { weekday: 'long', day: 'numeric', month: 'long' });
+}
+tickReloj();
+setInterval(tickReloj, 1000);
+
+function tickIndicador() {
+  const txt = document.getElementById('txtActualizado');
+  const dot = document.getElementById('dotEstado');
+  if (!ultimaActualizacion) { txt.textContent = 'Cargando…'; return; }
+  const seg = Math.round((Date.now() - ultimaActualizacion) / 1000);
+  txt.textContent = seg < 5 ? 'Actualizado ahora' : ('Actualizado hace ' + seg + 's');
+  dot.className = 'dot' + (seg > REFRESCO_DATOS_MS / 1000 * 2 ? ' stale' : '');
+}
+setInterval(tickIndicador, 1000);
+
+function fmt(n, dec) {
+  return Number(n || 0).toLocaleString('es-CL', { maximumFractionDigits: dec != null ? dec : 0 });
+}
+function fechaISO(d) {
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+
+function setSiCambio(id, val, campoSnapshot) {
+  const el = document.getElementById(id);
+  const valStr = String(val);
+  if (ultimoSnapshot[campoSnapshot] === valStr) return;
+  ultimoSnapshot[campoSnapshot] = valStr;
+  el.innerHTML = val;
+  el.classList.add('flash');
+  setTimeout(function () { el.classList.remove('flash'); }, 1200);
+}
+
+function pintarSiCambio(id, snapshotKey, html, vacio) {
+  if (ultimoSnapshot[snapshotKey] === html) return;
+  ultimoSnapshot[snapshotKey] = html;
+  document.getElementById(id).innerHTML = html || vacio || '';
+}
+
+async function pedirJSON(accion, extra) {
+  const body = Object.assign({ accion: accion }, extra || {});
+  const res = await fetch(URL_GAS, { method: 'POST', body: JSON.stringify(body) });
+  return res.json();
+}
+
+function desgloseTexto(porCliente, campo) {
+  if (!porCliente || !porCliente.length) return 'Sin movimientos hoy.';
+  return porCliente.slice(0, 3).map(function (c) {
+    var val = c[campo] != null ? c[campo] : 0;
+    if (typeof val === 'number' && val % 1 !== 0) val = val.toFixed(1);
+    return c.cliente + ' <b>' + val + '</b>';
+  }).join(' &nbsp;·&nbsp; ');
+}
+
+async function cargarParcialsDashboard() {
+  try {
+    var data = await pedirJSON('listarConsolidadosParciales', {});
+    if (!data || !data.ok || !Array.isArray(data.parciales)) {
+      document.getElementById('kpiParciales').textContent = '0';
+      document.getElementById('kpiParcialesBreak').innerHTML = '';
+      return [];
+    }
+    var parciales = data.parciales;
+    document.getElementById('kpiParciales').textContent = parciales.length;
+
+    var porSup = {};
+    parciales.forEach(function(p) {
+      var sup = p.supervisor || '?';
+      porSup[sup] = (porSup[sup] || 0) + 1;
+    });
+    var breakHtml = Object.keys(porSup).map(function(s) {
+      return s + ' <b>' + porSup[s] + '</b>';
+    }).join(' · ');
+    document.getElementById('kpiParcialesBreak').innerHTML = breakHtml;
+
+    return parciales;
+  } catch(e) {
+    document.getElementById('kpiParciales').textContent = '?';
+    return [];
+  }
+}
+
+async function actualizarTodo() {
+  try {
+    const hoy = new Date();
+    const diaSemana = hoy.getDay();
+    const diasDesdeLunes = diaSemana === 0 ? 6 : diaSemana - 1;
+    const lunes = new Date(hoy); lunes.setDate(hoy.getDate() - diasDesdeLunes);
+    const rangoHoy = { fechaDesde: fechaISO(hoy), fechaHasta: fechaISO(hoy) };
+    const rangoSemana = { fechaDesde: fechaISO(lunes), fechaHasta: fechaISO(hoy) };
+
+    const [dataHoy, dataSemana, dataRecepcion, dataConsolidado, dataPreparados, dataNaves] = await Promise.all([
+      pedirJSON('dashboardEjecutivo', rangoHoy),
+      pedirJSON('dashboardEjecutivo', rangoSemana),
+      pedirJSON('informeRecepcion', { filtros: rangoSemana }),
+      pedirJSON('informeConsolidado', { filtros: rangoSemana }),
+      pedirJSON('ultimosPreparados', { limite: 8 }),
+      pedirJSON('avanceNaves', {})
+    ]);
+
+    cargarParcialsDashboard();
+
+    if (dataHoy && dataHoy.ok) pintarKpisYAnillo(dataHoy);
+    if (dataSemana && dataSemana.ok) {
+      try { pintarGraficoYResumen(dataSemana, dataRecepcion, dataConsolidado); }
+      catch (eGrafico) { console.error('Error pintando gráfico de tendencia:', eGrafico); }
+    }
+    if (dataRecepcion && dataRecepcion.ok) pintarRecepciones(dataRecepcion.detalle || []);
+    if (dataConsolidado && dataConsolidado.ok) pintarConsolidados(dataConsolidado.detalle || []);
+    if (dataPreparados && dataPreparados.ok) pintarPreparados(dataPreparados.items || []);
+    if (dataNaves && dataNaves.ok) {
+      navesCache = dataNaves.naves || [];
+      pintarNaves(navesCache);
+      // Si el histórico está abierto, refrescarlo con los datos nuevos
+      if (document.getElementById('histOverlay').classList.contains('open')) {
+        pintarHistorico();
+      }
+    }
+
+    ultimaActualizacion = Date.now();
+  } catch (e) {
+    console.error('Error actualizando pantalla operativa:', e);
+  }
+}
+
+function pintarKpisYAnillo(data) {
+  const k = data.kpis || {};
+  setSiCambio('kpiBox', fmt(k.boxConsolidados), 'box');
+  setSiCambio('kpiM3', fmt(k.m3Movilizados, 1) + '<small>m³</small>', 'm3');
+  setSiCambio('kpiClientes', fmt(k.clientesActivos), 'clientes');
+
+  pintarSiCambio('kpiBoxBreak', 'boxBreak', desgloseTexto(data.consolidadoPorCliente, 'contenedores'));
+  pintarSiCambio('kpiM3Break', 'm3Break', desgloseTexto(data.consolidadoPorCliente, 'm3'));
+  pintarSiCambio('kpiClientesBreak', 'clientesBreak',
+    (data.consolidadoPorCliente && data.consolidadoPorCliente.length) ? (data.consolidadoPorCliente.length + ' clientes con movimiento hoy') : 'Sin clientes activos hoy.');
+
+  const rp = data.recepcionPorCliente || [];
+  const totalCamiones = rp.reduce(function (s, c) { return s + (Number(c.camiones) || 0); }, 0);
+  setSiCambio('kpiCamiones', fmt(totalCamiones), 'camiones');
+  pintarSiCambio('kpiCamionesBreak', 'camionesBreak', desgloseTexto(rp, 'camiones'));
+
+  if (data.stock && data.stock.bodega) document.getElementById('bodegaNombre').textContent = data.stock.bodega;
+
+  const st = data.stock || {};
+  const cap = Number(st.capacidadM3) || 0;
+  const usado = Number(st.totalVolumen) || 0;
+  const libre = Math.max(0, cap - usado);
+  const pct = cap > 0 ? Math.min(100, (usado / cap) * 100) : 0;
+
+  setSiCambio('ringPct', pct.toFixed(1) + '<span style="font-size:.55em;">%</span>', 'pct');
+  setSiCambio('stockUsado', fmt(usado, 1), 'usado');
+  setSiCambio('stockLibre', fmt(libre, 1), 'libre');
+  setSiCambio('stockCapacidad', fmt(cap, 1), 'capacidad');
+
+  const circ = 2 * Math.PI * 96;
+  const offset = circ - (pct / 100) * circ;
+  const ring = document.getElementById('ringProgress');
+  ring.style.strokeDashoffset = offset;
+
+  let color = '#3fae6a', tag = 'nivel normal';
+  if (pct >= 90) { color = '#c1633f'; tag = 'nivel crítico'; }
+  else if (pct >= 75) { color = '#e0a52c'; tag = 'nivel alto'; }
+  ring.style.stroke = color;
+  document.getElementById('ringPct').style.color = color;
+  document.getElementById('ringTag').textContent = tag;
+}
+
+function pintarGraficoYResumen(dataSemana, dataRecepcion, dataConsolidado) {
+  const k = dataSemana.kpis || {};
+  setSiCambio('resVolumen', fmt(k.m3Movilizados, 1), 'resVol');
+  setSiCambio('resContenedores', fmt(k.boxConsolidados), 'resCont');
+  const totalCamionesSemana = dataRecepcion && dataRecepcion.totalCamiones != null ? dataRecepcion.totalCamiones : 0;
+  setSiCambio('resCamiones', fmt(totalCamionesSemana), 'resCam');
+
+  const dias = dataSemana.contenedoresPorDia || [];
+  const firma = JSON.stringify(dias);
+  if (ultimoSnapshot.tendencia === firma) return;
+  ultimoSnapshot.tendencia = firma;
+
+  if (chartTendencia) chartTendencia.destroy();
+  chartTendencia = new Chart(document.getElementById('cvsTendencia'), {
+    type: 'bar',
+    data: {
+      labels: dias.map(function (d) { return d.fecha; }),
+      datasets: [{
+        data: dias.map(function (d) { return d.total; }),
+        backgroundColor: dias.map(function (d, i) { return i === dias.length - 1 ? '#3fae6a' : '#17a2a0'; }),
+        borderRadius: 6, maxBarThickness: 46
+      }]
+    },
+    plugins: [{
+      id: 'valueLabels',
+      afterDatasetsDraw: function (chart) {
+        var ctx = chart.ctx;
+        chart.data.datasets.forEach(function (dataset, i) {
+          var meta = chart.getDatasetMeta(i);
+          meta.data.forEach(function (bar, index) {
+            var value = dataset.data[index];
+            if (!value) return;
+            ctx.save();
+            ctx.fillStyle = '#f2f6f9';
+            ctx.font = '800 12px "Segoe UI", Arial, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'bottom';
+            ctx.fillText(value, bar.x, bar.y - 5);
+            ctx.restore();
+          });
+        });
+      }
+    }],
+    options: {
+      maintainAspectRatio: false,
+      layout: { padding: { top: 18 } },
+      plugins: {
+        legend: { display: false },
+        tooltip: { enabled: false },
+      },
+      scales: {
+        y: { beginAtZero: true, ticks: { color: '#7f92a3', font: { size: 10 } }, grid: { color: 'rgba(255,255,255,.05)' } },
+        x: { ticks: { color: '#7f92a3', font: { size: 10 } }, grid: { display: false } }
+      }
+    }
+  });
+}
+
+function filaVacia(cols, texto) {
+  return '<tr><td colspan="' + cols + '" class="act-empty">' + texto + '</td></tr>';
+}
+
+function pintarRecepciones(detalle) {
+  const ultimos = detalle.slice(-8).reverse();
+  const html = !ultimos.length ? filaVacia(6, 'Sin recepciones registradas esta semana.') :
+    ultimos.map(function (d) {
+      const hora = d.horaFin || d.horaTermino || d.hora || '\u2014';
+      return '<tr><td class="dotcell"><span class="rowdot"></span></td><td>' + (d.fecha || '\u2014') + '</td>' +
+        '<td>' + hora + '</td>' +
+        '<td>' + (d.patente || '\u2014') + '</td><td>' + (d.cliente || '\u2014') + '</td>' +
+        '<td>' + (d.m3 != null ? d.m3.toFixed(1) : '\u2014') + '</td></tr>';
+    }).join('');
+  pintarSiCambio('listRecepciones', 'recepciones', html);
+}
+
+function pintarConsolidados(detalle) {
+  const ultimos = detalle.slice(-8).reverse();
+
+  cargarParcialsDashboard().then(function(parciales) {
+    var filasCerradas = ultimos.map(function (d) {
+      return '<tr><td class="dotcell"><span class="rowdot" style="background:#3fae6a;"></span></td>' +
+        '<td>' + (d.contenedor || '\u2014') + '</td><td>' + (d.cliente || '\u2014') + '</td><td>' + (d.nave || '\u2014') + '</td></tr>';
+    });
+
+    var filasParciales = (parciales || []).map(function (p) {
+      return '<tr style="background:rgba(224,138,43,.08);"><td class="dotcell"><span class="rowdot" style="background:#e0a52c;"></span></td>' +
+        '<td style="color:#e0a52c;">' + (p.contenedor || '\u2014') + '</td><td>' + (p.cliente || '\u2014') + '</td><td style="font-size:10px;color:#e0a52c;">⏳ En proceso</td></tr>';
+    });
+
+    var todas = filasParciales.concat(filasCerradas);
+    var html = !todas.length ? filaVacia(4, 'Sin consolidados registrados esta semana.') : todas.join('');
+    pintarSiCambio('listConsolidados', 'consolidados', html);
+  }).catch(function() {
+    var html = !ultimos.length ? filaVacia(4, 'Sin consolidados registrados esta semana.') :
+      ultimos.map(function (d) {
+        return '<tr><td class="dotcell"><span class="rowdot" style="background:#3fae6a;"></span></td>' +
+          '<td>' + (d.contenedor || '\u2014') + '</td><td>' + (d.cliente || '\u2014') + '</td><td>' + (d.nave || '\u2014') + '</td></tr>';
+      }).join('');
+    pintarSiCambio('listConsolidados', 'consolidados', html);
+  });
+}
+
+function pintarPreparados(items) {
+  const html = !items.length ? filaVacia(5, 'Sin lotes preparados registrados.') :
+    items.map(function (p) {
+      const m3 = (p.m3 != null ? p.m3 : (p.volumen != null ? p.volumen : null));
+      return '<tr><td class="dotcell"><span class="rowdot" style="background:#3fae6a;"></span></td>' +
+        '<td>' + (p.lote || '\u2014') + '</td><td>' + (p.cliente || '\u2014') + '</td><td>' + (p.ubicacion || '\u2014') + '</td>' +
+        '<td>' + (m3 != null ? Number(m3).toFixed(1) : '\u2014') + '</td></tr>';
+    }).join('');
+  pintarSiCambio('listPreparados', 'preparados', html);
+}
+
+function pintarNaves(naves) {
+  const firma = JSON.stringify(naves);
+  if (ultimoSnapshot.naves === firma) return;
+  ultimoSnapshot.naves = firma;
+
+  const cont = document.getElementById('listNaves');
+  if (!naves.length) {
+    cont.innerHTML = '<div class="act-empty">Sin naves cargadas todavía.<br>Se agregan desde Herramientas → Metas de nave.</div>';
+    return;
+  }
+
+  // Agrupa por nave; cada cliente mantiene su propio desglose (no se suman entre sí)
+  const porNave = {};
+  naves.forEach(function (n) {
+    if (!porNave[n.nave]) porNave[n.nave] = { nave: n.nave, clientes: [], semana: n.semana || 0 };
+    porNave[n.nave].clientes.push(n);
+    // La semana de la nave: la que traiga cualquiera de sus filas
+    if (!porNave[n.nave].semana && n.semana) porNave[n.nave].semana = n.semana;
+  });
+
+  function filaCliente(n) {
+    const saldo = Math.max(0, n.total - n.consolidados);
+    const pct = n.total > 0 ? Math.min(100, (n.consolidados / n.total) * 100) : 0;
+    const color = pct >= 100 ? '#3fae6a' : (pct >= 60 ? '#e0a52c' : '#17a2a0');
+    return '<div class="nave-client-block">' +
+      '<div class="nave-client-name">' + (n.cliente || 'Sin cliente') + '</div>' +
+      '<div class="nave-bar-bg"><div class="nave-bar-fill" style="width:' + pct.toFixed(0) + '%;background:' + color + ';"></div></div>' +
+      '<div class="nave-stats">' +
+        '<div><div class="n">' + n.consolidados + '</div><div class="l">Consolidados</div></div>' +
+        '<div><div class="n">' + n.total + '</div><div class="l">Total</div></div>' +
+        '<div><div class="n gold">' + saldo + '</div><div class="l">Saldo</div></div>' +
+      '</div>' +
+    '</div>';
+  }
+
+  cont.innerHTML = Object.values(porNave).reverse().map(function (n) {
+    // Chip de semana: WK33. Se resalta en dorado si es la semana en curso.
+    var wk = n.semana
+      ? '<span class="nave-wk' + (n.semana === SEMANA_ACTUAL ? ' actual' : '') + '">WK' + n.semana + '</span>'
+      : '';
+    return '<div class="nave-card">' +
+      '<div class="nave-card-top">' +
+        '<span class="nave-card-name">' + n.nave + '</span>' +
+        '<span class="nave-card-tags">' + wk +
+          '<span class="nave-card-badge">' + n.clientes.length + ' cliente' + (n.clientes.length === 1 ? '' : 's') + '</span>' +
+        '</span>' +
+      '</div>' +
+      n.clientes.map(filaCliente).join('') +
+    '</div>';
+  }).join('');
+}
+
+/* ============================================================
+   VISTA HISTÓRICA
+   Se construye con avanceNaves(), que ya entrega por cada nave:
+   semana, cliente, meta (total), consolidados y saldo.
+   No requiere llamadas extra al backend.
+   ============================================================ */
+let chartHistorico = null;
+let histAutocloseTimer = null;
+let histCuenta = 0;
+
+const HIST_AUTOCLOSE_SEG = 90; // la TV vuelve sola al dashboard
+
+function abrirHistorico() {
+  document.getElementById('histOverlay').classList.add('open');
+  pintarHistorico();
+  iniciarAutocierre();
+}
+
+function cerrarHistorico() {
+  document.getElementById('histOverlay').classList.remove('open');
+  clearInterval(histAutocloseTimer);
+  histAutocloseTimer = null;
+  if (chartHistorico) { chartHistorico.destroy(); chartHistorico = null; }
+}
+
+/* La TV no debe quedarse pegada en el histórico si alguien lo abre y se va.
+   Cualquier toque o movimiento reinicia la cuenta. */
+function iniciarAutocierre() {
+  clearInterval(histAutocloseTimer);
+  histCuenta = HIST_AUTOCLOSE_SEG;
+  const el = document.getElementById('histAutoclose');
+  histAutocloseTimer = setInterval(function () {
+    histCuenta--;
+    el.textContent = 'Vuelve al dashboard en ' + histCuenta + 's';
+    if (histCuenta <= 0) cerrarHistorico();
+  }, 1000);
+  el.textContent = 'Vuelve al dashboard en ' + histCuenta + 's';
+}
+['click', 'touchstart', 'mousemove', 'keydown'].forEach(function (ev) {
+  document.getElementById('histOverlay').addEventListener(ev, function () {
+    if (histAutocloseTimer) { histCuenta = HIST_AUTOCLOSE_SEG; }
+  }, { passive: true });
+});
+
+function pintarHistorico() {
+  const naves = navesCache || [];
+
+  if (!naves.length) {
+    document.getElementById('histNavesBody').innerHTML =
+      filaVacia(8, 'Sin naves cargadas. Se agregan desde Herramientas → Metas de nave.');
+    document.getElementById('histComparativa').innerHTML =
+      '<div class="act-empty">Sin datos para comparar.</div>';
+    return;
+  }
+
+  // ---- Agrupar por semana ----
+  const porSemana = {};
+  naves.forEach(function (n) {
+    const wk = Number(n.semana) || 0;
+    if (!wk) return; // sin semana asignada no entra al histórico
+    if (!porSemana[wk]) porSemana[wk] = { semana: wk, consolidados: 0, meta: 0, naves: {}, filas: 0 };
+    porSemana[wk].consolidados += Number(n.consolidados) || 0;
+    porSemana[wk].meta += Number(n.total) || 0;
+    porSemana[wk].naves[n.nave] = true;
+    porSemana[wk].filas++;   // cada fila es una combinación nave × cliente
+  });
+
+  const semanas = Object.values(porSemana).sort(function (a, b) { return a.semana - b.semana; });
+  const ultimas = semanas.slice(-12); // últimas 12 semanas
+
+  document.getElementById('histSubtitulo').textContent =
+    semanas.length + ' semanas con naves asignadas · semana actual WK' + SEMANA_ACTUAL;
+
+  // ---- Gráfico por semana ----
+  if (chartHistorico) chartHistorico.destroy();
+  chartHistorico = new Chart(document.getElementById('cvsHistorico'), {
+    type: 'bar',
+    data: {
+      labels: ultimas.map(function (s) { return 'WK' + s.semana; }),
+      datasets: [
+        {
+          label: 'Consolidados',
+          data: ultimas.map(function (s) { return s.consolidados; }),
+          backgroundColor: ultimas.map(function (s) {
+            return s.semana === SEMANA_ACTUAL ? '#e0a52c' : '#17a2a0';
+          }),
+          borderRadius: 6, maxBarThickness: 44
+        },
+        {
+          label: 'Meta',
+          data: ultimas.map(function (s) { return s.meta; }),
+          backgroundColor: 'rgba(255,255,255,.10)',
+          borderRadius: 6, maxBarThickness: 44
+        }
+      ]
+    },
+    plugins: [etiquetasValores({ id: 'Cons', omitir: [1], tam: 12 })],
+    options: {
+      maintainAspectRatio: false,
+      layout: { padding: { top: 16 } },
+      plugins: {
+        legend: {
+          display: true, position: 'top',
+          labels: { color: '#7f92a3', boxWidth: 10, font: { size: 11 } }
+        },
+        tooltip: { enabled: true }
+      },
+      scales: {
+        y: { beginAtZero: true, ticks: { color: '#7f92a3', font: { size: 10 } }, grid: { color: 'rgba(255,255,255,.05)' } },
+        x: { ticks: { color: '#7f92a3', font: { size: 11 } }, grid: { display: false } }
+      }
+    }
+  });
+
+  // ---- Comparativa: semana actual vs promedio de las anteriores ----
+  const actual = porSemana[SEMANA_ACTUAL] || { consolidados: 0, meta: 0, naves: {} };
+  const anteriores = semanas.filter(function (s) { return s.semana < SEMANA_ACTUAL; });
+
+  function promedio(campo) {
+    if (!anteriores.length) return 0;
+    const suma = anteriores.reduce(function (a, s) { return a + (s[campo] || 0); }, 0);
+    return suma / anteriores.length;
+  }
+
+  function delta(actualVal, promVal) {
+    if (!promVal) return { txt: '—', cls: 'flat' };
+    const pct = ((actualVal - promVal) / promVal) * 100;
+    const cls = pct > 2 ? 'up' : (pct < -2 ? 'down' : 'flat');
+    const signo = pct > 0 ? '+' : '';
+    return { txt: signo + pct.toFixed(0) + '%', cls: cls };
+  }
+
+  const promCons = promedio('consolidados');
+  const dCons = delta(actual.consolidados, promCons);
+  const cumplActual = actual.meta > 0 ? (actual.consolidados / actual.meta) * 100 : 0;
+  const cumplAnt = anteriores.length
+    ? anteriores.reduce(function (a, s) { return a + (s.meta > 0 ? (s.consolidados / s.meta) * 100 : 0); }, 0) / anteriores.length
+    : 0;
+  const dCumpl = delta(cumplActual, cumplAnt);
+
+  document.getElementById('histComparativa').innerHTML =
+    '<div class="comp-row">' +
+      '<span class="l">WK' + SEMANA_ACTUAL + ' consolidados</span>' +
+      '<span style="display:flex;align-items:center;gap:.6vw;">' +
+        '<span class="v">' + fmt(actual.consolidados) + '</span>' +
+        '<span class="comp-delta ' + dCons.cls + '">' + dCons.txt + '</span>' +
+      '</span>' +
+    '</div>' +
+    '<div class="comp-row">' +
+      '<span class="l">Promedio semanas anteriores</span>' +
+      '<span class="v" style="color:var(--muted);">' + fmt(promCons, 1) + '</span>' +
+    '</div>' +
+    '<div class="comp-row" style="border-top:1px solid var(--card-line);padding-top:1.1vh;">' +
+      '<span class="l">Cumplimiento WK' + SEMANA_ACTUAL + '</span>' +
+      '<span style="display:flex;align-items:center;gap:.6vw;">' +
+        '<span class="v">' + cumplActual.toFixed(0) + '%</span>' +
+        '<span class="comp-delta ' + dCumpl.cls + '">' + dCumpl.txt + '</span>' +
+      '</span>' +
+    '</div>' +
+    '<div class="comp-row">' +
+      '<span class="l">Cumplimiento promedio</span>' +
+      '<span class="v" style="color:var(--muted);">' + cumplAnt.toFixed(0) + '%</span>' +
+    '</div>' +
+    '<div class="comp-row">' +
+      '<span class="l">Naves en WK' + SEMANA_ACTUAL + '</span>' +
+      '<span class="v">' + Object.keys(actual.naves || {}).length +
+        '<small style="font-size:.62vw;color:var(--muted);font-weight:600;margin-left:.3vw;">' +
+        (actual.filas || 0) + ' cliente' + ((actual.filas || 0) === 1 ? '' : 's') + '</small></span>' +
+    '</div>';
+
+  // ---- Bloques nuevos: volumen semanal y récords ----
+  cargarDiasDestacados();
+  cargarVolumenSemanal(ultimas);
+
+  // ---- Tabla de naves por semana (más reciente primero) ----
+  const filas = naves
+    .filter(function (n) { return Number(n.semana) > 0; })
+    .sort(function (a, b) {
+      if (b.semana !== a.semana) return b.semana - a.semana;
+      return String(a.nave).localeCompare(String(b.nave));
+    })
+    .map(function (n) {
+      const total = Number(n.total) || 0;
+      const cons = Number(n.consolidados) || 0;
+      const saldo = Math.max(0, total - cons);
+      const pct = total > 0 ? Math.min(100, (cons / total) * 100) : 0;
+      const color = pct >= 100 ? '#3fae6a' : (pct >= 60 ? '#e0a52c' : '#17a2a0');
+
+      let estado;
+      if (n.semana === SEMANA_ACTUAL && pct < 100) estado = '<span class="pill-curso">En curso</span>';
+      else if (pct >= 100) estado = '<span class="pill-ok">Cumplida</span>';
+      else estado = '<span class="pill-no">' + pct.toFixed(0) + '%</span>';
+
+      const esActual = n.semana === SEMANA_ACTUAL;
+      return '<tr class="' + (esActual ? 'wk-actual' : '') + '">' +
+        '<td><span class="nave-wk' + (esActual ? ' actual' : '') + '">WK' + n.semana + '</span></td>' +
+        '<td style="font-weight:700;">' + (n.nave || '\u2014') + '</td>' +
+        '<td style="color:var(--gold);">' + (n.cliente || '\u2014') + '</td>' +
+        '<td style="font-weight:800;">' + cons + '</td>' +
+        '<td>' + total + '</td>' +
+        '<td style="color:var(--gold);font-weight:700;">' + saldo + '</td>' +
+        '<td><div class="mini-bar-bg"><div class="mini-bar-fill" style="width:' + pct.toFixed(0) + '%;background:' + color + ';"></div></div></td>' +
+        '<td>' + estado + '</td>' +
+      '</tr>';
+    }).join('');
+
+  // Diagnóstico: distinguir "el backend no envía el campo" de
+  // "el campo existe pero está vacío en la hoja".
+  var sinCampoSemana = naves.length > 0 &&
+    !naves.some(function (n) { return Object.prototype.hasOwnProperty.call(n, 'semana'); });
+
+  var msgVacio = sinCampoSemana
+    ? 'El servidor no está enviando el campo <b>semana</b>.<br>' +
+      'La URL del dashboard apunta a un despliegue antiguo de Apps Script.<br>' +
+      'Vuelve a implementar y actualiza URL_GAS en este archivo.'
+    : 'Ninguna nave tiene semana asignada en Metas de nave.<br>' +
+      'Agrega el número de semana en Herramientas → Metas de nave.';
+
+  document.getElementById('histNavesBody').innerHTML =
+    filas || filaVacia(8, msgVacio);
+}
+
+/* =========================================================
+   DÍAS DESTACADOS
+   Analiza día por día del período: cuál rindió más en
+   consolidados, recepciones y volumen, y qué día de la
+   semana rinde mejor en promedio.
+========================================================= */
+async function cargarDiasDestacados() {
+  const cont = document.getElementById('histRecords');
+  try {
+    const hoy = new Date();
+    const inicio = new Date(hoy);
+    inicio.setDate(inicio.getDate() - 8 * 7); // últimas 8 semanas
+
+    const rango = { fechaDesde: fechaISO(inicio), fechaHasta: fechaISO(hoy) };
+
+    const [dEjec, dRecep] = await Promise.all([
+      pedirJSON('dashboardEjecutivo', rango),
+      pedirJSON('informeRecepcion', { filtros: rango }).catch(function () { return null; })
+    ]);
+
+    const dias = (dEjec && dEjec.ok && dEjec.contenedoresPorDia) ? dEjec.contenedoresPorDia : [];
+    if (!dias.length) {
+      cont.innerHTML = '<div class="act-empty">Sin movimiento en el período.</div>';
+      return;
+    }
+
+    // --- Día con más contenedores consolidados ---
+    const mejorDia = dias.reduce(function (a, b) {
+      return (Number(b.total) || 0) > (Number(a.total) || 0) ? b : a;
+    });
+
+    // --- Recepciones agrupadas por día (camiones únicos por patente+fecha) ---
+    const camionesPorDia = {};
+    const m3PorDia = {};
+    if (dRecep && dRecep.ok && Array.isArray(dRecep.detalle)) {
+      const vistos = {};
+      dRecep.detalle.forEach(function (r) {
+        const f = r.fecha;
+        if (!f) return;
+        m3PorDia[f] = (m3PorDia[f] || 0) + (Number(r.m3) || 0);
+        const clave = f + '|' + (r.patente || '') + '|' + (r.cliente || '');
+        if (!vistos[clave]) {
+          vistos[clave] = true;
+          camionesPorDia[f] = (camionesPorDia[f] || 0) + 1;
+        }
+      });
+    }
+
+    const diasCam = Object.keys(camionesPorDia);
+    const mejorRecep = diasCam.length
+      ? diasCam.reduce(function (a, b) { return camionesPorDia[b] > camionesPorDia[a] ? b : a; })
+      : null;
+
+    const diasM3 = Object.keys(m3PorDia);
+    const mejorM3 = diasM3.length
+      ? diasM3.reduce(function (a, b) { return m3PorDia[b] > m3PorDia[a] ? b : a; })
+      : null;
+
+    // --- Promedio diario (solo días con movimiento) ---
+    const conMov = dias.filter(function (d) { return (Number(d.total) || 0) > 0; });
+    const promDiario = conMov.length
+      ? conMov.reduce(function (a, d) { return a + (Number(d.total) || 0); }, 0) / conMov.length
+      : 0;
+
+    // --- Día de la semana más productivo ---
+    const NOMBRES = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+    const porDiaSemana = {};
+    conMov.forEach(function (d) {
+      const p = String(d.fecha).split('-');
+      if (p.length < 3) return;
+      const dow = new Date(Number(p[0]), Number(p[1]) - 1, Number(p[2])).getDay();
+      if (!porDiaSemana[dow]) porDiaSemana[dow] = { suma: 0, n: 0 };
+      porDiaSemana[dow].suma += Number(d.total) || 0;
+      porDiaSemana[dow].n++;
+    });
+    let mejorDow = null, mejorProm = 0;
+    Object.keys(porDiaSemana).forEach(function (k) {
+      const prom = porDiaSemana[k].suma / porDiaSemana[k].n;
+      if (prom > mejorProm) { mejorProm = prom; mejorDow = Number(k); }
+    });
+
+    function fechaCorta(iso) {
+      if (!iso) return '—';
+      const p = String(iso).split('-');
+      if (p.length < 3) return iso;
+      const f = new Date(Number(p[0]), Number(p[1]) - 1, Number(p[2]));
+      return f.toLocaleDateString('es-CL', { day: '2-digit', month: 'short' });
+    }
+    function diaSemanaDe(iso) {
+      if (!iso) return '';
+      const p = String(iso).split('-');
+      if (p.length < 3) return '';
+      return NOMBRES[new Date(Number(p[0]), Number(p[1]) - 1, Number(p[2])).getDay()];
+    }
+
+    function fila(color, bg, icono, label, valor, chip) {
+      return '<div class="rec-row">' +
+        '<div class="rec-ic" style="background:' + bg + ';color:' + color + ';">' + icono + '</div>' +
+        '<div class="rec-txt">' +
+          '<div class="l">' + label + '</div>' +
+          '<div class="v">' + valor + '</div>' +
+        '</div>' +
+        (chip ? '<span class="rec-wk">' + chip + '</span>' : '') +
+      '</div>';
+    }
+
+    cont.innerHTML =
+      fila('#17a2a0', 'rgba(23,162,160,.15)', '📦', 'Día con más consolidados',
+           fmt(mejorDia.total) + '<small>contenedores</small>',
+           fechaCorta(mejorDia.fecha)) +
+      (mejorRecep
+        ? fila('#3fae6a', 'rgba(63,174,106,.15)', '🚚', 'Día con más recepciones',
+               fmt(camionesPorDia[mejorRecep]) + '<small>camiones</small>',
+               fechaCorta(mejorRecep))
+        : '') +
+      (mejorM3
+        ? fila('#e0a52c', 'rgba(224,165,44,.15)', '📐', 'Día con más volumen',
+               fmt(m3PorDia[mejorM3], 1) + '<small>m³ recibidos</small>',
+               fechaCorta(mejorM3))
+        : '') +
+      fila('#7c6cd8', 'rgba(124,108,216,.15)', '📊', 'Promedio por día activo',
+           promDiario.toFixed(1) + '<small>contenedores</small>', null) +
+      (mejorDow !== null
+        ? fila('#d98cc4', 'rgba(217,140,196,.15)', '📅', 'Mejor día de la semana',
+               NOMBRES[mejorDow] + '<small>' + mejorProm.toFixed(1) + ' prom.</small>', null)
+        : '');
+  } catch (e) {
+    console.error('Error cargando días destacados:', e);
+    cont.innerHTML = '<div class="act-empty">No se pudo calcular.</div>';
+  }
+}
+
+/* =========================================================
+   VOLUMEN m³ Y CAMIONES POR SEMANA
+   Requiere una consulta por semana (dashboardEjecutivo), así que
+   solo se hace al abrir el histórico, en paralelo.
+========================================================= */
+let chartHistVolumen = null;
+
+/* Lunes de una semana ISO — para armar el rango de fechas de cada semana */
+/* Plugin reutilizable: dibuja el valor encima de cada barra / punto.
+   Así las cifras se leen en la TV sin pasar el cursor. */
+function etiquetasValores(opts) {
+  var o = opts || {};
+  return {
+    id: 'etiquetasValores' + (o.id || ''),
+    afterDatasetsDraw: function (chart) {
+      var ctx = chart.ctx;
+      chart.data.datasets.forEach(function (dataset, di) {
+        // Permite omitir datasets (ej: las barras grises de "Meta")
+        if (o.omitir && o.omitir.indexOf(di) !== -1) return;
+        var meta = chart.getDatasetMeta(di);
+        if (meta.hidden) return;
+        meta.data.forEach(function (punto, i) {
+          var v = dataset.data[i];
+          if (v == null || v === 0) return;
+          var texto = o.formato ? o.formato(v, di) : String(v);
+          ctx.save();
+          ctx.fillStyle = (o.colores && o.colores[di]) || '#f2f6f9';
+          ctx.font = '800 ' + (o.tam || 11) + 'px "Segoe UI", Arial, sans-serif';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'bottom';
+          ctx.fillText(texto, punto.x, punto.y - 4);
+          ctx.restore();
+        });
+      });
+    }
+  };
+}
+
+function lunesDeSemanaISO(anio, semana) {
+  const d = new Date(anio, 0, 4);
+  const diaSem = d.getDay() || 7;
+  d.setDate(d.getDate() - diaSem + 1);
+  d.setDate(d.getDate() + (semana - 1) * 7);
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
+async function cargarVolumenSemanal(semanas) {
+  const anio = new Date().getFullYear();
+  // Máximo 8 semanas para no saturar Apps Script con consultas
+  const objetivo = semanas.slice(-8);
+
+  try {
+    const resultados = await Promise.all(objetivo.map(function (s) {
+      const lunes = lunesDeSemanaISO(anio, s.semana);
+      const domingo = new Date(lunes);
+      domingo.setDate(domingo.getDate() + 6);
+      return pedirJSON('dashboardEjecutivo', {
+        fechaDesde: fechaISO(lunes),
+        fechaHasta: fechaISO(domingo)
+      }).catch(function () { return null; });
+    }));
+
+    const labels = objetivo.map(function (s) { return 'WK' + s.semana; });
+    const m3 = [], camiones = [];
+
+    resultados.forEach(function (r) {
+      if (!r || !r.ok) { m3.push(0); camiones.push(0); return; }
+      m3.push(Number((r.kpis || {}).m3Movilizados) || 0);
+      const rp = r.recepcionPorCliente || [];
+      camiones.push(rp.reduce(function (a, c) { return a + (Number(c.camiones) || 0); }, 0));
+    });
+
+    if (chartHistVolumen) chartHistVolumen.destroy();
+    chartHistVolumen = new Chart(document.getElementById('cvsHistVolumen'), {
+      data: {
+        labels: labels,
+        datasets: [
+          {
+            type: 'bar',
+            label: 'm³ movilizados',
+            data: m3,
+            backgroundColor: objetivo.map(function (s) {
+              return s.semana === SEMANA_ACTUAL ? '#e0a52c' : 'rgba(63,174,106,.75)';
+            }),
+            borderRadius: 5, maxBarThickness: 34,
+            yAxisID: 'y'
+          },
+          {
+            type: 'line',
+            label: 'Camiones',
+            data: camiones,
+            borderColor: '#7c6cd8',
+            backgroundColor: '#7c6cd8',
+            borderWidth: 2.5,
+            pointRadius: 3,
+            pointBackgroundColor: '#7c6cd8',
+            tension: .3,
+            yAxisID: 'y1'
+          }
+        ]
+      },
+      plugins: [etiquetasValores({
+        id: 'Vol', tam: 10,
+        colores: { 0: '#dff5e8', 1: '#c9c0ff' },
+        formato: function (v, di) {
+          return di === 0 ? Math.round(v).toLocaleString('es-CL') : String(v);
+        }
+      })],
+      options: {
+        maintainAspectRatio: false,
+        layout: { padding: { top: 18 } },
+        plugins: {
+          legend: {
+            display: true, position: 'top',
+            labels: { color: '#7f92a3', boxWidth: 10, font: { size: 10 } }
+          },
+          tooltip: { enabled: true }
+        },
+        scales: {
+          y: {
+            beginAtZero: true, position: 'left',
+            ticks: { color: '#3fae6a', font: { size: 9 } },
+            grid: { color: 'rgba(255,255,255,.05)' }
+          },
+          y1: {
+            beginAtZero: true, position: 'right',
+            ticks: { color: '#7c6cd8', font: { size: 9 }, precision: 0 },
+            grid: { display: false }
+          },
+          x: { ticks: { color: '#7f92a3', font: { size: 10 } }, grid: { display: false } }
+        }
+      }
+    });
+  } catch (e) {
+    console.error('Error cargando volumen semanal:', e);
+  }
+}
+
+/* Cerrar con Escape */
+document.addEventListener('keydown', function (e) {
+  if (e.key === 'Escape') cerrarHistorico();
+});
+
+actualizarTodo();
+setInterval(actualizarTodo, REFRESCO_DATOS_MS);
+</script>
+</body>
+</html>
