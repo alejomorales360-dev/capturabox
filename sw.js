@@ -1,4 +1,4 @@
-const CACHE_NAME = "capturabox-shell-v1";
+const CACHE_NAME = "capturabox-shell-v2";
 const APP_SHELL = [
   "./CAPTURABOX.html",
   "./manifest.json",
