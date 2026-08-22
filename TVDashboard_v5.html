@@ -27,6 +27,21 @@
     color:var(--ink);
     font-family:"Segoe UI",Helvetica,Arial,sans-serif;
   }
+
+  /* Pantalla pensada para horizontal: si el dispositivo queda en
+     vertical (no rota solo), se fuerza el layout horizontal girando
+     todo el documento 90 grados. */
+  @media screen and (orientation: portrait) {
+    html{
+      width:100vh;
+      height:100vw;
+      transform:rotate(90deg);
+      transform-origin:50% 50%;
+      position:absolute;
+      top:calc(50% - 50vw);
+      left:calc(50% - 50vh);
+    }
+  }
   .ic{width:1em;height:1em;display:inline-block;vertical-align:middle;}
 
   .wrap{
