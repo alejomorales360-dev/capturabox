@@ -23503,6 +23503,16 @@ if ("serviceWorker" in navigator) {
       console.error("Error registrando el service worker:", err);
     });
   });
+
+  // Cuando entra en control una versión nueva del service worker,
+  // recarga automáticamente para no quedar mostrando la app vieja
+  // (evita tener que refrescar manualmente dos veces).
+  let swRefrescando = false;
+  navigator.serviceWorker.addEventListener("controllerchange", () => {
+    if (swRefrescando) return;
+    swRefrescando = true;
+    window.location.reload();
+  });
 }
 
 </script>
