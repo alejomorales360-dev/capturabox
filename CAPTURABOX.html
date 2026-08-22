@@ -15,6 +15,9 @@
 <meta name="apple-mobile-web-app-title" content="Capturabox">
 
 <style>
+html {
+  overscroll-behavior-y: contain;   /* evita que "tirar hacia abajo" recargue la app */
+}
 body {
   margin: 0;
   font-family: 'Segoe UI', Arial;
@@ -23,6 +26,7 @@ body {
   max-width: 100vw;
   width: 100%;
   position: relative;
+  overscroll-behavior-y: contain;   /* evita que "tirar hacia abajo" recargue la app */
 }
 /* Red de seguridad: nada mas ancho que la pantalla */
 * { max-width: 100%; }
