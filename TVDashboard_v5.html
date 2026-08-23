@@ -28,19 +28,44 @@
     font-family:"Segoe UI",Helvetica,Arial,sans-serif;
   }
 
-  /* Pantalla pensada para horizontal: si el dispositivo queda en
-     vertical (no rota solo), se fuerza el layout horizontal girando
-     todo el documento 90 grados. */
+  /* Pantalla pensada para horizontal. El layout usa vw/vh en todas
+     sus reglas, y esas unidades no respetan un transform:rotate() en
+     un ancestro (siguen midiendo contra la pantalla física sin
+     rotar), asi que "forzar" la rotacion con CSS termina rompiendo
+     el diseño. En vez de eso, si el dispositivo queda en vertical se
+     oculta el dashboard y se muestra un aviso pidiendo girarlo. */
   @media screen and (orientation: portrait) {
-    html{
-      width:100vh;
-      height:100vw;
-      transform:rotate(90deg);
-      transform-origin:50% 50%;
-      position:absolute;
-      top:calc(50% - 50vw);
-      left:calc(50% - 50vh);
-    }
+    .wrap{ display:none; }
+  }
+  .girar-aviso{
+    display:none;
+    width:100vw;height:100vh;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    gap:2vh;
+    text-align:center;
+    padding:6vw;
+  }
+  @media screen and (orientation: portrait) {
+    .girar-aviso{ display:flex; }
+  }
+  .girar-aviso svg{
+    width:64px;height:64px;
+    color:var(--gold);
+    animation:girar-icono 1.6s ease-in-out infinite;
+  }
+  @keyframes girar-icono{
+    0%,100%{ transform:rotate(0deg); }
+    50%{ transform:rotate(90deg); }
+  }
+  .girar-aviso h2{
+    font-size:1.3rem;
+    color:var(--ink);
+  }
+  .girar-aviso p{
+    color:var(--muted);
+    font-size:.95rem;
   }
   .ic{width:1em;height:1em;display:inline-block;vertical-align:middle;}
 
@@ -275,6 +300,14 @@
 </style>
 </head>
 <body>
+  <div class="girar-aviso">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="5" y="2" width="14" height="20" rx="2"/>
+      <line x1="12" y1="18" x2="12.01" y2="18"/>
+    </svg>
+    <h2>Girá el dispositivo</h2>
+    <p>Esta pantalla está diseñada para verse en horizontal.</p>
+  </div>
   <div class="wrap">
 
     <header>
