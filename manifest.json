@@ -5,7 +5,6 @@
   "start_url": "./CAPTURABOX.html",
   "scope": "./",
   "display": "standalone",
-  "orientation": "portrait",
   "background_color": "#e8ecf0",
   "theme_color": "#0d2b4a",
   "icons": [
