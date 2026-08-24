@@ -3216,7 +3216,7 @@ button:active {
     <button onclick="cerrarResumen()"
             style="background:rgba(255,255,255,.15); color:#fff; border:none;
                    width:34px; height:34px; border-radius:10px; font-size:20px;
-                   font-weight:800; cursor:pointer; line-height:1; padding:0;">&times;</button>
+                   font-weight:800; cursor:pointer; line-height:1; padding:0;display:flex;align-items:center;justify-content:center;">&times;</button>
   </div>
 
   <!-- Cuerpo con scroll SOLO vertical -->
@@ -3776,7 +3776,7 @@ button:active {
     <button onclick="cerrarResumenRecepcion()"
             style="background:rgba(255,255,255,.15); color:#fff; border:none;
                    width:34px; height:34px; border-radius:10px; font-size:20px;
-                   font-weight:800; cursor:pointer; line-height:1; padding:0;">&times;</button>
+                   font-weight:800; cursor:pointer; line-height:1; padding:0;display:flex;align-items:center;justify-content:center;">&times;</button>
   </div>
 
   <!-- Barra de totales -->
@@ -5359,7 +5359,7 @@ function verResumen() {
         '<td style="padding:8px 4px; text-align:center;">' + (tieneDanio ? '<span style="color:#c62828; font-size:13px;">&#9888;</span>' : '') + '</td>' +
         '<td style="padding:8px 4px; text-align:center;">' +
           '<span onclick="eliminarLoteRecepcion(' + index + ')" ' +
-          'style="cursor:pointer; color:#e53935; font-size:17px; font-weight:900; display:inline-block; width:26px; line-height:1;">&times;</span>' +
+          'style="cursor:pointer; color:#e53935; font-size:17px; font-weight:900; display:inline-flex; width:26px; height:26px; align-items:center; justify-content:center; line-height:1;">&times;</span>' +
         '</td>' +
       '</tr>';
   });
@@ -6986,7 +6986,7 @@ function rc_abrirReporte() {
         '<div style="font-size:16px;font-weight:800;">📊 Reporte Recepción</div>' +
         '<button onclick="document.getElementById(\'rcReporteModal\').remove()" ' +
           'style="background:rgba(255,255,255,.15);color:#fff;border:none;width:30px;height:30px;' +
-          'border-radius:8px;font-size:18px;font-weight:800;cursor:pointer;">&times;</button>' +
+          'border-radius:8px;font-size:18px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;">&times;</button>' +
       '</div>' +
       '<div style="padding:18px;">' +
         '<div style="font-size:11px;font-weight:800;color:#7a8b95;margin-bottom:4px;">DESDE</div>' +
@@ -8058,7 +8058,7 @@ async function renderTablaLotesRecepcion() {
         '<td style="padding:8px 4px; text-align:center;">' + (tieneDanio ? '<span style="color:#c62828; font-size:13px;">&#9888;</span>' : '') + '</td>' +
         '<td style="padding:8px 4px; text-align:center;">' +
           '<span onclick="eliminarLoteDesdePantalla(' + i + ')" ' +
-          'style="cursor:pointer; color:#e53935; font-size:17px; font-weight:900; display:inline-block; width:26px; line-height:1;">&times;</span>' +
+          'style="cursor:pointer; color:#e53935; font-size:17px; font-weight:900; display:inline-flex; width:26px; height:26px; align-items:center; justify-content:center; line-height:1;">&times;</span>' +
         '</td>' +
       '</tr>';
   });
@@ -12455,7 +12455,7 @@ function mostrarResumenLotes() {
             (index % 2 ? '#f7f9fb' : '#fff') + ';">' +
             '<span onclick="eliminarLote(' + index + ')" title="Eliminar" ' +
             'style="cursor:pointer; color:#e53935; font-size:17px; font-weight:900; ' +
-            'display:inline-block; width:26px; line-height:1;">&times;</span>' +
+            'display:inline-flex; width:26px; height:26px; align-items:center; justify-content:center; line-height:1;">&times;</span>' +
           '</td>' +
         '</tr>';
     });
@@ -14312,7 +14312,7 @@ function mostrarModalForm(titulo, htmlContenido, onConfirmar) {
         '<div style="font-size:16px;font-weight:800;">' + titulo + '</div>' +
         '<button onclick="document.getElementById(\'adminModalForm\').remove()" ' +
           'style="background:rgba(255,255,255,.15);color:#fff;border:none;width:30px;height:30px;' +
-          'border-radius:8px;font-size:18px;font-weight:800;cursor:pointer;line-height:1;">&times;</button>' +
+          'border-radius:8px;font-size:18px;font-weight:800;cursor:pointer;line-height:1;display:flex;align-items:center;justify-content:center;">&times;</button>' +
       '</div>' +
       '<div style="padding:18px 18px 4px;">' + htmlContenido + '</div>' +
       '<div style="padding:12px 18px 18px;display:flex;gap:10px;">' +
@@ -15411,7 +15411,7 @@ function prep_armarYMostrarPackingList(entrega, cliente) {
         '<div style="font-size:15px;font-weight:800;">Packing list \u2014 Entrega ' + entrega + '</div>' +
         '<button onclick="document.getElementById(\'prepPackingListModal\').remove()" ' +
           'style="background:rgba(255,255,255,.15);color:#fff;border:none;width:28px;height:28px;' +
-          'border-radius:7px;font-size:16px;font-weight:800;cursor:pointer;">&times;</button>' +
+          'border-radius:7px;font-size:16px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;">&times;</button>' +
       '</div>' +
       '<div style="padding:14px 16px;">' +
         '<table style="width:100%;border-collapse:collapse;font-size:12.5px;">' +
@@ -16529,7 +16529,7 @@ function metasNave_pintarModal(metas) {
       '<div style="background:#0b3c5d;color:#fff;padding:14px 16px;border-radius:14px 14px 0 0;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;">' +
         '<div style="font-size:15px;font-weight:800;">Metas de nave (para el TV)</div>' +
         '<button onclick="document.getElementById(\'metasNaveModal\').remove()" ' +
-          'style="background:rgba(255,255,255,.15);color:#fff;border:none;width:28px;height:28px;border-radius:7px;font-size:16px;font-weight:800;cursor:pointer;">&times;</button>' +
+          'style="background:rgba(255,255,255,.15);color:#fff;border:none;width:28px;height:28px;border-radius:7px;font-size:16px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;">&times;</button>' +
       '</div>' +
       '<div style="padding:14px 16px;">' +
         '<div style="font-size:12px;color:#7a8b95;margin-bottom:12px;">' +
@@ -17101,7 +17101,7 @@ function trazar_mostrar(data) {
         '</div>' +
         '<button onclick="document.getElementById(\'trazarModal\').remove()" ' +
           'style="background:rgba(255,255,255,.2);color:#fff;border:none;width:30px;height:30px;' +
-          'border-radius:8px;font-size:18px;font-weight:800;cursor:pointer;">&times;</button>' +
+          'border-radius:8px;font-size:18px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;">&times;</button>' +
       '</div>' +
       '<div style="padding:14px 16px;max-height:70vh;overflow-y:auto;">' +
         maestroHtml + stockHtml + timelineHtml +
@@ -17362,7 +17362,7 @@ function infGen_mostrar(data) {
             'border-radius:8px;padding:8px 14px;font-size:12px;font-weight:700;cursor:pointer;backdrop-filter:blur(4px);">🖨️ Imprimir</button>' +
           '<button onclick="document.getElementById(\'infGenModal\').remove()" ' +
             'style="background:rgba(255,255,255,.2);color:#fff;border:none;width:32px;height:32px;' +
-            'border-radius:8px;font-size:18px;font-weight:800;cursor:pointer;">&times;</button>' +
+            'border-radius:8px;font-size:18px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;">&times;</button>' +
         '</div>' +
       '</div>' +
       '<div style="padding:16px 18px;max-height:75vh;overflow-y:auto;" id="infGenBody">' +
@@ -20265,7 +20265,7 @@ async function cb_verDescuadres() {
           '</div>' +
           '<button onclick="document.getElementById(\'cbDescuadresModal\').remove()" ' +
             'style="background:rgba(255,255,255,.2);color:#fff;border:none;width:30px;height:30px;' +
-            'border-radius:8px;font-size:18px;font-weight:800;cursor:pointer;">&times;</button>' +
+            'border-radius:8px;font-size:18px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;">&times;</button>' +
         '</div>' +
         '<div style="padding:14px 16px;">' +
           '<div style="max-height:60vh;overflow:auto;">' +
@@ -20341,7 +20341,7 @@ async function cb_verPendientesRecepcion() {
           '</div>' +
           '<button onclick="document.getElementById(\'cbPendientesModal\').remove()" ' +
             'style="background:rgba(255,255,255,.2);color:#fff;border:none;width:30px;height:30px;' +
-            'border-radius:8px;font-size:18px;font-weight:800;cursor:pointer;">&times;</button>' +
+            'border-radius:8px;font-size:18px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;">&times;</button>' +
         '</div>' +
         '<div style="padding:14px 16px;">' +
           '<div style="max-height:60vh;overflow:auto;">' +
@@ -22225,7 +22225,7 @@ function bo_bloqueFotos(det) {
                 '<a href="' + url + '" target="_blank" rel="noopener" style="color:#0b3c5d;text-decoration:none;font-weight:700;">Foto ' + (j + 1) + '</a>' +
                 '<button onclick="bo_eliminarFoto(' + i + ',\'' + url.replace(/'/g, "\\'") + '\')" ' +
                   'style="background:#c62828;color:#fff;border:none;border-radius:5px;width:18px;height:18px;' +
-                  'font-size:11px;font-weight:800;cursor:pointer;line-height:1;">&times;</button></span>';
+                  'font-size:11px;font-weight:800;cursor:pointer;line-height:1;display:flex;align-items:center;justify-content:center;">&times;</button></span>';
             }).join('')
           : '<span style="font-size:11px;color:#94a3ad;">Sin fotos.</span>') +
       '</div>' +
