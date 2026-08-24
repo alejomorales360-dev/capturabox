@@ -2030,13 +2030,21 @@ button:active {
 
   <div class="dbCatAcc" id="dbCatHerramientas" style="border-left-color:#c9a24b;">
     <div class="dbCatHead" onclick="dbCat_toggle('dbCatHerramientas')">
-      <div><div class="dbCatHeadTxt">Herramientas</div><div class="dbCatHeadSub">Buscar Operación · Cargar Bases · Metas de nave</div></div>
+      <div><div class="dbCatHeadTxt">Herramientas</div><div class="dbCatHeadSub">Buscar Operación · Portería · Cargar Bases · Metas de nave</div></div>
       <span class="dbCatFlecha" style="transform:rotate(-90deg);">&#9662;</span>
     </div>
     <div class="dbCatBody" style="display:none;">
       <div class="dbModRow" data-permiso="BUSCAR_OPERACION" onclick="abrirBuscadorOperaciones()">
         <span class="dbModRowDot" style="background:#c9a24b;"></span>
         <span class="dbModRowTxt">Buscar Operación</span><span class="dbModRowArrow">&#8250;</span>
+      </div>
+      <div class="dbModRow" data-permiso="PORTERIA" onclick="porteria_abrir()">
+        <span class="dbModRowDot" style="background:#c9a24b;"></span>
+        <span class="dbModRowTxt">Portería (registrar ingreso)</span><span class="dbModRowArrow">&#8250;</span>
+      </div>
+      <div class="dbModRow" data-permiso="PORTERIA_INFORME" onclick="porteria_abrirInforme()">
+        <span class="dbModRowDot" style="background:#c9a24b;"></span>
+        <span class="dbModRowTxt">Informe de Portería</span><span class="dbModRowArrow">&#8250;</span>
       </div>
       <div class="dbModRow" data-permiso="CARGAR_BASES" onclick="abrirCargaBases()">
         <span class="dbModRowDot" style="background:#c9a24b;"></span>
@@ -17110,6 +17118,294 @@ function trazar_mostrar(data) {
     '</div>';
 
   document.body.appendChild(el);
+}
+
+/* =========================================================
+   PORTERÍA (Herramientas)
+   Registro de movimientos físicos de contenedores en la
+   entrada del recinto: ingresos normales, devoluciones y
+   falsos fletes (contenedor que sale y debe volver, se
+   registra aparte para el pago al transportista).
+========================================================= */
+function porteria_abrir() {
+  var contenido =
+    '<div style="display:flex; flex-direction:column; gap:12px; padding:4px 0;">' +
+
+    '<div><div style="font-size:11px; font-weight:800; color:#7a8b95; margin-bottom:4px;">TIPO DE MOVIMIENTO</div>' +
+    '<select id="porteria_tipo" class="rcFormInput" style="padding:10px 12px;" onchange="porteria_onTipoChange()">' +
+      '<option value="INGRESO">Ingreso normal</option>' +
+      '<option value="DEVOLUCION">Devolución</option>' +
+      '<option value="FALSO_FLETE">Falso flete</option>' +
+    '</select></div>' +
+
+    '<div><div style="font-size:11px; font-weight:800; color:#7a8b95; margin-bottom:4px;">N° DE CONTENEDOR</div>' +
+    '<div style="display:flex; gap:8px;">' +
+      '<input id="porteria_contenedor" class="rcFormInput" placeholder="Ej: MSCU1234567" ' +
+        'style="padding:10px 12px; flex:1;" autocapitalize="characters" oninput="this.value=this.value.toUpperCase();">' +
+      '<button id="porteria_btnBuscar" onclick="porteria_buscarDespacho()" style="display:none; flex-shrink:0; width:auto; margin-top:0; ' +
+        'background:#0b3c5d; color:#fff; border:none; border-radius:10px; padding:0 14px; font-size:12px; font-weight:800; cursor:pointer; white-space:nowrap;">Buscar</button>' +
+    '</div></div>' +
+
+    '<div id="porteria_despachoInfo" style="display:none; background:#f4f7f9; border-radius:8px; padding:10px 12px; font-size:12px; color:#1c2b36;"></div>' +
+
+    '<div><div style="font-size:11px; font-weight:800; color:#7a8b95; margin-bottom:4px;">TRANSPORTISTA</div>' +
+    '<input id="porteria_transportista" class="rcFormInput" placeholder="Empresa de transporte" style="padding:10px 12px;"></div>' +
+
+    '<div style="display:flex; gap:10px;">' +
+      '<div style="flex:1;"><div style="font-size:11px; font-weight:800; color:#7a8b95; margin-bottom:4px;">PATENTE</div>' +
+      '<input id="porteria_patente" class="rcFormInput" placeholder="Ej: ABCD12" style="padding:10px 12px;" autocapitalize="characters" oninput="this.value=this.value.toUpperCase();"></div>' +
+      '<div style="flex:1;"><div style="font-size:11px; font-weight:800; color:#7a8b95; margin-bottom:4px;">CHOFER (opcional)</div>' +
+      '<input id="porteria_chofer" class="rcFormInput" placeholder="Nombre" style="padding:10px 12px;"></div>' +
+    '</div>' +
+
+    '<div><div id="porteria_lblProcedencia" style="font-size:11px; font-weight:800; color:#7a8b95; margin-bottom:4px;">PROCEDENCIA</div>' +
+    '<input id="porteria_procedencia" class="rcFormInput" placeholder="¿De dónde llega?" style="padding:10px 12px;"></div>' +
+
+    '<div><div id="porteria_lblDestino" style="font-size:11px; font-weight:800; color:#7a8b95; margin-bottom:4px;">DESTINO EN BODEGA</div>' +
+    '<input id="porteria_destino" class="rcFormInput" placeholder="Ej: Bodega 2 / Patio" style="padding:10px 12px;"></div>' +
+
+    '<div id="porteria_motivoWrap" style="display:none;"><div style="font-size:11px; font-weight:800; color:#c62828; margin-bottom:4px;">MOTIVO DEL FALSO FLETE</div>' +
+    '<textarea id="porteria_motivo" class="rcFormInput" placeholder="Ej: cliente rechazó recepción, dirección incorrecta, etc." style="padding:10px 12px; min-height:60px; resize:vertical;"></textarea></div>' +
+
+    '<div><div style="font-size:11px; font-weight:800; color:#7a8b95; margin-bottom:4px;">OBSERVACIONES (opcional)</div>' +
+    '<textarea id="porteria_obs" class="rcFormInput" placeholder="Notas adicionales" style="padding:10px 12px; min-height:44px; resize:vertical;"></textarea></div>' +
+
+    '</div>';
+
+  mostrarModalForm('Registrar movimiento', contenido, porteria_registrar);
+  porteria_onTipoChange();
+}
+
+function porteria_onTipoChange() {
+  var tipo = (document.getElementById('porteria_tipo') || {}).value || 'INGRESO';
+  var btnBuscar = document.getElementById('porteria_btnBuscar');
+  var motivoWrap = document.getElementById('porteria_motivoWrap');
+  var lblProcedencia = document.getElementById('porteria_lblProcedencia');
+  var lblDestino = document.getElementById('porteria_lblDestino');
+  var despachoInfo = document.getElementById('porteria_despachoInfo');
+
+  var esVuelta = (tipo === 'DEVOLUCION' || tipo === 'FALSO_FLETE');
+  if (btnBuscar) btnBuscar.style.display = esVuelta ? '' : 'none';
+  if (motivoWrap) motivoWrap.style.display = (tipo === 'FALSO_FLETE') ? '' : 'none';
+  if (despachoInfo && !esVuelta) despachoInfo.style.display = 'none';
+
+  if (lblProcedencia) lblProcedencia.textContent = esVuelta ? 'CLIENTE / DESTINO ORIGINAL' : 'PROCEDENCIA';
+  if (lblDestino) lblDestino.textContent = esVuelta ? 'UBICACIÓN DE DESTINO EN BODEGA' : 'DESTINO EN BODEGA';
+}
+
+async function porteria_buscarDespacho() {
+  var contenedor = String((document.getElementById('porteria_contenedor') || {}).value || '').trim();
+  if (!contenedor) { mostrarAlerta('Falta el contenedor', 'Escribe el número de contenedor para buscar su despacho.'); return; }
+
+  var despachoInfo = document.getElementById('porteria_despachoInfo');
+  mostrarCargando('Buscando despacho de ' + contenedor + '...');
+  try {
+    var res = await fetch(URL_GAS, { method: 'POST', body: JSON.stringify({ accion: 'porteriaBuscarDespacho', contenedor: contenedor }) });
+    var data = await res.json();
+    ocultarCargando();
+
+    if (!data.ok || !data.encontrado) {
+      if (despachoInfo) {
+        despachoInfo.style.display = '';
+        despachoInfo.innerHTML = '<span style="color:#c62828;">No se encontró un despacho registrado para este contenedor. Puedes completar los datos manualmente.</span>';
+      }
+      return;
+    }
+
+    var d = data.despacho || {};
+    if (despachoInfo) {
+      despachoInfo.style.display = '';
+      despachoInfo.innerHTML =
+        '<div style="font-size:10px; font-weight:800; color:#11a06b; letter-spacing:.05em; text-transform:uppercase; margin-bottom:4px;">Despacho encontrado</div>' +
+        (d.cliente ? '<b>Cliente:</b> ' + d.cliente + '<br>' : '') +
+        (d.destino ? '<b>Destino:</b> ' + d.destino + '<br>' : '') +
+        (d.fecha ? '<b>Fecha despacho:</b> ' + d.fecha + '<br>' : '') +
+        (d.patente ? '<b>Patente:</b> ' + d.patente : '');
+    }
+
+    var elProc = document.getElementById('porteria_procedencia');
+    var elTransp = document.getElementById('porteria_transportista');
+    var elPatente = document.getElementById('porteria_patente');
+    if (elProc && !elProc.value) elProc.value = [d.cliente, d.destino].filter(Boolean).join(' - ');
+    if (elTransp && !elTransp.value && d.transportista) elTransp.value = d.transportista;
+    if (elPatente && !elPatente.value && d.patente) elPatente.value = d.patente;
+  } catch (e) {
+    ocultarCargando();
+    mostrarAlerta('❌ Error', 'Sin conexión al buscar el despacho.');
+  }
+}
+
+async function porteria_registrar() {
+  var tipo = (document.getElementById('porteria_tipo') || {}).value || 'INGRESO';
+  var contenedor = String((document.getElementById('porteria_contenedor') || {}).value || '').trim();
+  var transportista = String((document.getElementById('porteria_transportista') || {}).value || '').trim();
+  var patente = String((document.getElementById('porteria_patente') || {}).value || '').trim();
+  var chofer = String((document.getElementById('porteria_chofer') || {}).value || '').trim();
+  var procedencia = String((document.getElementById('porteria_procedencia') || {}).value || '').trim();
+  var destino = String((document.getElementById('porteria_destino') || {}).value || '').trim();
+  var motivo = String((document.getElementById('porteria_motivo') || {}).value || '').trim();
+  var obs = String((document.getElementById('porteria_obs') || {}).value || '').trim();
+
+  if (!contenedor) { mostrarAlerta('⚠️ Faltan datos', 'El número de contenedor es obligatorio.'); return false; }
+  if (!transportista || !patente) { mostrarAlerta('⚠️ Faltan datos', 'El transportista y la patente son obligatorios.'); return false; }
+  if (tipo === 'FALSO_FLETE' && !motivo) { mostrarAlerta('⚠️ Falta el motivo', 'Indica el motivo del falso flete (se usa para el pago al transportista).'); return false; }
+
+  try {
+    var res = await fetch(URL_GAS, { method: 'POST', body: JSON.stringify({
+      accion: 'registrarMovimientoPorteria',
+      tipo: tipo, contenedor: contenedor, transportista: transportista, patente: patente,
+      chofer: chofer, procedencia: procedencia, destino: destino, motivo: motivo, observaciones: obs,
+      usuario: localStorage.getItem('usuario') || ''
+    }) });
+    var data = await res.json();
+    if (data.ok) { mostrarAlerta('✅ Registrado', 'El movimiento de portería quedó registrado.'); return true; }
+    mostrarAlerta('❌ Error', data.msg || 'No se pudo registrar.'); return false;
+  } catch (e) {
+    mostrarAlerta('❌ Sin conexión', e.message); return false;
+  }
+}
+
+function porteria_abrirInforme() {
+  var contenido =
+    '<div style="display:flex; gap:10px;">' +
+      '<div style="flex:1;"><label style="font-size:11px;font-weight:700;color:#5a6b77;">DESDE</label>' +
+        '<input id="porteriaInf_desde" type="date" style="width:100%;margin-top:4px;padding:10px;border:1.5px solid #cfd8dc;border-radius:10px;font-size:14px;box-sizing:border-box;"></div>' +
+      '<div style="flex:1;"><label style="font-size:11px;font-weight:700;color:#5a6b77;">HASTA</label>' +
+        '<input id="porteriaInf_hasta" type="date" style="width:100%;margin-top:4px;padding:10px;border:1.5px solid #cfd8dc;border-radius:10px;font-size:14px;box-sizing:border-box;"></div>' +
+    '</div>' +
+    '<div style="margin-top:10px;"><label style="font-size:11px;font-weight:700;color:#5a6b77;">TIPO</label>' +
+      '<select id="porteriaInf_tipo" class="rcFormInput" style="width:100%;margin-top:4px;padding:10px;">' +
+        '<option value="">Todos</option>' +
+        '<option value="INGRESO">Ingreso normal</option>' +
+        '<option value="DEVOLUCION">Devolución</option>' +
+        '<option value="FALSO_FLETE">Falso flete</option>' +
+      '</select></div>';
+
+  mostrarModalForm('Informe de Portería', contenido, porteriaInf_generar);
+  var btn = document.getElementById('adminModalConfirmar');
+  if (btn) btn.textContent = 'Generar informe';
+}
+
+var porteriaInf_ultimo = null;
+
+async function porteriaInf_generar() {
+  var desde = (document.getElementById('porteriaInf_desde') || {}).value;
+  var hasta = (document.getElementById('porteriaInf_hasta') || {}).value;
+  var tipo = (document.getElementById('porteriaInf_tipo') || {}).value;
+
+  mostrarCargando('Generando informe de portería...');
+  try {
+    var res = await fetch(URL_GAS, { method: 'POST', body: JSON.stringify({
+      accion: 'listarMovimientosPorteria', fechaDesde: desde || '', fechaHasta: hasta || '', tipo: tipo || ''
+    }) });
+    var data = await res.json();
+    ocultarCargando();
+    if (!data.ok) { mostrarAlerta('❌ Error', data.msg || 'No se pudo generar.'); return false; }
+    porteriaInf_mostrar(data);
+    return true;
+  } catch (e) {
+    ocultarCargando();
+    mostrarAlerta('❌ Error', 'Sin conexión.');
+    return false;
+  }
+}
+
+function porteriaInf_mostrar(data) {
+  var prev = document.getElementById('porteriaInfModal');
+  if (prev) prev.remove();
+
+  var movs = data.movimientos || [];
+  porteriaInf_ultimo = movs;
+
+  var nombres = { INGRESO: 'Ingreso normal', DEVOLUCION: 'Devolución', FALSO_FLETE: 'Falso flete' };
+  var colores = { INGRESO: '#11a06b', DEVOLUCION: '#1b6ca8', FALSO_FLETE: '#c62828' };
+
+  var totales = { INGRESO: 0, DEVOLUCION: 0, FALSO_FLETE: 0 };
+  movs.forEach(function (m) { if (totales[m.tipo] !== undefined) totales[m.tipo]++; });
+
+  var kpisHtml = '<div style="display:flex;flex-wrap:wrap;margin-bottom:12px;">' +
+    ['INGRESO', 'DEVOLUCION', 'FALSO_FLETE'].map(function (t) {
+      return '<div style="flex:1;min-width:90px;text-align:center;padding:8px 4px;">' +
+        '<div style="font-size:20px;font-weight:800;color:' + colores[t] + ';">' + totales[t] + '</div>' +
+        '<div style="font-size:9px;color:#7a8b95;letter-spacing:.04em;text-transform:uppercase;">' + nombres[t] + '</div></div>';
+    }).join('') + '</div>';
+
+  var filasHtml = '';
+  if (movs.length) {
+    filasHtml = '<div style="overflow-x:auto;-webkit-overflow-scrolling:touch;">' +
+      '<table style="width:100%;border-collapse:collapse;font-size:11px;min-width:560px;">' +
+      '<thead><tr>' +
+      ['Fecha', 'Contenedor', 'Tipo', 'Transportista', 'Patente', 'Procedencia', 'Destino', 'Motivo', 'Registró'].map(function (h) {
+        return '<th style="padding:5px 8px;text-align:left;font-size:10px;color:#7a8b95;border-bottom:2px solid #e6ebee;white-space:nowrap;letter-spacing:.03em;text-transform:uppercase;">' + h + '</th>';
+      }).join('') + '</tr></thead><tbody>' +
+      movs.map(function (m, i) {
+        var fecha = m.fecha ? new Date(m.fecha).toLocaleString('es-CL', { hour12: false }) : '—';
+        var col = colores[m.tipo] || '#5a6b77';
+        return '<tr style="background:' + (i % 2 ? '#fafbfc' : '#fff') + ';">' +
+          '<td style="padding:5px 8px;border-bottom:1px solid #f0f3f5;white-space:nowrap;">' + fecha + '</td>' +
+          '<td style="padding:5px 8px;border-bottom:1px solid #f0f3f5;font-weight:700;color:#0b3c5d;">' + (m.contenedor || '—') + '</td>' +
+          '<td style="padding:5px 8px;border-bottom:1px solid #f0f3f5;color:' + col + ';font-weight:700;">' + (nombres[m.tipo] || m.tipo) + '</td>' +
+          '<td style="padding:5px 8px;border-bottom:1px solid #f0f3f5;">' + (m.transportista || '—') + '</td>' +
+          '<td style="padding:5px 8px;border-bottom:1px solid #f0f3f5;">' + (m.patente || '—') + '</td>' +
+          '<td style="padding:5px 8px;border-bottom:1px solid #f0f3f5;">' + (m.procedencia || '—') + '</td>' +
+          '<td style="padding:5px 8px;border-bottom:1px solid #f0f3f5;">' + (m.destino || '—') + '</td>' +
+          '<td style="padding:5px 8px;border-bottom:1px solid #f0f3f5;">' + (m.motivo || '—') + '</td>' +
+          '<td style="padding:5px 8px;border-bottom:1px solid #f0f3f5;">' + (m.usuario || '—') + '</td>' +
+          '</tr>';
+      }).join('') + '</tbody></table></div>';
+  } else {
+    filasHtml = '<div style="text-align:center;color:#7a8b95;padding:20px;">No hay movimientos para el período seleccionado.</div>';
+  }
+
+  var el = document.createElement('div');
+  el.id = 'porteriaInfModal';
+  el.style.cssText = 'position:fixed;inset:0;width:100vw;height:100vh;overflow-y:auto;' +
+    'background:rgba(0,0,0,.55);display:flex;align-items:flex-start;justify-content:center;' +
+    'z-index:1000000;padding:16px;box-sizing:border-box;';
+
+  el.innerHTML =
+    '<div style="background:#fff;border-radius:16px;width:100%;max-width:900px;margin-top:8px;">' +
+      '<div style="background:#0b3c5d;color:#fff;padding:14px 16px;border-radius:16px 16px 0 0;' +
+           'display:flex;justify-content:space-between;align-items:center;">' +
+        '<div style="font-size:18px;font-weight:800;">🚧 Informe de Portería</div>' +
+        '<button onclick="document.getElementById(\'porteriaInfModal\').remove()" ' +
+          'style="background:rgba(255,255,255,.2);color:#fff;border:none;width:30px;height:30px;' +
+          'border-radius:8px;font-size:18px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;">&times;</button>' +
+      '</div>' +
+      '<div style="padding:14px 16px;max-height:70vh;overflow-y:auto;">' +
+        kpisHtml + filasHtml +
+      '</div>' +
+      '<div style="padding:0 16px 14px;display:flex;gap:10px;">' +
+        '<button onclick="porteriaInf_exportar()" ' +
+          'style="flex:1;background:#11a06b;color:#fff;border:none;border-radius:11px;' +
+          'padding:12px;font-weight:800;cursor:pointer;">Exportar a Excel</button>' +
+        '<button onclick="document.getElementById(\'porteriaInfModal\').remove()" ' +
+          'style="flex:1;background:#eef2f5;color:#444;border:none;border-radius:11px;' +
+          'padding:12px;font-weight:800;cursor:pointer;">Cerrar</button>' +
+      '</div>' +
+    '</div>';
+
+  document.body.appendChild(el);
+}
+
+function porteriaInf_exportar() {
+  if (!porteriaInf_ultimo || !porteriaInf_ultimo.length) { mostrarAlerta('Sin datos', 'No hay movimientos para exportar.'); return; }
+
+  var nombres = { INGRESO: 'Ingreso normal', DEVOLUCION: 'Devolución', FALSO_FLETE: 'Falso flete' };
+  var filas = porteriaInf_ultimo.map(function (m) {
+    return {
+      Fecha: m.fecha ? new Date(m.fecha).toLocaleString('es-CL', { hour12: false }) : '',
+      Contenedor: m.contenedor || '', Tipo: nombres[m.tipo] || m.tipo,
+      Transportista: m.transportista || '', Patente: m.patente || '', Chofer: m.chofer || '',
+      Procedencia: m.procedencia || '', Destino: m.destino || '', Motivo: m.motivo || '',
+      Observaciones: m.observaciones || '', 'Registró': m.usuario || ''
+    };
+  });
+
+  var wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(filas), 'Portería');
+  var fecha = new Date().toISOString().slice(0, 10);
+  XLSX.writeFile(wb, 'Porteria_' + fecha + '.xlsx');
 }
 
 /* =========================================================
