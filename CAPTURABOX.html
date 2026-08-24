@@ -17133,7 +17133,7 @@ function trazar_mostrar(data) {
    este último se registra aparte para el pago al transportista).
 ========================================================= */
 
-var gc_catalogos = { camiones: [], choferes: [], destinos: [] };
+var gc_catalogos = { camiones: [], choferes: [], destinos: [], clientes: [] };
 var gc_catalogosCargados = false;
 var gc_fotos = [];
 
@@ -17146,6 +17146,7 @@ async function gc_cargarCatalogos(forzar) {
       gc_catalogos.camiones = data.camiones || [];
       gc_catalogos.choferes = data.choferes || [];
       gc_catalogos.destinos = data.destinos || [];
+      gc_catalogos.clientes = data.clientes || [];
       gc_catalogosCargados = true;
     }
   } catch (e) { /* sin conexión: se usan los catálogos ya cargados (o vacíos) */ }
@@ -17181,6 +17182,16 @@ function gc_htmlSelectDestinos(valorActual) {
   return html;
 }
 
+function gc_htmlSelectClientes(valorActual) {
+  var html = '<option value="">Seleccionar cliente...</option>';
+  gc_catalogos.clientes.forEach(function (n) {
+    var sel = (n === valorActual) ? ' selected' : '';
+    html += '<option value="' + n + '"' + sel + '>' + n + '</option>';
+  });
+  html += '<option value="__nuevo__">+ Agregar cliente nuevo...</option>';
+  return html;
+}
+
 async function gc_abrir() {
   mostrarCargando('Cargando datos de Gate Control...');
   await gc_cargarCatalogos();
@@ -17189,6 +17200,10 @@ async function gc_abrir() {
 
   var contenido =
     '<div style="display:flex; flex-direction:column; gap:12px; padding:4px 0;">' +
+
+    '<div><div style="font-size:11px; font-weight:800; color:#7a8b95; margin-bottom:4px;">FECHA DEL MOVIMIENTO</div>' +
+    '<input id="gc_fecha" type="date" class="rcFormInput" value="' + _fechaHoyLocal() + '" style="padding:10px 12px;">' +
+    '<div style="font-size:10px; color:#7a8b95; margin-top:4px;">Es hoy por defecto; cámbiala si el movimiento fue de otro día.</div></div>' +
 
     '<div><div style="font-size:11px; font-weight:800; color:#7a8b95; margin-bottom:4px;">TIPO DE MOVIMIENTO</div>' +
     '<select id="gc_tipo" class="rcFormInput" style="padding:10px 12px;" onchange="gc_onTipoChange()">' +
@@ -17226,6 +17241,10 @@ async function gc_abrir() {
         gc_htmlSelectChoferes() + '</select>' +
       '<div id="gc_choferRutDisplay" style="font-size:11px;color:#7a8b95;margin-top:4px;">—</div></div>' +
     '</div>' +
+
+    '<div><div style="font-size:11px; font-weight:800; color:#7a8b95; margin-bottom:4px;">CLIENTE</div>' +
+    '<select id="gc_cliente" class="rcFormInput" style="padding:10px 12px;" onchange="gc_onSelectCatalogo(\'gc_cliente\',\'cliente\')">' +
+      gc_htmlSelectClientes() + '</select></div>' +
 
     '<div><div id="gc_lblProcedencia" style="font-size:11px; font-weight:800; color:#7a8b95; margin-bottom:4px;">PROCEDENCIA</div>' +
     '<select id="gc_procedencia" class="rcFormInput" style="padding:10px 12px;" onchange="gc_onSelectCatalogo(\'gc_procedencia\',\'destino\')">' +
@@ -17280,9 +17299,10 @@ function gc_onTipoChange() {
   if (guiaWrap) guiaWrap.style.display = (tipo === 'DESPACHO') ? '' : 'none';
   if (despachoInfo && !usaDespacho) despachoInfo.style.display = 'none';
 
-  if (lblProcedencia) lblProcedencia.textContent = (tipo === 'RECEPCION') ? 'PROCEDENCIA' : 'CLIENTE / DESTINO DEL DESPACHO';
-  if (lblDestino) lblDestino.textContent = (tipo === 'RECEPCION') ? 'DESTINO EN BODEGA' :
-    ((tipo === 'DESPACHO') ? 'PUERTO / DESTINO FINAL' : 'UBICACIÓN DE DESTINO EN BODEGA');
+  // Procedencia y destino se llaman igual en todos los tipos de movimiento;
+  // el cliente dueño del contenedor ya se captura aparte en el campo CLIENTE.
+  if (lblProcedencia) lblProcedencia.textContent = 'PROCEDENCIA';
+  if (lblDestino) lblDestino.textContent = 'DESTINO EN BODEGA';
 
   // Estado del contenedor: reglas de negocio de Gate Control
   if (estadoSel) {
@@ -17309,11 +17329,20 @@ var gc_contenedorTimer = null;
 
 function gc_onContenedorInput(el) {
   el.value = el.value.toUpperCase();
+
+  var clienteDetectado = gc_autocompleteCache[el.value.trim()];
+  if (clienteDetectado) {
+    var selCliente = document.getElementById('gc_cliente');
+    if (selCliente && gc_catalogos.clientes.indexOf(clienteDetectado) !== -1) selCliente.value = clienteDetectado;
+  }
+
   clearTimeout(gc_contenedorTimer);
   var q = el.value.trim();
   if (q.length < 3) return;
   gc_contenedorTimer = setTimeout(function () { gc_autocompletarContenedor(q); }, 300);
 }
+
+var gc_autocompleteCache = {};
 
 async function gc_autocompletarContenedor(q) {
   try {
@@ -17322,6 +17351,7 @@ async function gc_autocompletarContenedor(q) {
     var dl = document.getElementById('gc_contenedorList');
     if (!dl || !data.ok) return;
     dl.innerHTML = (data.resultados || []).map(function (r) {
+      gc_autocompleteCache[r.contenedor] = r.cliente || '';
       return '<option value="' + r.contenedor + '">' + (r.cliente || '') + '</option>';
     }).join('');
   } catch (e) { /* autocompletar es una ayuda, no bloquea el registro manual */ }
@@ -17338,6 +17368,8 @@ async function gc_onSelectCatalogo(selectId, tipo) {
         el.innerHTML = gc_htmlSelectCamiones(nuevo);
       } else if (tipo === 'chofer') {
         el.innerHTML = gc_htmlSelectChoferes(nuevo);
+      } else if (tipo === 'cliente') {
+        el.innerHTML = gc_htmlSelectClientes(nuevo);
       } else {
         var proc = document.getElementById('gc_procedencia');
         var dest = document.getElementById('gc_destino');
@@ -17377,7 +17409,7 @@ function gc_modalAgregar(tipo) {
     var prev = document.getElementById('gcAddModal');
     if (prev) prev.remove();
 
-    var titulos = { camion: 'Nuevo camión', chofer: 'Nuevo chofer', destino: 'Nuevo destino / procedencia' };
+    var titulos = { camion: 'Nuevo camión', chofer: 'Nuevo chofer', destino: 'Nuevo destino / procedencia', cliente: 'Nuevo cliente' };
     var campos;
     if (tipo === 'camion') {
       campos =
@@ -17391,10 +17423,14 @@ function gc_modalAgregar(tipo) {
         '<input id="gcAdd_nombre" class="rcFormInput" style="padding:10px 12px;"></div>' +
         '<div><div style="font-size:11px;font-weight:800;color:#7a8b95;margin-bottom:4px;">RUT</div>' +
         '<input id="gcAdd_rut" class="rcFormInput" placeholder="Ej: 16036823-3" style="padding:10px 12px;"></div>';
+    } else if (tipo === 'cliente') {
+      campos =
+        '<div><div style="font-size:11px;font-weight:800;color:#7a8b95;margin-bottom:4px;">NOMBRE DEL CLIENTE</div>' +
+        '<input id="gcAdd_nombre" class="rcFormInput" placeholder="Ej: Cliente ARAUCO" style="padding:10px 12px;"></div>';
     } else {
       campos =
         '<div><div style="font-size:11px;font-weight:800;color:#7a8b95;margin-bottom:4px;">NOMBRE</div>' +
-        '<input id="gcAdd_nombre" class="rcFormInput" placeholder="Ej: Bodega 2, Puerto Valparaíso, Cliente ACME" style="padding:10px 12px;"></div>';
+        '<input id="gcAdd_nombre" class="rcFormInput" placeholder="Ej: Bodega 2, Puerto Valparaíso" style="padding:10px 12px;"></div>';
     }
 
     var el = document.createElement('div');
@@ -17446,6 +17482,7 @@ function gc_modalAgregar(tipo) {
 
         if (tipo === 'camion') gc_catalogos.camiones.push({ patente: patente, empresa: empresa });
         else if (tipo === 'chofer') gc_catalogos.choferes.push({ nombre: nombre, rut: rut });
+        else if (tipo === 'cliente') gc_catalogos.clientes.push(nombre);
         else gc_catalogos.destinos.push(nombre);
 
         cerrar(etiqueta);
@@ -17528,6 +17565,12 @@ function gc_aplicarLecturaDocumento(c) {
     else notas.push('Chofer detectado en el documento: ' + c.chofer + ' (no está en el catálogo)');
   }
 
+  var selCliente = document.getElementById('gc_cliente');
+  if (selCliente && c.cliente) {
+    if (gc_catalogos.clientes.indexOf(c.cliente) !== -1) selCliente.value = c.cliente;
+    else notas.push('Cliente detectado en el documento: ' + c.cliente + ' (no está en el catálogo)');
+  }
+
   var selProc = document.getElementById('gc_procedencia');
   if (selProc && c.procedencia && gc_catalogos.destinos.indexOf(c.procedencia) !== -1) selProc.value = c.procedencia;
 
@@ -17576,9 +17619,9 @@ async function gc_buscarDespacho() {
         '<div style="font-size:11px; color:#7a8b95; margin-top:4px;">Verifica en Gate Control qué camión y chofer llegaron realmente y selecciónalos abajo.</div>';
     }
 
-    var elProc = document.getElementById('gc_procedencia');
-    if (elProc && d.cliente && gc_catalogos.destinos.indexOf(d.cliente) !== -1) {
-      elProc.value = d.cliente;
+    var elCliente = document.getElementById('gc_cliente');
+    if (elCliente && d.cliente && gc_catalogos.clientes.indexOf(d.cliente) !== -1) {
+      elCliente.value = d.cliente;
     }
   } catch (e) {
     ocultarCargando();
@@ -17587,11 +17630,13 @@ async function gc_buscarDespacho() {
 }
 
 async function gc_registrar() {
+  var fecha = (document.getElementById('gc_fecha') || {}).value || _fechaHoyLocal();
   var tipo = (document.getElementById('gc_tipo') || {}).value || 'RECEPCION';
   var contenedor = String((document.getElementById('gc_contenedor') || {}).value || '').trim();
   var estado = (document.getElementById('gc_estado') || {}).value || 'VACIO';
   var patente = (document.getElementById('gc_patente') || {}).value || '';
   var chofer = (document.getElementById('gc_chofer') || {}).value || '';
+  var cliente = (document.getElementById('gc_cliente') || {}).value || '';
   var procedencia = (document.getElementById('gc_procedencia') || {}).value || '';
   var destino = (document.getElementById('gc_destino') || {}).value || '';
   var guia = String((document.getElementById('gc_guia') || {}).value || '').trim();
@@ -17599,6 +17644,7 @@ async function gc_registrar() {
   var obs = String((document.getElementById('gc_obs') || {}).value || '').trim();
 
   if (!contenedor) { mostrarAlerta('⚠️ Faltan datos', 'El número de contenedor es obligatorio.'); return false; }
+  if (!cliente) { mostrarAlerta('⚠️ Faltan datos', 'Selecciona el cliente dueño del contenedor.'); return false; }
   if (!patente) { mostrarAlerta('⚠️ Faltan datos', 'Selecciona la patente del camión.'); return false; }
   if (!chofer) { mostrarAlerta('⚠️ Faltan datos', 'Selecciona el chofer.'); return false; }
   if (tipo === 'FALSO_FLETE' && !motivo) { mostrarAlerta('⚠️ Falta el motivo', 'Indica el motivo del falso flete (se usa para el pago al transportista).'); return false; }
@@ -17611,7 +17657,7 @@ async function gc_registrar() {
   try {
     var res = await fetch(URL_GAS, { method: 'POST', body: JSON.stringify({
       accion: 'registrarMovimientoGateControl',
-      tipo: tipo, contenedor: contenedor, estado: estado,
+      fecha: fecha, tipo: tipo, contenedor: contenedor, estado: estado, cliente: cliente,
       transportista: transportista, patente: patente, chofer: chofer, choferRut: choferRut,
       procedencia: procedencia, destino: destino, guia: guia, motivo: motivo, observaciones: obs,
       fotos: gc_fotos,
@@ -17655,6 +17701,7 @@ function gc_mostrarCatalogos() {
   }
 
   var html =
+    lista('Clientes', gc_catalogos.clientes, 'cliente', function (n) { return n; }) +
     lista('Camiones', gc_catalogos.camiones, 'camion', function (c) { return c.patente + (c.empresa ? ' — ' + c.empresa : ''); }) +
     lista('Choferes', gc_catalogos.choferes, 'chofer', function (c) { return c.nombre + (c.rut ? ' — ' + c.rut : ''); }) +
     lista('Destinos / procedencias', gc_catalogos.destinos, 'destino', function (n) { return n; });
@@ -17686,7 +17733,7 @@ async function gc_agregarDesdeCatalogos(tipo) {
 }
 
 async function gc_eliminarCatalogo(tipo, index) {
-  var claveLista = tipo === 'camion' ? 'camiones' : (tipo === 'chofer' ? 'choferes' : 'destinos');
+  var claveLista = tipo === 'camion' ? 'camiones' : (tipo === 'chofer' ? 'choferes' : (tipo === 'cliente' ? 'clientes' : 'destinos'));
   var item = gc_catalogos[claveLista][index];
   var etiqueta = tipo === 'camion' ? item.patente : (tipo === 'chofer' ? item.nombre : item);
 
@@ -17776,7 +17823,7 @@ function gc_inf_mostrar(data) {
     filasHtml = '<div style="overflow-x:auto;-webkit-overflow-scrolling:touch;">' +
       '<table style="width:100%;border-collapse:collapse;font-size:11px;min-width:620px;">' +
       '<thead><tr>' +
-      ['Fecha', 'Contenedor', 'Tipo', 'Estado', 'Transportista', 'Patente', 'Chofer', 'Rut chofer', 'Procedencia', 'Destino', 'Guía', 'Motivo', 'Registró'].map(function (h) {
+      ['Fecha', 'Contenedor', 'Tipo', 'Estado', 'Cliente', 'Transportista', 'Patente', 'Chofer', 'Rut chofer', 'Procedencia', 'Destino', 'Guía', 'Motivo', 'Registró'].map(function (h) {
         return '<th style="padding:5px 8px;text-align:left;font-size:10px;color:#7a8b95;border-bottom:2px solid #e6ebee;white-space:nowrap;letter-spacing:.03em;text-transform:uppercase;">' + h + '</th>';
       }).join('') + '</tr></thead><tbody>' +
       movs.map(function (m, i) {
@@ -17787,6 +17834,7 @@ function gc_inf_mostrar(data) {
           '<td style="padding:5px 8px;border-bottom:1px solid #f0f3f5;font-weight:700;color:#0b3c5d;">' + (m.contenedor || '—') + '</td>' +
           '<td style="padding:5px 8px;border-bottom:1px solid #f0f3f5;color:' + col + ';font-weight:700;">' + (nombres[m.tipo] || m.tipo) + '</td>' +
           '<td style="padding:5px 8px;border-bottom:1px solid #f0f3f5;">' + (m.estado === 'LLENO' ? 'Lleno' : 'Vacío') + '</td>' +
+          '<td style="padding:5px 8px;border-bottom:1px solid #f0f3f5;">' + (m.cliente || '—') + '</td>' +
           '<td style="padding:5px 8px;border-bottom:1px solid #f0f3f5;">' + (m.transportista || '—') + '</td>' +
           '<td style="padding:5px 8px;border-bottom:1px solid #f0f3f5;">' + (m.patente || '—') + '</td>' +
           '<td style="padding:5px 8px;border-bottom:1px solid #f0f3f5;">' + (m.chofer || '—') + '</td>' +
@@ -17820,12 +17868,15 @@ function gc_inf_mostrar(data) {
       '<div style="padding:14px 16px;max-height:70vh;overflow-y:auto;">' +
         kpisHtml + filasHtml +
       '</div>' +
-      '<div style="padding:0 16px 14px;display:flex;gap:10px;">' +
+      '<div style="padding:0 16px 14px;display:flex;gap:10px;flex-wrap:wrap;">' +
         '<button onclick="gc_inf_exportar()" ' +
-          'style="flex:1;background:#11a06b;color:#fff;border:none;border-radius:11px;' +
+          'style="flex:1;min-width:140px;background:#11a06b;color:#fff;border:none;border-radius:11px;' +
           'padding:12px;font-weight:800;cursor:pointer;">Exportar a Excel</button>' +
+        '<button onclick="gc_inf_exportarPDF()" ' +
+          'style="flex:1;min-width:140px;background:#c62828;color:#fff;border:none;border-radius:11px;' +
+          'padding:12px;font-weight:800;cursor:pointer;">Exportar a PDF</button>' +
         '<button onclick="document.getElementById(\'gcInfModal\').remove()" ' +
-          'style="flex:1;background:#eef2f5;color:#444;border:none;border-radius:11px;' +
+          'style="flex:1;min-width:140px;background:#eef2f5;color:#444;border:none;border-radius:11px;' +
           'padding:12px;font-weight:800;cursor:pointer;">Cerrar</button>' +
       '</div>' +
     '</div>';
@@ -17841,6 +17892,7 @@ function gc_inf_exportar() {
     return {
       Fecha: m.fecha ? new Date(m.fecha).toLocaleString('es-CL', { hour12: false }) : '',
       Contenedor: m.contenedor || '', Tipo: nombres[m.tipo] || m.tipo, Estado: m.estado === 'LLENO' ? 'Lleno' : 'Vacío',
+      Cliente: m.cliente || '',
       Transportista: m.transportista || '', Patente: m.patente || '', Chofer: m.chofer || '', 'Rut chofer': m.choferRut || '',
       Procedencia: m.procedencia || '', Destino: m.destino || '', Guía: m.guia || '', Motivo: m.motivo || '',
       Observaciones: m.observaciones || '', 'Registró': m.usuario || ''
@@ -17851,6 +17903,91 @@ function gc_inf_exportar() {
   XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(filas), 'Gate Control');
   var fecha = new Date().toISOString().slice(0, 10);
   XLSX.writeFile(wb, 'GateControl_' + fecha + '.xlsx');
+}
+
+/* Agrupa los movimientos por empresa transportista: total, vacíos,
+   llenos y los tramos (procedencia → destino) que recorrió cada una. */
+function gc_resumenPorEmpresa(movs) {
+  var porEmpresa = {};
+  movs.forEach(function (m) {
+    var emp = m.transportista || 'Sin transportista';
+    if (!porEmpresa[emp]) porEmpresa[emp] = { total: 0, vacios: 0, llenos: 0, tramos: {} };
+    var e = porEmpresa[emp];
+    e.total++;
+    if (m.estado === 'LLENO') e.llenos++; else e.vacios++;
+    var tramo = (m.procedencia || '—') + ' → ' + (m.destino || '—');
+    e.tramos[tramo] = (e.tramos[tramo] || 0) + 1;
+  });
+  return porEmpresa;
+}
+
+function gc_inf_exportarPDF() {
+  if (!gc_inf_ultimo || !gc_inf_ultimo.length) { mostrarAlerta('Sin datos', 'No hay movimientos para exportar.'); return; }
+  var movs = gc_inf_ultimo;
+  var fecha = new Date().toLocaleDateString('es-CL');
+  var w = window.open('', '_blank');
+  if (!w) { mostrarAlerta('Bloqueado', 'El navegador bloqueó la ventana. Habilita ventanas emergentes.'); return; }
+
+  var nombres = { RECEPCION: 'Recepción', DESPACHO: 'Despacho', DEVOLUCION: 'Devolución', FALSO_FLETE: 'Falso flete' };
+  var totalVacios = movs.filter(function (m) { return m.estado !== 'LLENO'; }).length;
+  var totalLlenos = movs.filter(function (m) { return m.estado === 'LLENO'; }).length;
+
+  var porEmpresa = gc_resumenPorEmpresa(movs);
+  var filasEmpresa = Object.keys(porEmpresa).sort().map(function (emp) {
+    var e = porEmpresa[emp];
+    var tramosTxt = Object.keys(e.tramos).sort().map(function (t) {
+      return t + ' (x' + e.tramos[t] + ')';
+    }).join('<br>');
+    return '<tr><td>' + emp + '</td>' +
+      '<td style="text-align:right;">' + e.total + '</td>' +
+      '<td style="text-align:right;">' + e.vacios + '</td>' +
+      '<td style="text-align:right;">' + e.llenos + '</td>' +
+      '<td style="font-size:9.5px;">' + tramosTxt + '</td></tr>';
+  }).join('');
+
+  var filasDetalle = movs.map(function (m) {
+    var f = m.fecha ? new Date(m.fecha).toLocaleString('es-CL', { hour12: false }) : '—';
+    return '<tr><td>' + f + '</td><td>' + (m.contenedor || '—') + '</td><td>' + (nombres[m.tipo] || m.tipo) + '</td>' +
+      '<td>' + (m.estado === 'LLENO' ? 'Lleno' : 'Vacío') + '</td><td>' + (m.cliente || '—') + '</td>' +
+      '<td>' + (m.transportista || '—') + '</td><td>' + (m.patente || '—') + '</td><td>' + (m.chofer || '—') + '</td>' +
+      '<td>' + (m.procedencia || '—') + '</td><td>' + (m.destino || '—') + '</td><td>' + (m.guia || '—') + '</td>' +
+      '<td>' + (m.motivo || '—') + '</td></tr>';
+  }).join('');
+
+  var html = '<!DOCTYPE html><htm' + 'l><hea' + 'd><meta charset="utf-8"><title>Informe de Gate Control ' + fecha + '</title>' +
+    '<sty' + 'le>*{box-sizing:border-box;-webkit-print-color-adjust:exact;print-color-adjust:exact;color-adjust:exact;}body{font-family:Arial,sans-serif;margin:24px;color:#1a2a3a;font-size:11px;}' +
+    'h2{color:#0b3c5d;margin:0 0 4px;font-size:20px;}h3{color:#0b3c5d;margin:20px 0 8px;font-size:13px;}p.sub{color:#7a8b95;margin:0 0 16px;}' +
+    '.kpis{display:flex;gap:10px;margin-bottom:6px;flex-wrap:wrap;}' +
+    '.kpi{flex:1;min-width:100px;background:linear-gradient(155deg,#164b73,#0b3c5d);color:#fff;border-radius:10px;padding:12px;border-top:3px solid #c9a24b;}' +
+    '.kpi .lbl{font-size:9px;letter-spacing:.4px;color:#cfe0ea;text-transform:uppercase;}' +
+    '.kpi .val{font-size:18px;font-weight:800;margin-top:4px;}' +
+    'table{width:100%;border-collapse:collapse;margin-bottom:6px;}' +
+    'th{background:#0b3c5d;color:#fff;padding:6px 6px;font-size:10px;text-align:left;border:1px solid #1b5a85;white-space:nowrap;}' +
+    'td{padding:6px 6px;border:1px solid #e6ebee;vertical-align:top;}' +
+    'tr:nth-child(even) td{background:#f7f9fb;}' +
+    '.btnImprimir{position:fixed;top:14px;right:14px;background:#0b3c5d;color:#fff;border:none;' +
+    'border-radius:10px;padding:11px 18px;font-size:14px;font-weight:800;cursor:pointer;box-shadow:0 3px 10px rgba(0,0,0,.2);}' +
+    '@media print{.btnImprimir{display:none}}</sty' + 'le></hea' + 'd><bod' + 'y>' +
+    '<button class="btnImprimir" onclick="window.print()">Imprimir</button>' +
+    '<h2>🚧 Informe de Gate Control</h2>' +
+    '<p class="sub">Generado el ' + fecha + ' · ' + movs.length + ' movimientos en el período consultado</p>' +
+    '<div class="kpis">' +
+      '<div class="kpi"><div class="lbl">Movimientos</div><div class="val">' + movs.length + '</div></div>' +
+      '<div class="kpi"><div class="lbl">Vacíos</div><div class="val">' + totalVacios + '</div></div>' +
+      '<div class="kpi"><div class="lbl">Llenos</div><div class="val">' + totalLlenos + '</div></div>' +
+      '<div class="kpi"><div class="lbl">Empresas</div><div class="val">' + Object.keys(porEmpresa).length + '</div></div>' +
+    '</div>' +
+    '<h3>Resumen por empresa transportista</h3>' +
+    '<table><tr><th>Empresa</th><th>Movimientos</th><th>Vacíos</th><th>Llenos</th><th>Tramos recorridos</th></tr>' +
+    filasEmpresa + '</table>' +
+    '<h3>Detalle de movimientos</h3>' +
+    '<table><tr><th>Fecha</th><th>Contenedor</th><th>Tipo</th><th>Estado</th><th>Cliente</th><th>Transportista</th>' +
+    '<th>Patente</th><th>Chofer</th><th>Procedencia</th><th>Destino</th><th>Guía</th><th>Motivo</th></tr>' +
+    filasDetalle + '</table>' +
+    '</bod' + 'y></htm' + 'l>';
+
+  w.document.open(); w.document.write(html); w.document.close();
+  setTimeout(function () { w.print(); }, 600);
 }
 
 /* =========================================================
