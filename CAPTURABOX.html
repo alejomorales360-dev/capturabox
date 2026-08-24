@@ -9398,27 +9398,24 @@ const URL_GAS = "https://script.google.com/macros/s/AKfycbyoZ-jLyPxm-NKGr5mLxmpt
 const APP_LICENCIA = "CBOX-2026-ARAUCO-PROD-001"; // Cambiar por tu clave única
 
 function _generarDispositivoId() {
-  // Genera un ID basado en HARDWARE del dispositivo, no del navegador
-  // Así Chrome y Firefox en el mismo equipo dan el mismo ID
-  var raw = [
-    screen.width + 'x' + screen.height,
-    screen.colorDepth,
-    navigator.hardwareConcurrency || 0,
-    new Date().getTimezoneOffset(),
-    screen.availWidth + 'x' + screen.availHeight,
-    navigator.maxTouchPoints || 0,
-    // Extraer solo el OS del userAgent (sin nombre del navegador)
-    (navigator.userAgent.match(/\(([^)]+)\)/) || ['',''])[1]
-  ].join('|');
+  // ID persistente guardado en este navegador (no se recalcula a partir
+  // de la pantalla/resolución, que cambian al conectar un monitor externo,
+  // cambiar el zoom/escalado, etc. — eso hacía que un dispositivo ya
+  // aprobado perdiera la autorización sin haber cambiado de verdad).
+  var guardado = localStorage.getItem('dispositivoId');
+  if (guardado) return guardado;
 
-  // Hash determinístico
-  var hash = 0;
-  for (var i = 0; i < raw.length; i++) {
-    var c = raw.charCodeAt(i);
-    hash = ((hash << 5) - hash) + c;
-    hash |= 0;
+  var nuevo;
+  if (window.crypto && typeof crypto.randomUUID === 'function') {
+    nuevo = 'DEV-' + crypto.randomUUID();
+  } else {
+    // Respaldo por si el navegador no soporta crypto.randomUUID
+    nuevo = 'DEV-' + Date.now().toString(36) + '-' +
+      Math.random().toString(36).slice(2, 10) +
+      Math.random().toString(36).slice(2, 10);
   }
-  return 'DEV-' + Math.abs(hash).toString(36).toUpperCase();
+  localStorage.setItem('dispositivoId', nuevo);
+  return nuevo;
 }
 
 var _dispositivoId = _generarDispositivoId();
