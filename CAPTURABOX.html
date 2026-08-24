@@ -487,15 +487,6 @@ button:active {
   margin-top: 4px;
 }
 
-/* Botón de cerrar sesión, separado visualmente */
-.btnLogout {
-  margin-top: 18px;
-  background: #6c757d;
-}
-.btnLogout:active {
-  background: #565e64;
-}
-
 /* ===== Menú principal: 4 grandes módulos ===== */
 .bigMenuGrid {
   display: grid;
@@ -557,12 +548,12 @@ button:active {
   margin-bottom: 20px;
 }
 .dbWordmark {
-  font-size: 13.5px;
+  font-size: 18px;
   font-weight: 800;
-  letter-spacing: 1.6px;
-  color: #7a8b95;
+  letter-spacing: 1.8px;
+  color: #5a6b77;
   text-transform: uppercase;
-  margin-bottom: 4px;
+  margin-bottom: 6px;
 }
 .dbWordmark span { color: #c9a24b; }
 .dbSaludo {
@@ -1989,7 +1980,7 @@ button:active {
       <div id="dbSaludo" class="dbSaludo">Bienvenido</div>
       <div id="dbRol" class="dbRol"></div>
     </div>
-    <div id="dbAvatar" class="dbAvatar">?</div>
+    <div id="dbAvatar" class="dbAvatar" style="cursor:pointer;" onclick="confirmarLogout()" title="Cerrar sesión">?</div>
   </div>
 
   <!-- MÓDULOS (acordeón por categoría, respeta permisos) -->
@@ -2153,8 +2144,6 @@ button:active {
     <div class="dbBarChart" id="chartRecepciones"></div>
   </div>
 
-
-  <button class="btnLogout" onclick="logout()">Cerrar sesión</button>
 </div>
 
 <!-- ===================== STOCK EN BODEGA ===================== -->
@@ -9737,6 +9726,16 @@ function ir(id) {
   if (id === "pantallaReexpedicionInicio" || id === "pantallaMenuReexpedicion") {
     setTimeout(() => { if (typeof rx_verificarPendiente === 'function') rx_verificarPendiente(); }, 80);
   }
+}
+
+async function confirmarLogout() {
+  const ok = await mostrarConfirm(
+    'Cerrar sesión',
+    '¿Seguro que querés cerrar tu sesión?',
+    'Sí, cerrar sesión',
+    'Cancelar'
+  );
+  if (ok) logout();
 }
 
 function logout() {
