@@ -5463,6 +5463,21 @@ async function cerrarCamion() {
 
     // ✅ enviar usando el JOB
     job = await rc_getJob(rc_jobActualId);
+
+    // Último intento por completar el N° de operación si por algún
+    // motivo quedó vacío al iniciar el camión (mala conexión, etc.):
+    // sin esto, la recepción se guarda sin N° de operación para
+    // siempre y después no se puede editar ni ordenar en reportes.
+    if (job && !job.operacion && !job.editando) {
+      const numOp = await rc_generarNumeroOperacion_();
+      if (numOp) {
+        job.operacion = numOp;
+        await rc_putJob(job);
+        const _opEl = document.getElementById("datoOperacion");
+        if (_opEl) _opEl.innerText = numOp;
+      }
+    }
+
     const _eraEdicion = !!(job && job.editando);
     await enviarABaseDeDatosDesdeJob(job);
 
@@ -7833,6 +7848,26 @@ function rc_getGuiasDesdeInicio() {
   return [...new Set(guias)].sort();
 }
 
+/* Pide al backend el N° de operación correlativo (REC-000001), con
+   reintentos: bajo mala conexión un solo intento fallaba seguido y
+   el camión quedaba sin N° de operación para siempre (no se puede
+   editar después ni queda ordenado en los reportes). */
+async function rc_generarNumeroOperacion_() {
+  for (let intento = 1; intento <= 3; intento++) {
+    try {
+      const rOp = await fetch(URL_GAS, { method: "POST",
+        body: JSON.stringify({ accion: "generarNumeroOperacionRecepcion" }) });
+      const dOp = await rOp.json();
+      if (dOp && dOp.ok && dOp.numero) return dOp.numero;
+      console.warn("[RC] generarNumeroOperacionRecepcion sin número (intento " + intento + "):", dOp);
+    } catch (e) {
+      console.warn("[RC] No se pudo generar N° operación (intento " + intento + "):", e.message);
+    }
+    if (intento < 3) await new Promise(r => setTimeout(r, 1200 * intento));
+  }
+  return "";
+}
+
 async function rc_ensureJobActual() {
   if (rc_jobActualId) return rc_jobActualId;
 
@@ -7844,17 +7879,10 @@ async function rc_ensureJobActual() {
   const supervisor = localStorage.getItem("usuario") || "";
   const hoyISO = _fechaHoyLocal();
 
-  // N° de operación correlativo (REC-000001). Si falla, el camión
-  // igual se crea: la operación se puede completar al enviar.
-  let numOperacion = "";
-  try {
-    const rOp = await fetch(URL_GAS, { method: "POST",
-      body: JSON.stringify({ accion: "generarNumeroOperacionRecepcion" }) });
-    const dOp = await rOp.json();
-    if (dOp && dOp.ok && dOp.numero) numOperacion = dOp.numero;
-  } catch (e) {
-    console.warn("[RC] No se pudo generar N° operación:", e.message);
-  }
+  // N° de operación correlativo (REC-000001). Si falla acá (varios
+  // intentos), el camión igual se crea: se vuelve a intentar generar
+  // el número justo antes de cerrar el camión (ver cerrarCamion()).
+  const numOperacion = await rc_generarNumeroOperacion_();
 
   const job = {
     id: rc_uid(),
