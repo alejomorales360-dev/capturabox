@@ -3116,11 +3116,17 @@ button:active {
 <!-- SELLO -->
 <h3>🔐 Sellos</h3>
 
-<button onclick="forzarSyncDesdeNube()"
-  style="display:block; margin:0 0 10px auto; padding:6px 12px; background:transparent;
+<button onclick="guardarYLiberarConsolidado()"
+  style="display:block; margin:0 0 6px auto; padding:6px 12px; background:transparent;
          color:#0d6efd; border:1px solid #b6d4fe; border-radius:7px;
          font-size:12px; font-weight:700; cursor:pointer;">
-  🔄 Sincronizar
+  ☁️ Guardar y liberar
+</button>
+<button onclick="forzarSyncDesdeNube()"
+  style="display:block; margin:0 0 10px auto; padding:5px 10px; background:transparent;
+         color:#7a8b95; border:1px solid #dde3e8; border-radius:7px;
+         font-size:11px; font-weight:700; cursor:pointer;">
+  🔄 Traer sellos/VGM de otro equipo
 </button>
 
 <div class="selloBox">
@@ -10209,7 +10215,66 @@ async function autoGuardarConsolidado() {
   if (existente && existente.id != null) job.id = existente.id;
   await guardarEnIndexedDB(job, datosCont.contenedor);
   _syncLastActualizado = fecha; // evitar que el polling sobreescriba nuestros propios cambios
-  syncParcialANube(job);
+  // El guardado LOCAL (arriba) es siempre instantáneo — es la copia de
+  // verdad de este dispositivo. El envío a la nube va con freno (ver
+  // syncParcialANubeConFreno): solo sirve para que otros dispositivos vean
+  // "esto está en proceso" y puedan retomarlo si hace falta, no hay que
+  // mandarlo en cada cambio.
+  syncParcialANubeConFreno(job);
+}
+
+/* Frena el envío a la nube del "parcial" a como mucho una vez cada
+   _FRENO_NUBE_MS. El guardado local (IndexedDB) nunca se frena — solo esto,
+   que es tráfico de red "para que se sepa que está en proceso", no la
+   fuente de verdad del propio dispositivo. */
+var _FRENO_NUBE_MS = 90000;
+var _frenoNubeUltimoEnvio = 0;
+var _frenoNubeTimer = null;
+var _frenoNubeJobPendiente = null;
+
+function syncParcialANubeConFreno(job) {
+  _frenoNubeJobPendiente = job;
+  var ahora = Date.now();
+  var transcurrido = ahora - _frenoNubeUltimoEnvio;
+  if (transcurrido >= _FRENO_NUBE_MS) {
+    _frenoNubeUltimoEnvio = ahora;
+    var j = _frenoNubeJobPendiente; _frenoNubeJobPendiente = null;
+    syncParcialANube(j);
+  } else if (!_frenoNubeTimer) {
+    _frenoNubeTimer = setTimeout(function () {
+      _frenoNubeTimer = null;
+      _frenoNubeUltimoEnvio = Date.now();
+      if (_frenoNubeJobPendiente) {
+        var j2 = _frenoNubeJobPendiente; _frenoNubeJobPendiente = null;
+        syncParcialANube(j2);
+      }
+    }, _FRENO_NUBE_MS - transcurrido);
+  }
+}
+
+/* Envío inmediato a la nube, sin esperar el freno — para el botón
+   "Guardar y liberar" (traspaso deliberado a otro dispositivo). */
+async function guardarYLiberarConsolidado() {
+  if (!datosCont || !datosCont.contenedor) return;
+  mostrarCargando('Guardando en la nube...');
+  try {
+    await autoGuardarConsolidado();
+    if (_frenoNubeTimer) { clearTimeout(_frenoNubeTimer); _frenoNubeTimer = null; }
+    var jobs = await obtenerJobsPendientes();
+    var job = jobs.find(function (j) {
+      return j.datosCont && j.datosCont.contenedor === datosCont.contenedor;
+    });
+    _frenoNubeJobPendiente = null;
+    _frenoNubeUltimoEnvio = Date.now();
+    if (job) await syncParcialANube(job);
+    ocultarCargando();
+    mostrarAlerta('☁️ Guardado en la nube',
+      'Este contenedor quedó disponible en la nube con todo lo cargado hasta ahora.' +
+      '<br><br>Otro equipo ya puede retomarlo si hace falta.');
+  } catch (e) {
+    ocultarCargando();
+    mostrarAlerta('❌ Error', 'No se pudo guardar en la nube: ' + e.message);
+  }
 }
 
 var _cbNube_pendiente = false;
@@ -10780,11 +10845,14 @@ function iniciarSyncPolling() {
   _syncUltimoProcesado = '';
   _syncCerradoAvisado = false; // FIX v363: nuevo contenedor, aviso disponible otra vez
   _syncConfirmadoEnNube = false;
-  _syncPollTimer = setInterval(_syncPollCheck, 12000); // FIX v358: cada 12s (antes 30s)
-  // FIX v355: consulta INMEDIATA al reanudar. Antes había que esperar
-  // hasta 30s para ver los sellos/VGM que otro dispositivo ya había subido.
-  setTimeout(_syncPollCheck, 600);
-  console.log('[SYNC] Polling iniciado');
+  // Antes: cada 12s, más una consulta inmediata al abrir/reanudar, más otra
+  // consulta cada vez que la app volvía a foco o pantalla. Esa cadencia tan
+  // agresiva (varias consultas en simultáneo apiladas) era la superficie
+  // donde ocurrían las pérdidas de datos. Ahora: solo cada 90s, y nada más
+  // que sume/detecte cierre en otro dispositivo — nunca sobrescribe ni
+  // reemplaza el trabajo local (ver REGLA SAGRADA más abajo).
+  _syncPollTimer = setInterval(_syncPollCheck, 90000);
+  console.log('[SYNC] Polling iniciado (cada 90s, solo aditivo)');
 }
 
 /* FIX v357: forzar sincronización manual desde la nube.
@@ -10830,22 +10898,10 @@ async function forzarSyncDesdeNube() {
   mostrarAlerta('🔄 Sincronizado', diag);
 }
 
-/* FIX v358: sincronizar automáticamente al volver a la app.
-   El operador suele cambiar de app o apagar la pantalla; al volver
-   debe ver de inmediato lo que cargó el otro dispositivo. */
-document.addEventListener('visibilitychange', function() {
-  if (_syncCerradoAvisado) return; // FIX v363: ya se avisó del cierre
-  if (document.visibilityState === 'visible' && datosCont && datosCont.contenedor) {
-    console.log('[SYNC] App en primer plano — sincronizando');
-    _syncUltimoProcesado = '';
-    _syncPollCheck();
-  }
-});
-
-window.addEventListener('focus', function() {
-  if (_syncCerradoAvisado) return; // FIX v363
-  if (datosCont && datosCont.contenedor) _syncPollCheck();
-});
+// Antes había una resincronización inmediata cada vez que la app volvía a
+// primer plano (cambiar de app, apagar pantalla, etc.). Eso apilaba varias
+// consultas casi simultáneas — retirado: el intervalo de 90s ya alcanza
+// para "saber qué está en proceso" sin generar esa presión de red.
 
 /* FIX v359: sellos y VGM se aplican SIEMPRE, en cada consulta.
    Antes vivían dentro del bloque protegido por `actualizado`; si esa
@@ -10979,13 +11035,12 @@ async function _syncPollCheck() {
     // Marcar que el parcial SÍ existe en la nube
     _syncConfirmadoEnNube = true;
 
-    // FIX v359: aplicar sellos y VGM SIEMPRE, sin depender de `actualizado`.
-    // Este es el punto clave: la nube ya trajo los valores, se escriben ahora.
-    _aplicarEscalaresDesdeNube(parcialNube.datos);
-    console.log('[NUBE→DISP] selloLinea="' + (parcialNube.datos.selloLinea || '') +
-                '" | selloSAG="' + (parcialNube.datos.selloSAG || '') +
-                '" | vgm="' + (parcialNube.datos.vgm || '') +
-                '" | actualizado="' + (parcialNube.datos.actualizado || '') + '"');
+    // Los sellos y el VGM YA NO se aplican solos en segundo plano — solo
+    // con el botón manual "Sincronizar" (forzarSyncDesdeNube), para que un
+    // valor escrito en este dispositivo no se pise en silencio con el de
+    // otro. El polling en segundo plano solo suma fotos/lotes nuevos
+    // (aditivo, nunca reemplaza) y detecta si el contenedor se cerró en
+    // otro dispositivo.
 
     // FIX v349: NO comparar relojes entre dispositivos.
     // Antes se hacía `new Date(nubeActualizado) > new Date(_syncLastActualizado)`,
@@ -11007,11 +11062,21 @@ async function _syncPollCheck() {
         // Solo se borra si un usuario lo borra explícitamente.
         // ====================================
 
-        // --- LOTES: solo aceptar si la nube tiene MÁS ---
+        // --- LOTES: fusionar por código de lote, NUNCA reemplazar el arreglo
+        // completo. (Antes: si la nube tenía más lotes que el local, se
+        // reemplazaba TODO el arreglo local por el de la nube — eso borraba
+        // lotes agregados localmente después del último envío a la nube que
+        // aún no habían subido. Causa real de "perdemos contenedores".) ---
         var lotesNube = Array.isArray(parcialNube.lotes) ? parcialNube.lotes : [];
-        if (lotesNube.length > registros.length) {
-          registros = lotesNube.slice();
-          console.log('[SYNC] Lotes actualizados desde la nube:', lotesNube.length);
+        if (lotesNube.length > 0) {
+          var lotesLocalesSet = {};
+          registros.forEach(function(r) { if (r && r.lote) lotesLocalesSet[r.lote] = true; });
+          lotesNube.forEach(function(r) {
+            if (r && r.lote && !lotesLocalesSet[r.lote]) {
+              registros.push(r);
+              console.log('[SYNC] Lote nuevo de otro dispositivo:', r.lote);
+            }
+          });
         }
 
         // --- FOTOS: MERGE por URL — agregar las de la nube que no existan localmente ---
