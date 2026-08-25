@@ -11556,8 +11556,6 @@ let camScan_stream = null;
 let camScan_detector = null;
 let camScan_timer = null;
 let camScan_onDecode = null;
-let camScan_ultimoCodigo = '';
-let camScan_ultimoTs = 0;
 
 function camScan_disponible() {
   return !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia && window.BarcodeDetector);
@@ -11572,8 +11570,6 @@ async function abrirScanCamara(onDecode) {
   }
 
   camScan_onDecode = onDecode;
-  camScan_ultimoCodigo = '';
-  camScan_ultimoTs = 0;
 
   const modal  = document.getElementById('camScanModal');
   const video  = document.getElementById('camScanVideo');
@@ -11610,14 +11606,16 @@ async function abrirScanCamara(onDecode) {
       if (codes && codes.length) {
         const codigo = String(codes[0].rawValue || '').trim();
         if (!codigo) return;
-        const ahora = Date.now();
-        // evitar reprocesar el mismo código mientras sigue en cuadro
-        if (codigo === camScan_ultimoCodigo && (ahora - camScan_ultimoTs) < 1500) return;
-        camScan_ultimoCodigo = codigo;
-        camScan_ultimoTs = ahora;
+
         if (navigator.vibrate) navigator.vibrate(80);
         if (status) status.textContent = '✓ ' + codigo;
-        if (typeof camScan_onDecode === 'function') camScan_onDecode(codigo);
+
+        // Un solo código y listo: se cierra la cámara y se pasa
+        // directo a la pantalla de datos, igual que con el láser
+        // (no se queda escaneando en modo continuo).
+        const cb = camScan_onDecode;
+        camScan_cerrar();
+        if (typeof cb === 'function') cb(codigo);
       }
     } catch (e) { /* frame sin código legible, se ignora */ }
   }, 300);
