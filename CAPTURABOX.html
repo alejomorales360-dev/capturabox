@@ -3500,6 +3500,10 @@ button:active {
     </div>
   </div>
 
+  <div id="rc_bannerEdicion" style="display:none;margin:10px 16px 0;background:#fff3e0;
+       border:1.5px solid #e05c2b;border-radius:10px;padding:10px 12px;
+       font-size:12px;font-weight:700;color:#b04a10;"></div>
+
   <div class="rcInfoCard">
     <div class="rcInfoRow">
       <div class="rcInfoItem"><div class="rcInfoLbl">Cliente</div><div class="rcInfoVal" id="datoCliente">&mdash;</div></div>
@@ -3652,6 +3656,10 @@ button:active {
     Guías: <span id="datoGuiasManual"></span> |
     Patente: <span id="datoPatenteManual"></span>
   </div>
+
+  <div id="rcManual_bannerEdicion" style="display:none;margin:8px 0;background:#fff3e0;
+       border:1.5px solid #e05c2b;border-radius:8px;padding:8px 10px;
+       font-size:12px;font-weight:700;color:#b04a10;"></div>
 
   <hr>
 
@@ -5455,6 +5463,7 @@ async function cerrarCamion() {
 
     // ✅ enviar usando el JOB
     job = await rc_getJob(rc_jobActualId);
+    const _eraEdicion = !!(job && job.editando);
     await enviarABaseDeDatosDesdeJob(job);
 
     // ✅ marcar VERDE
@@ -5468,9 +5477,15 @@ async function cerrarCamion() {
 
     resetearRecepcion();
     rc_jobActualId = null;
-    const opcion = confirm("✅ Camión enviado.\n\nOK = abrir otro camión\nCancelar = ver Resumen");
-    if (opcion) { ir("pantallaRecepcionInicio"); }
-    else { abrirResumenRecepcion(); }
+
+    if (_eraEdicion) {
+      alert("✅ Recepción actualizada correctamente.");
+      abrirResumenRecepcion();
+    } else {
+      const opcion = confirm("✅ Camión enviado.\n\nOK = abrir otro camión\nCancelar = ver Resumen");
+      if (opcion) { ir("pantallaRecepcionInicio"); }
+      else { abrirResumenRecepcion(); }
+    }
 
   } catch (e) {
     console.error("cerrarCamion:", e);
@@ -5676,6 +5691,12 @@ function resetearRecepcion() {
   const peso = document.getElementById("tot_peso_recepcion");
   if (cant) cant.textContent = "0";
   if (peso) peso.textContent = "0";
+
+  // Ocultar banner de "editando recepción enviada" si estaba visible
+  const banner = document.getElementById("rc_bannerEdicion");
+  if (banner) banner.style.display = "none";
+  const bannerM = document.getElementById("rcManual_bannerEdicion");
+  if (bannerM) bannerM.style.display = "none";
 
   console.log("Recepción reiniciada correctamente");
 }
@@ -6276,7 +6297,20 @@ async function rc_reanudarJob(id) {
   window.registrosRecepcionCodigo = registrosRecepcion;
   actualizarTotalesRecepcion();
 
+  // Job normal (no es una edición de una recepción ya enviada): ocultar
+  // el banner de edición por si quedó visible de una sesión anterior.
+  if (!job.editando) {
+    const _b1 = document.getElementById("rc_bannerEdicion");
+    if (_b1) _b1.style.display = "none";
+    const _b2 = document.getElementById("rcManual_bannerEdicion");
+    if (_b2) _b2.style.display = "none";
+  }
+
   const guiasTxt = Array.isArray(job.guias) ? job.guias.join(" / ") : (job.guias || "");
+  const bannerTxt = job.editando
+    ? "✏️ Editando recepción ya enviada — N° operación " + (job.operacion || "—") +
+      ". Al cerrar se reemplazará lo anterior."
+    : "";
 
   if ((job.tipo || "").toLowerCase() === "codigo") {
     document.getElementById("datoCliente").innerText = job.cliente || "";
@@ -6291,6 +6325,11 @@ async function rc_reanudarJob(id) {
     if (_pRe) _pRe.innerText = job.proteccion || "—";
     if (_vRe) _vRe.innerText = job.volumenTotal ? job.volumenTotal + " m³" : "—";
 
+    if (job.editando) {
+      const _b1 = document.getElementById("rc_bannerEdicion");
+      if (_b1) { _b1.textContent = bannerTxt; _b1.style.display = "block"; }
+    }
+
     ir("pantallaRecepcionCodigo");
     ub_prefillAll('rc');
     setTimeout(()=>document.getElementById("lote")?.focus(), 250);
@@ -6300,6 +6339,10 @@ async function rc_reanudarJob(id) {
   document.getElementById("datoClienteManual").innerText = job.cliente || "";
   document.getElementById("datoPatenteManual").innerText = job.patente || "";
   document.getElementById("datoGuiasManual").innerText = guiasTxt || "";
+  if (job.editando) {
+    const _b2 = document.getElementById("rcManual_bannerEdicion");
+    if (_b2) { _b2.textContent = bannerTxt; _b2.style.display = "block"; }
+  }
   ir("pantallaRecepcionManual");
   ub_prefillAll('rcManual');
   setTimeout(()=>document.getElementById("cantidadManual")?.focus(), 250);
@@ -7467,7 +7510,7 @@ async function enviarABaseDeDatosDesdeJob(job) {
   await rc_putJob(job);
 
   const datos = {
-    accion: "guardarRecepcion",
+    accion: job.editando ? "actualizarRecepcion" : "guardarRecepcion",
     envioId: job.envioId,          // <-- el GAS lo usa para no grabar dos veces
     fecha: job.fechaISO ? new Date(job.fechaISO + "T12:00:00").toISOString() : new Date().toISOString(),
     supervisor: job.supervisor || localStorage.getItem("usuario") || "",
@@ -8327,6 +8370,7 @@ function abrirDetalleRecepcionDesdeResumenNube(keyOrIdx) {
     <div style="display:flex; gap:10px; margin-bottom:10px;">
       <button class="no-print" onclick="imprimirModalRecepcion()" style="flex:1;">🖨️ Imprimir PDF</button>
       <button class="no-print" onclick="exportarRecepcionXLSX()" style="flex:1;background:#1b7a3a;">📗 XLSX</button>
+      ${rc_puedeEditar() ? '<button class="no-print" onclick="rc_editarRecepcionEnviada()" style="flex:1;background:#e05c2b;">✏️ Editar</button>' : ''}
       <button class="no-print" onclick="cerrarDetalleRecepcion()" style="flex:1;background:#444;">← Cerrar</button>
     </div>
     <div style="font-size:16px; font-weight:800; color:#0b3c5d; padding:0 0 10px; border-bottom:2px solid #eef2f5; margin-bottom:12px;">Detalle Recepción</div>
@@ -8504,6 +8548,108 @@ function cerrarDetalleRecepcion() {
   const modal = document.getElementById("modalDetalleRecepcion");
   if (modal) modal.style.display = "none";
   document.body.classList.remove("modal-recepcion-open");
+}
+
+/* ═══════════════════════════════════════════════════
+   EDITAR RECEPCIÓN YA ENVIADA (reabrir, agregar/quitar
+   lotes, marcar daños) — reutiliza toda la pantalla de
+   captura normal, solo cambia el destino al guardar.
+═══════════════════════════════════════════════════ */
+function rc_puedeEditar() {
+  if (String(localStorage.getItem('usuario_esadmin') || '') === '1') return true;
+  var rol = String(localStorage.getItem('usuario_rol') || '').trim().toLowerCase();
+  if (rol === 'admin' || rol === 'administrador' || rol === 'supervisor') return true;
+  try {
+    var p = JSON.parse(localStorage.getItem('usuario_permisos') || '[]');
+    return p.map(function(x){ return String(x).toUpperCase(); }).indexOf('EDITAR_RECEPCION') !== -1;
+  } catch (e) { return false; }
+}
+
+async function rc_editarRecepcionEnviada() {
+  const c = window._rc_detalleActual;
+  if (!c) { mostrarAlerta('⚠️ Sin datos', 'No se encontró el detalle a editar.'); return; }
+
+  if (!c.operacion) {
+    mostrarAlerta('⚠️ No se puede editar',
+      'Esta recepción no tiene N° de Operación asociado (registro antiguo) y no se puede editar de forma segura.');
+    return;
+  }
+
+  const ok = await mostrarConfirm(
+    '✏️ Editar recepción',
+    'Vas a reabrir la recepción <b>' + c.operacion + '</b> (' + (c.patente || '—') + ') para modificarla.' +
+    '<br><br>Podrás agregar o quitar lotes y marcar daños. Al guardar, ' +
+    '<b>se reemplazará</b> lo que estaba grabado para esta recepción.' +
+    '<br><br>¿Continuar?',
+    'Sí, editar', 'Cancelar'
+  );
+  if (!ok) return;
+
+  cerrarDetalleRecepcion();
+
+  const tipo = (c.tipo || 'codigo').toLowerCase();
+  const guias = Array.isArray(c.guias) ? c.guias : (c.guias ? [String(c.guias)] : []);
+
+  const job = {
+    id: rc_uid(),
+    editando: true,
+    estado: 'ROJO',
+    tipo,
+    supervisor: c.supervisor || localStorage.getItem('usuario') || '',
+    cliente: c.cliente || '',
+    patente: c.patente || '',
+    guias,
+    operacion: c.operacion,
+    fechaISO: c.fechaISO || _fechaHoyLocal(),
+    proteccion: c.proteccion || '',
+    volumenTotal: Number(c.volumenTotal || c.totalVolumen || 0) || 0,
+    detalle: JSON.parse(JSON.stringify(Array.isArray(c.detalle) ? c.detalle : [])),
+    errorMsg: '',
+    createdAt: c.createdAt || Date.now(),
+    updatedAt: Date.now()
+  };
+
+  await rc_putJob(job);
+  rc_jobActualId = job.id;
+  camionCerrado = false;
+
+  registrosRecepcion = [...job.detalle];
+  window.registrosRecepcion = registrosRecepcion;
+  window.registrosRecepcionCodigo = registrosRecepcion;
+  actualizarTotalesRecepcion();
+
+  const guiasTxt = guias.join(' / ');
+  const bannerTxt = '✏️ Editando recepción ya enviada — N° operación ' + c.operacion +
+    '. Al cerrar se reemplazará lo anterior.';
+
+  if (tipo === 'codigo') {
+    document.getElementById('datoCliente').innerText = job.cliente || '';
+    document.getElementById('datoPatente').innerText = job.patente || '';
+    document.getElementById('datoGuia').innerText = guiasTxt || '';
+    const opEl = document.getElementById('datoOperacion');
+    if (opEl) opEl.innerText = job.operacion || '—';
+    const pEl = document.getElementById('datoProteccion');
+    const vEl = document.getElementById('datoVolumen');
+    if (pEl) pEl.innerText = job.proteccion || '—';
+    if (vEl) vEl.innerText = job.volumenTotal ? job.volumenTotal + ' m³' : '—';
+    const banner = document.getElementById('rc_bannerEdicion');
+    if (banner) { banner.textContent = bannerTxt; banner.style.display = 'block'; }
+
+    ir('pantallaRecepcionCodigo');
+    ub_prefillAll('rc');
+    setTimeout(() => document.getElementById('lote')?.focus(), 250);
+    return;
+  }
+
+  document.getElementById('datoClienteManual').innerText = job.cliente || '';
+  document.getElementById('datoPatenteManual').innerText = job.patente || '';
+  document.getElementById('datoGuiasManual').innerText = guiasTxt || '';
+  const bannerM = document.getElementById('rcManual_bannerEdicion');
+  if (bannerM) { bannerM.textContent = bannerTxt; bannerM.style.display = 'block'; }
+
+  ir('pantallaRecepcionManual');
+  ub_prefillAll('rcManual');
+  setTimeout(() => document.getElementById('cantidadManual')?.focus(), 250);
 }
 
 /** Imprime solo el contenido del modal de detalle recepción */
