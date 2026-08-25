@@ -1822,6 +1822,31 @@ button:active {
 
 <body>
 
+<!-- ===================== ESCANEO POR CÁMARA (backup del láser) ===================== -->
+<div id="camScanModal" style="display:none; position:fixed; inset:0; z-index:2000000; background:#000;">
+  <video id="camScanVideo" autoplay playsinline muted
+         style="width:100%; height:100%; object-fit:cover; background:#000;"></video>
+  <div style="position:absolute; inset:0; display:flex; flex-direction:column;
+              justify-content:space-between; pointer-events:none;">
+    <div style="display:flex; justify-content:space-between; align-items:center; padding:14px 16px;
+                pointer-events:auto; background:linear-gradient(180deg,rgba(0,0,0,.65),transparent);">
+      <div style="color:#fff; font-weight:800; font-size:14px;">📷 Escanear con cámara</div>
+      <button onclick="camScan_cerrar()"
+              style="width:auto; margin:0; background:rgba(255,255,255,.18); color:#fff; border:none;
+                     width:34px; height:34px; border-radius:10px; font-size:18px; font-weight:800;
+                     cursor:pointer;">×</button>
+    </div>
+    <div style="align-self:center; width:72%; max-width:340px; aspect-ratio:1.7;
+                border:3px solid #34c98f; border-radius:16px;
+                box-shadow:0 0 0 2000px rgba(0,0,0,.4);"></div>
+    <div id="camScanStatus"
+         style="pointer-events:auto; text-align:center; color:#fff; font-weight:700; font-size:14px;
+                padding:16px; background:linear-gradient(0deg,rgba(0,0,0,.65),transparent);">
+      Apunta la cámara al código de barras…
+    </div>
+  </div>
+</div>
+
 <!-- ============ LOGIN NUEVO ============ -->
 <section id="login" class="pantalla visible loginPantalla">
 
@@ -2988,6 +3013,12 @@ button:active {
                     font-weight:bold; text-align:center; text-transform:uppercase;
                     border:1.5px solid #dde3e8; border-radius:10px; background:#fff; outline:none;"
              oninput="this.value = this.value.toUpperCase();">
+      <button type="button" title="Escanear con la cámara del celular"
+              onclick="abrirScanCamara(function(codigo){ document.getElementById('scannerInput').value = codigo; procesarScanner(); })"
+              style="width:100%; margin-top:8px; background:#eef6ff; color:#1b6ca8; border:none;
+                     border-radius:10px; padding:9px; font-size:13px; font-weight:800; cursor:pointer;">
+        📷 Escanear con cámara (sin láser)
+      </button>
     </div>
 
     <div id="ultimoLote" class="rcInfoCard" style="display:none;">
@@ -3522,6 +3553,12 @@ button:active {
     <input type="text" id="lote" placeholder="Lote / código de barras" autofocus
            class="rcInputLote" oninput="this.value=this.value.toUpperCase();"
            onkeydown="if(event.key==='Enter'){event.preventDefault(); if(this.value.trim()) document.getElementById('producto')?.focus();}">
+    <button type="button" title="Escanear con la cámara del celular"
+            onclick="abrirScanCamara(function(codigo){ document.getElementById('lote').value = codigo; document.getElementById('producto')?.focus(); })"
+            style="width:100%; margin-top:8px; background:#eef6ff; color:#1b6ca8; border:none;
+                   border-radius:10px; padding:9px; font-size:13px; font-weight:800; cursor:pointer;">
+      📷 Escanear con cámara (sin láser)
+    </button>
   </div>
 
   <div class="rcFormCard">
@@ -3986,6 +4023,12 @@ button:active {
                    border-radius:11px; font-size:19px; cursor:pointer;">
       🔍
     </button>
+    <button type="button" title="Escanear con la cámara del celular"
+            onclick="abrirScanCamara(function(codigo){ document.getElementById('prep_lote').value = codigo; procesarLotePreparacion(); })"
+            style="flex-shrink:0; width:46px; background:#0b3c5d; color:#fff; border:none;
+                   border-radius:11px; font-size:19px; cursor:pointer;">
+      📷
+    </button>
   </div>
 
   <div class="prepErrorBanner" id="prep_msgError">❌ LOTE NO ENCONTRADO EN LA BASE</div>
@@ -4373,6 +4416,17 @@ button:active {
     </div>
     <input type="text" id="rx_lote" placeholder="Lote / código de barras" autocomplete="off"
            class="rcInputLote" oninput="this.value=this.value.toUpperCase();">
+    <button type="button" title="Escanear con la cámara del celular"
+            onclick="abrirScanCamara(function(codigo){
+              document.getElementById('rx_lote').value = codigo;
+              rx_procesarLote(codigo);
+              document.getElementById('rx_lote').value = '';
+              setTimeout(function(){ document.getElementById('rx_lote')?.focus(); }, 80);
+            })"
+            style="width:100%; margin-top:8px; background:#eef6ff; color:#1b6ca8; border:none;
+                   border-radius:10px; padding:9px; font-size:13px; font-weight:800; cursor:pointer;">
+      📷 Escanear con cámara (sin láser)
+    </button>
     <button onclick="rx_guardarLoteManual()"
             style="width:100%; margin-top:8px; background:#0b7a50; color:#fff; border:none;
                    border-radius:11px; padding:13px; font-size:15px; font-weight:800;
@@ -11487,6 +11541,99 @@ function agregarPreviewFotoExistente(url, nombre) {
   img.title = nombre;
 
   box.appendChild(img);
+}
+
+/* ---------------------------------------------------------
+   ESCANEO POR CÁMARA — backup del láser Zebra.
+   Usa la API nativa BarcodeDetector (Chrome/Android) para no
+   depender de ninguna librería externa. Por defecto SIEMPRE se
+   usa el láser (los inputs de escaneo quedan igual); esto solo
+   agrega un botón opcional "📷" que abre la cámara y, al leer un
+   código, hace exactamente lo mismo que haría el láser en ese
+   campo (mismo callback que ya procesa el lote).
+--------------------------------------------------------- */
+let camScan_stream = null;
+let camScan_detector = null;
+let camScan_timer = null;
+let camScan_onDecode = null;
+let camScan_ultimoCodigo = '';
+let camScan_ultimoTs = 0;
+
+function camScan_disponible() {
+  return !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia && window.BarcodeDetector);
+}
+
+async function abrirScanCamara(onDecode) {
+  if (!camScan_disponible()) {
+    mostrarAlerta('⚠️ Cámara no disponible',
+      'Este navegador no soporta escaneo por cámara (funciona en Chrome / Android). ' +
+      'Usa el láser o ingresa el código manualmente.');
+    return;
+  }
+
+  camScan_onDecode = onDecode;
+  camScan_ultimoCodigo = '';
+  camScan_ultimoTs = 0;
+
+  const modal  = document.getElementById('camScanModal');
+  const video  = document.getElementById('camScanVideo');
+  const status = document.getElementById('camScanStatus');
+  if (status) status.textContent = 'Apunta la cámara al código de barras…';
+  if (modal)  modal.style.display = 'block';
+
+  if (!camScan_detector) {
+    try {
+      camScan_detector = new BarcodeDetector({
+        formats: ['code_128','code_39','code_93','ean_13','ean_8','upc_a','upc_e','codabar','itf','qr_code']
+      });
+    } catch (e) {
+      camScan_detector = new BarcodeDetector(); // formatos por defecto del navegador
+    }
+  }
+
+  try {
+    camScan_stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: { ideal: 'environment' } }
+    });
+    video.srcObject = camScan_stream;
+    await video.play();
+  } catch (e) {
+    mostrarAlerta('⚠️ No se pudo abrir la cámara', e.message || String(e));
+    camScan_cerrar();
+    return;
+  }
+
+  camScan_timer = setInterval(async () => {
+    if (!camScan_detector || video.readyState < 2) return;
+    try {
+      const codes = await camScan_detector.detect(video);
+      if (codes && codes.length) {
+        const codigo = String(codes[0].rawValue || '').trim();
+        if (!codigo) return;
+        const ahora = Date.now();
+        // evitar reprocesar el mismo código mientras sigue en cuadro
+        if (codigo === camScan_ultimoCodigo && (ahora - camScan_ultimoTs) < 1500) return;
+        camScan_ultimoCodigo = codigo;
+        camScan_ultimoTs = ahora;
+        if (navigator.vibrate) navigator.vibrate(80);
+        if (status) status.textContent = '✓ ' + codigo;
+        if (typeof camScan_onDecode === 'function') camScan_onDecode(codigo);
+      }
+    } catch (e) { /* frame sin código legible, se ignora */ }
+  }, 300);
+}
+
+function camScan_cerrar() {
+  const modal = document.getElementById('camScanModal');
+  if (modal) modal.style.display = 'none';
+  if (camScan_timer) { clearInterval(camScan_timer); camScan_timer = null; }
+  if (camScan_stream) {
+    camScan_stream.getTracks().forEach(t => t.stop());
+    camScan_stream = null;
+  }
+  const video = document.getElementById('camScanVideo');
+  if (video) video.srcObject = null;
+  camScan_onDecode = null;
 }
 
 /* ---------------------------------------------------------
