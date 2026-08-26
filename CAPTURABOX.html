@@ -18231,6 +18231,22 @@ async function gc_inf_generar() {
   }
 }
 
+/* Lee una propiedad de un movimiento sin importar mayúsculas/minúsculas.
+   El mapeo de columnas del backend (encabezado -> camelCase) solo baja
+   la PRIMERA letra: si en la hoja el encabezado está en MAYÚSCULAS
+   (ej. "FECHA" en vez de "Fecha"), la clave real que llega termina
+   siendo algo como "fECHA" y m.fecha queda undefined aunque el dato
+   sí esté ahí. Esto lo encuentra igual buscando por nombre sin
+   importar el casing exacto. */
+function gc_campoCI(m, nombre) {
+  if (!m) return undefined;
+  var objetivo = nombre.toLowerCase();
+  for (var k in m) {
+    if (Object.prototype.hasOwnProperty.call(m, k) && k.toLowerCase() === objetivo) return m[k];
+  }
+  return undefined;
+}
+
 function gc_inf_mostrar(data) {
   var prev = document.getElementById('gcInfModal');
   if (prev) prev.remove();
@@ -18261,14 +18277,15 @@ function gc_inf_mostrar(data) {
         return '<th style="padding:5px 8px;text-align:left;font-size:10px;color:#7a8b95;border-bottom:2px solid #e6ebee;white-space:nowrap;letter-spacing:.03em;text-transform:uppercase;">' + h + '</th>';
       }).join('') + '</tr></thead><tbody>' +
       movs.map(function (m, i) {
-        var fecha = m.fecha ? new Date(m.fecha).toLocaleString('es-CL', { hour12: false }) : '—';
+        var fechaVal = gc_campoCI(m, 'fecha');
+        var fecha = fechaVal ? new Date(fechaVal).toLocaleString('es-CL', { hour12: false }) : '—';
         var col = colores[m.tipo] || '#5a6b77';
         return '<tr style="background:' + (i % 2 ? '#fafbfc' : '#fff') + ';">' +
           '<td style="padding:5px 8px;border-bottom:1px solid #f0f3f5;white-space:nowrap;">' + fecha + '</td>' +
           '<td style="padding:5px 8px;border-bottom:1px solid #f0f3f5;font-weight:700;color:#0b3c5d;">' + (m.contenedor || '—') + '</td>' +
           '<td style="padding:5px 8px;border-bottom:1px solid #f0f3f5;color:' + col + ';font-weight:700;">' + (nombres[m.tipo] || m.tipo) + '</td>' +
           '<td style="padding:5px 8px;border-bottom:1px solid #f0f3f5;">' + (m.estado === 'LLENO' ? 'Lleno' : 'Vacío') + '</td>' +
-          '<td style="padding:5px 8px;border-bottom:1px solid #f0f3f5;">' + (m.cliente || '—') + '</td>' +
+          '<td style="padding:5px 8px;border-bottom:1px solid #f0f3f5;">' + (gc_campoCI(m, 'cliente') || '—') + '</td>' +
           '<td style="padding:5px 8px;border-bottom:1px solid #f0f3f5;">' + (m.transportista || '—') + '</td>' +
           '<td style="padding:5px 8px;border-bottom:1px solid #f0f3f5;">' + (m.patente || '—') + '</td>' +
           '<td style="padding:5px 8px;border-bottom:1px solid #f0f3f5;">' + (m.chofer || '—') + '</td>' +
@@ -18323,10 +18340,11 @@ function gc_inf_exportar() {
 
   var nombres = { RECEPCION: 'Recepción', DESPACHO: 'Despacho', DEVOLUCION: 'Devolución', FALSO_FLETE: 'Falso flete' };
   var filas = gc_inf_ultimo.map(function (m) {
+    var fechaVal = gc_campoCI(m, 'fecha');
     return {
-      Fecha: m.fecha ? new Date(m.fecha).toLocaleString('es-CL', { hour12: false }) : '',
+      Fecha: fechaVal ? new Date(fechaVal).toLocaleString('es-CL', { hour12: false }) : '',
       Contenedor: m.contenedor || '', Tipo: nombres[m.tipo] || m.tipo, Estado: m.estado === 'LLENO' ? 'Lleno' : 'Vacío',
-      Cliente: m.cliente || '',
+      Cliente: gc_campoCI(m, 'cliente') || '',
       Transportista: m.transportista || '', Patente: m.patente || '', Chofer: m.chofer || '', 'Rut chofer': m.choferRut || '',
       Procedencia: m.procedencia || '', Destino: m.destino || '', Guía: m.guia || '', Motivo: m.motivo || '',
       Observaciones: m.observaciones || '', 'Registró': m.usuario || ''
@@ -18380,9 +18398,10 @@ function gc_inf_exportarPDF() {
   }).join('');
 
   var filasDetalle = movs.map(function (m) {
-    var f = m.fecha ? new Date(m.fecha).toLocaleString('es-CL', { hour12: false }) : '—';
+    var fechaVal = gc_campoCI(m, 'fecha');
+    var f = fechaVal ? new Date(fechaVal).toLocaleString('es-CL', { hour12: false }) : '—';
     return '<tr><td>' + f + '</td><td>' + (m.contenedor || '—') + '</td><td>' + (nombres[m.tipo] || m.tipo) + '</td>' +
-      '<td>' + (m.estado === 'LLENO' ? 'Lleno' : 'Vacío') + '</td><td>' + (m.cliente || '—') + '</td>' +
+      '<td>' + (m.estado === 'LLENO' ? 'Lleno' : 'Vacío') + '</td><td>' + (gc_campoCI(m, 'cliente') || '—') + '</td>' +
       '<td>' + (m.transportista || '—') + '</td><td>' + (m.patente || '—') + '</td><td>' + (m.chofer || '—') + '</td>' +
       '<td>' + (m.procedencia || '—') + '</td><td>' + (m.destino || '—') + '</td><td>' + (m.guia || '—') + '</td>' +
       '<td>' + (m.motivo || '—') + '</td></tr>';
