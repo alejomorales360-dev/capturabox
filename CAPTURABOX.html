@@ -17633,9 +17633,14 @@ async function gc_abrir() {
       '<div id="gc_choferRutDisplay" style="font-size:11px;color:#7a8b95;margin-top:4px;">—</div></div>' +
     '</div>' +
 
-    '<div><div style="font-size:11px; font-weight:800; color:#7a8b95; margin-bottom:4px;">CLIENTE</div>' +
+    '<div><div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:4px;">' +
+      '<div style="font-size:11px; font-weight:800; color:#7a8b95;">CLIENTE</div>' +
+      '<span id="gc_clienteEditarLink" onclick="gc_desbloquearCliente()" ' +
+        'style="display:none; font-size:11px; font-weight:800; color:#1b6ca8; cursor:pointer;">🔓 Editar</span>' +
+    '</div>' +
     '<select id="gc_cliente" class="rcFormInput" style="padding:10px 12px;" onchange="gc_onSelectCatalogo(\'gc_cliente\',\'cliente\')">' +
-      gc_htmlSelectClientes() + '</select></div>' +
+      gc_htmlSelectClientes() + '</select>' +
+    '<div id="gc_clienteNota" style="font-size:10px;color:#7a8b95;margin-top:4px;"></div></div>' +
 
     '<div><div id="gc_lblProcedencia" style="font-size:11px; font-weight:800; color:#7a8b95; margin-bottom:4px;">PROCEDENCIA</div>' +
     '<select id="gc_procedencia" class="rcFormInput" style="padding:10px 12px;" onchange="gc_onSelectCatalogo(\'gc_procedencia\',\'destino\')">' +
@@ -17695,6 +17700,25 @@ function gc_onTipoChange() {
   if (lblProcedencia) lblProcedencia.textContent = 'PROCEDENCIA';
   if (lblDestino) lblDestino.textContent = 'DESTINO EN BODEGA';
 
+  // El cliente queda fijo al contenedor: solo se elige manualmente al
+  // recepcionarlo (RECEPCION). En Despacho/Devolución/Falso flete se
+  // completa solo (autocompletar o "Buscar") y queda bloqueado, para
+  // no arriesgar despachar un contenedor a nombre del cliente que no es.
+  var elCliente = document.getElementById('gc_cliente');
+  var clienteNota = document.getElementById('gc_clienteNota');
+  var clienteEditarLink = document.getElementById('gc_clienteEditarLink');
+  if (elCliente) {
+    if (tipo === 'RECEPCION') {
+      elCliente.disabled = false;
+      if (clienteNota) clienteNota.textContent = 'Se establece al recepcionar el contenedor.';
+      if (clienteEditarLink) clienteEditarLink.style.display = 'none';
+    } else {
+      elCliente.disabled = true;
+      if (clienteNota) clienteNota.textContent = 'Queda fijo al contenedor: se completa solo al escribir o buscar el N° de contenedor.';
+      if (clienteEditarLink) clienteEditarLink.style.display = '';
+    }
+  }
+
   // Estado del contenedor: reglas de negocio de Gate Control
   if (estadoSel) {
     if (tipo === 'DESPACHO') {
@@ -17711,6 +17735,20 @@ function gc_onTipoChange() {
       if (estadoNota) estadoNota.textContent = '';
     }
   }
+}
+
+async function gc_desbloquearCliente() {
+  var ok = await mostrarConfirm(
+    '🔓 Editar cliente manualmente',
+    'El cliente debería quedar fijo al contenedor (se completa solo al escribir o buscar el N° de contenedor). ' +
+    'Solo cámbialo a mano si el contenedor no fue recepcionado antes en el sistema.<br><br>¿Continuar?',
+    'Sí, editar', 'Cancelar'
+  );
+  if (!ok) return;
+  var el = document.getElementById('gc_cliente');
+  if (el) el.disabled = false;
+  var link = document.getElementById('gc_clienteEditarLink');
+  if (link) link.style.display = 'none';
 }
 
 /* Autocompletar N° de contenedor contra contenedores ya consolidados
@@ -18035,7 +18073,12 @@ async function gc_registrar() {
   var obs = String((document.getElementById('gc_obs') || {}).value || '').trim();
 
   if (!contenedor) { mostrarAlerta('⚠️ Faltan datos', 'El número de contenedor es obligatorio.'); return false; }
-  if (!cliente) { mostrarAlerta('⚠️ Faltan datos', 'Selecciona el cliente dueño del contenedor.'); return false; }
+  if (!cliente) {
+    var msgCliente = (tipo === 'RECEPCION')
+      ? 'Selecciona el cliente dueño del contenedor.'
+      : 'No se pudo determinar el cliente del contenedor. Escribe o busca el N° de contenedor primero, o usa "🔓 Editar" junto a Cliente si no fue recepcionado antes en el sistema.';
+    mostrarAlerta('⚠️ Faltan datos', msgCliente); return false;
+  }
   if (!patente) { mostrarAlerta('⚠️ Faltan datos', 'Selecciona la patente del camión.'); return false; }
   if (!chofer) { mostrarAlerta('⚠️ Faltan datos', 'Selecciona el chofer.'); return false; }
   if (tipo === 'FALSO_FLETE' && !motivo) { mostrarAlerta('⚠️ Falta el motivo', 'Indica el motivo del falso flete (se usa para el pago al transportista).'); return false; }
