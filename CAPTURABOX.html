@@ -17534,6 +17534,18 @@ function trazar_mostrar(data) {
 var gc_catalogos = { camiones: [], choferes: [], destinos: [], clientes: [] };
 var gc_catalogosCargados = false;
 var gc_fotos = [];
+var gc_modoEdicion = false;
+var gc_filaEdicion = null;
+
+function gc_puedeEditar() {
+  if (String(localStorage.getItem('usuario_esadmin') || '') === '1') return true;
+  var rol = String(localStorage.getItem('usuario_rol') || '').trim().toLowerCase();
+  if (rol === 'admin' || rol === 'administrador' || rol === 'supervisor') return true;
+  try {
+    var p = JSON.parse(localStorage.getItem('usuario_permisos') || '[]');
+    return p.map(function(x){ return String(x).toUpperCase(); }).indexOf('EDITAR_GATECONTROL') !== -1;
+  } catch (e) { return false; }
+}
 
 async function gc_cargarCatalogos(forzar) {
   if (gc_catalogosCargados && !forzar) return;
@@ -17590,30 +17602,38 @@ function gc_htmlSelectClientes(valorActual) {
   return html;
 }
 
-async function gc_abrir() {
+async function gc_abrir(movExistente) {
   mostrarCargando('Cargando datos de Gate Control...');
   await gc_cargarCatalogos();
   ocultarCargando();
   gc_fotos = [];
+  gc_modoEdicion = !!movExistente;
+  gc_filaEdicion = movExistente ? movExistente._fila : null;
+
+  var m = movExistente || {};
+  var fechaVal = m.fecha ? new Date(m.fecha).toISOString().slice(0, 10) : _fechaHoyLocal();
+  var tipoVal = m.tipo || 'RECEPCION';
+  var fotosNota = (gc_modoEdicion && Array.isArray(m.fotos) ? m.fotos.length : 0) ||
+    (gc_modoEdicion && m.fotos ? String(m.fotos).split(',').filter(function(s){return s.trim();}).length : 0);
 
   var contenido =
     '<div style="display:flex; flex-direction:column; gap:12px; padding:4px 0;">' +
 
     '<div><div style="font-size:11px; font-weight:800; color:#7a8b95; margin-bottom:4px;">FECHA DEL MOVIMIENTO</div>' +
-    '<input id="gc_fecha" type="date" class="rcFormInput" value="' + _fechaHoyLocal() + '" style="padding:10px 12px;">' +
+    '<input id="gc_fecha" type="date" class="rcFormInput" value="' + fechaVal + '" style="padding:10px 12px;">' +
     '<div style="font-size:10px; color:#7a8b95; margin-top:4px;">Es hoy por defecto; cámbiala si el movimiento fue de otro día.</div></div>' +
 
     '<div><div style="font-size:11px; font-weight:800; color:#7a8b95; margin-bottom:4px;">TIPO DE MOVIMIENTO</div>' +
     '<select id="gc_tipo" class="rcFormInput" style="padding:10px 12px;" onchange="gc_onTipoChange()">' +
-      '<option value="RECEPCION">Recepción</option>' +
-      '<option value="DESPACHO">Despacho</option>' +
-      '<option value="DEVOLUCION">Devolución</option>' +
-      '<option value="FALSO_FLETE">Falso flete</option>' +
+      '<option value="RECEPCION"' + (tipoVal === 'RECEPCION' ? ' selected' : '') + '>Recepción</option>' +
+      '<option value="DESPACHO"' + (tipoVal === 'DESPACHO' ? ' selected' : '') + '>Despacho</option>' +
+      '<option value="DEVOLUCION"' + (tipoVal === 'DEVOLUCION' ? ' selected' : '') + '>Devolución</option>' +
+      '<option value="FALSO_FLETE"' + (tipoVal === 'FALSO_FLETE' ? ' selected' : '') + '>Falso flete</option>' +
     '</select></div>' +
 
     '<div><div style="font-size:11px; font-weight:800; color:#7a8b95; margin-bottom:4px;">N° DE CONTENEDOR</div>' +
     '<div style="display:flex; gap:8px;">' +
-      '<input id="gc_contenedor" class="rcFormInput" placeholder="Ej: MSCU1234567" list="gc_contenedorList" ' +
+      '<input id="gc_contenedor" class="rcFormInput" placeholder="Ej: MSCU1234567" list="gc_contenedorList" value="' + (m.contenedor || '') + '" ' +
         'style="padding:10px 12px; flex:1;" autocapitalize="characters" oninput="gc_onContenedorInput(this);">' +
       '<datalist id="gc_contenedorList"></datalist>' +
       '<button id="gc_btnBuscar" onclick="gc_buscarDespacho()" style="display:none; flex-shrink:0; width:auto; margin-top:0; ' +
@@ -17624,19 +17644,19 @@ async function gc_abrir() {
 
     '<div><div style="font-size:11px; font-weight:800; color:#7a8b95; margin-bottom:4px;">ESTADO DEL CONTENEDOR</div>' +
     '<select id="gc_estado" class="rcFormInput" style="padding:10px 12px;">' +
-      '<option value="VACIO">Vacío</option>' +
-      '<option value="LLENO">Lleno</option>' +
+      '<option value="VACIO"' + (m.estado === 'VACIO' ? ' selected' : '') + '>Vacío</option>' +
+      '<option value="LLENO"' + (m.estado === 'LLENO' ? ' selected' : '') + '>Lleno</option>' +
     '</select>' +
     '<div id="gc_estadoNota" style="font-size:10px;color:#7a8b95;margin-top:4px;"></div></div>' +
 
     '<div style="display:flex; gap:10px;">' +
       '<div style="flex:1;"><div style="font-size:11px; font-weight:800; color:#7a8b95; margin-bottom:4px;">PATENTE</div>' +
       '<select id="gc_patente" class="rcFormInput" style="padding:10px 12px;" onchange="gc_onSelectCatalogo(\'gc_patente\',\'camion\')">' +
-        gc_htmlSelectCamiones() + '</select>' +
+        gc_htmlSelectCamiones(m.patente) + '</select>' +
       '<div id="gc_empresaDisplay" style="font-size:11px;color:#7a8b95;margin-top:4px;">—</div></div>' +
       '<div style="flex:1;"><div style="font-size:11px; font-weight:800; color:#7a8b95; margin-bottom:4px;">CHOFER</div>' +
       '<select id="gc_chofer" class="rcFormInput" style="padding:10px 12px;" onchange="gc_onSelectCatalogo(\'gc_chofer\',\'chofer\')">' +
-        gc_htmlSelectChoferes() + '</select>' +
+        gc_htmlSelectChoferes(m.chofer) + '</select>' +
       '<div id="gc_choferRutDisplay" style="font-size:11px;color:#7a8b95;margin-top:4px;">—</div></div>' +
     '</div>' +
 
@@ -17646,24 +17666,27 @@ async function gc_abrir() {
         'style="display:none; font-size:11px; font-weight:800; color:#1b6ca8; cursor:pointer;">🔓 Editar</span>' +
     '</div>' +
     '<select id="gc_cliente" class="rcFormInput" style="padding:10px 12px;" onchange="gc_onSelectCatalogo(\'gc_cliente\',\'cliente\')">' +
-      gc_htmlSelectClientes() + '</select>' +
+      gc_htmlSelectClientes(m.cliente) + '</select>' +
     '<div id="gc_clienteNota" style="font-size:10px;color:#7a8b95;margin-top:4px;"></div></div>' +
 
     '<div><div id="gc_lblProcedencia" style="font-size:11px; font-weight:800; color:#7a8b95; margin-bottom:4px;">PROCEDENCIA</div>' +
     '<select id="gc_procedencia" class="rcFormInput" style="padding:10px 12px;" onchange="gc_onSelectCatalogo(\'gc_procedencia\',\'destino\')">' +
-      gc_htmlSelectDestinos() + '</select></div>' +
+      gc_htmlSelectDestinos(m.procedencia) + '</select></div>' +
 
     '<div><div id="gc_lblDestino" style="font-size:11px; font-weight:800; color:#7a8b95; margin-bottom:4px;">DESTINO EN BODEGA</div>' +
     '<select id="gc_destino" class="rcFormInput" style="padding:10px 12px;" onchange="gc_onSelectCatalogo(\'gc_destino\',\'destino\')">' +
-      gc_htmlSelectDestinos() + '</select></div>' +
+      gc_htmlSelectDestinos(m.destino) + '</select></div>' +
 
     '<div id="gc_guiaWrap" style="display:none;"><div style="font-size:11px; font-weight:800; color:#7a8b95; margin-bottom:4px;">N° DE GUÍA</div>' +
-    '<input id="gc_guia" class="rcFormInput" placeholder="Número de guía con la que sale el contenedor" style="padding:10px 12px;"></div>' +
+    '<input id="gc_guia" class="rcFormInput" placeholder="Número de guía con la que sale el contenedor" value="' + (m.guia || '') + '" style="padding:10px 12px;"></div>' +
 
     '<div id="gc_motivoWrap" style="display:none;"><div style="font-size:11px; font-weight:800; color:#c62828; margin-bottom:4px;">MOTIVO DEL FALSO FLETE</div>' +
-    '<textarea id="gc_motivo" class="rcFormInput" placeholder="Ej: cliente rechazó recepción, dirección incorrecta, etc." style="padding:10px 12px; min-height:60px; resize:vertical;"></textarea></div>' +
+    '<textarea id="gc_motivo" class="rcFormInput" placeholder="Ej: cliente rechazó recepción, dirección incorrecta, etc." style="padding:10px 12px; min-height:60px; resize:vertical;">' + (m.motivo || '') + '</textarea></div>' +
 
     '<div><div style="font-size:11px; font-weight:800; color:#7a8b95; margin-bottom:4px;">FOTO DEL DOCUMENTO (guía / manifiesto)</div>' +
+    (gc_modoEdicion ? '<div style="font-size:11px; color:#7a8b95; margin-bottom:6px;">' +
+      (fotosNota ? 'Ya tiene ' + fotosNota + ' foto(s) guardada(s). Agrega nuevas solo si quieres reemplazarlas.' : 'Sin fotos guardadas.') +
+      '</div>' : '') +
     '<div id="gc_fotosPreview" style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:6px;"></div>' +
     '<div style="display:flex; gap:8px; flex-wrap:wrap;">' +
       '<label style="display:inline-flex; align-items:center; gap:6px; background:#eef2f5; color:#0b3c5d; border-radius:10px; padding:10px 14px; font-size:13px; font-weight:800; cursor:pointer;">' +
@@ -17677,11 +17700,12 @@ async function gc_abrir() {
     '<div style="font-size:10px; color:#7a8b95; margin-top:4px;">La lectura automática puede equivocarse: revisa los datos antes de guardar.</div></div>' +
 
     '<div><div style="font-size:11px; font-weight:800; color:#7a8b95; margin-bottom:4px;">OBSERVACIONES (opcional)</div>' +
-    '<textarea id="gc_obs" class="rcFormInput" placeholder="Notas adicionales" style="padding:10px 12px; min-height:44px; resize:vertical;"></textarea></div>' +
+    '<textarea id="gc_obs" class="rcFormInput" placeholder="Notas adicionales" style="padding:10px 12px; min-height:44px; resize:vertical;">' + (m.observaciones || '') + '</textarea></div>' +
 
     '</div>';
 
-  mostrarModalForm('Registrar movimiento', contenido, gc_registrar);
+  mostrarModalForm(gc_modoEdicion ? 'Editar movimiento' : 'Registrar movimiento', contenido,
+    gc_modoEdicion ? gc_guardarEdicion : gc_registrar);
   gc_onTipoChange();
 }
 
@@ -17715,7 +17739,13 @@ function gc_onTipoChange() {
   var clienteNota = document.getElementById('gc_clienteNota');
   var clienteEditarLink = document.getElementById('gc_clienteEditarLink');
   if (elCliente) {
-    if (tipo === 'RECEPCION') {
+    if (gc_modoEdicion) {
+      // Corrección manual autorizada: el cliente queda editable siempre,
+      // sin importar el tipo de movimiento.
+      elCliente.disabled = false;
+      if (clienteNota) clienteNota.textContent = 'Estás editando un movimiento ya registrado: puedes corregir el cliente si hace falta.';
+      if (clienteEditarLink) clienteEditarLink.style.display = 'none';
+    } else if (tipo === 'RECEPCION') {
       elCliente.disabled = false;
       if (clienteNota) clienteNota.textContent = 'Se establece al recepcionar el contenedor.';
       if (clienteEditarLink) clienteEditarLink.style.display = 'none';
@@ -18065,7 +18095,7 @@ async function gc_buscarDespacho() {
   }
 }
 
-async function gc_registrar() {
+function gc_recolectarDatosFormulario() {
   var fecha = (document.getElementById('gc_fecha') || {}).value || _fechaHoyLocal();
   var tipo = (document.getElementById('gc_tipo') || {}).value || 'RECEPCION';
   var contenedor = String((document.getElementById('gc_contenedor') || {}).value || '').trim();
@@ -18079,34 +18109,63 @@ async function gc_registrar() {
   var motivo = String((document.getElementById('gc_motivo') || {}).value || '').trim();
   var obs = String((document.getElementById('gc_obs') || {}).value || '').trim();
 
-  if (!contenedor) { mostrarAlerta('⚠️ Faltan datos', 'El número de contenedor es obligatorio.'); return false; }
+  if (!contenedor) { mostrarAlerta('⚠️ Faltan datos', 'El número de contenedor es obligatorio.'); return null; }
   if (!cliente) {
-    var msgCliente = (tipo === 'RECEPCION')
+    var msgCliente = (tipo === 'RECEPCION' || gc_modoEdicion)
       ? 'Selecciona el cliente dueño del contenedor.'
       : 'No se pudo determinar el cliente del contenedor. Escribe o busca el N° de contenedor primero, o usa "🔓 Editar" junto a Cliente si no fue recepcionado antes en el sistema.';
-    mostrarAlerta('⚠️ Faltan datos', msgCliente); return false;
+    mostrarAlerta('⚠️ Faltan datos', msgCliente); return null;
   }
-  if (!patente) { mostrarAlerta('⚠️ Faltan datos', 'Selecciona la patente del camión.'); return false; }
-  if (!chofer) { mostrarAlerta('⚠️ Faltan datos', 'Selecciona el chofer.'); return false; }
-  if (tipo === 'FALSO_FLETE' && !motivo) { mostrarAlerta('⚠️ Falta el motivo', 'Indica el motivo del falso flete (se usa para el pago al transportista).'); return false; }
+  if (!patente) { mostrarAlerta('⚠️ Faltan datos', 'Selecciona la patente del camión.'); return null; }
+  if (!chofer) { mostrarAlerta('⚠️ Faltan datos', 'Selecciona el chofer.'); return null; }
+  if (tipo === 'FALSO_FLETE' && !motivo) { mostrarAlerta('⚠️ Falta el motivo', 'Indica el motivo del falso flete (se usa para el pago al transportista).'); return null; }
 
   var camion = gc_catalogos.camiones.filter(function (c) { return c.patente === patente; })[0];
   var transportista = camion ? camion.empresa : '';
   var choferObj = gc_catalogos.choferes.filter(function (c) { return c.nombre === chofer; })[0];
   var choferRut = choferObj ? choferObj.rut : '';
 
+  return {
+    fecha: fecha, tipo: tipo, contenedor: contenedor, estado: estado, cliente: cliente,
+    transportista: transportista, patente: patente, chofer: chofer, choferRut: choferRut,
+    procedencia: procedencia, destino: destino, guia: guia, motivo: motivo, observaciones: obs,
+    fotos: gc_fotos,
+    usuario: localStorage.getItem('usuario') || ''
+  };
+}
+
+async function gc_registrar() {
+  var payload = gc_recolectarDatosFormulario();
+  if (!payload) return false;
+  payload.accion = 'registrarMovimientoGateControl';
+
   try {
-    var res = await fetch(URL_GAS, { method: 'POST', body: JSON.stringify({
-      accion: 'registrarMovimientoGateControl',
-      fecha: fecha, tipo: tipo, contenedor: contenedor, estado: estado, cliente: cliente,
-      transportista: transportista, patente: patente, chofer: chofer, choferRut: choferRut,
-      procedencia: procedencia, destino: destino, guia: guia, motivo: motivo, observaciones: obs,
-      fotos: gc_fotos,
-      usuario: localStorage.getItem('usuario') || ''
-    }) });
+    var res = await fetch(URL_GAS, { method: 'POST', body: JSON.stringify(payload) });
     var data = await res.json();
     if (data.ok) { mostrarAlerta('✅ Registrado', 'El movimiento de Gate Control quedó registrado.'); return true; }
     mostrarAlerta('❌ Error', data.msg || 'No se pudo registrar.'); return false;
+  } catch (e) {
+    mostrarAlerta('❌ Sin conexión', e.message); return false;
+  }
+}
+
+async function gc_guardarEdicion() {
+  var payload = gc_recolectarDatosFormulario();
+  if (!payload) return false;
+  payload.accion = 'editarMovimientoGateControl';
+  payload._fila = gc_filaEdicion;
+
+  try {
+    var res = await fetch(URL_GAS, { method: 'POST', body: JSON.stringify(payload) });
+    var data = await res.json();
+    if (data.ok) {
+      mostrarAlerta('✅ Actualizado', 'El movimiento quedó actualizado.');
+      gc_modoEdicion = false;
+      gc_filaEdicion = null;
+      if (document.getElementById('gcInfModal')) gc_inf_generar();
+      return true;
+    }
+    mostrarAlerta('❌ Error', data.msg || 'No se pudo actualizar.'); return false;
   } catch (e) {
     mostrarAlerta('❌ Sin conexión', e.message); return false;
   }
@@ -18275,18 +18334,31 @@ function gc_inf_mostrar(data) {
         '<div style="font-size:9px;color:#7a8b95;letter-spacing:.04em;text-transform:uppercase;">' + nombres[t] + '</div></div>';
     }).join('') + '</div>';
 
+  var puedeEditar = gc_puedeEditar();
   var filasHtml = '';
   if (movs.length) {
     filasHtml = '<div style="overflow-x:auto;-webkit-overflow-scrolling:touch;">' +
       '<table style="width:100%;border-collapse:collapse;font-size:11px;min-width:620px;">' +
       '<thead><tr>' +
-      ['Fecha', 'Contenedor', 'Tipo', 'Estado', 'Cliente', 'Transportista', 'Patente', 'Chofer', 'Rut chofer', 'Procedencia', 'Destino', 'Guía', 'Motivo', 'Registró'].map(function (h) {
+      ['Fecha', 'Contenedor', 'Tipo', 'Estado', 'Cliente', 'Transportista', 'Patente', 'Chofer', 'Rut chofer', 'Procedencia', 'Destino', 'Guía', 'Motivo', 'Registró']
+        .concat(puedeEditar ? ['Acciones'] : []).map(function (h) {
         return '<th style="padding:5px 8px;text-align:left;font-size:10px;color:#7a8b95;border-bottom:2px solid #e6ebee;white-space:nowrap;letter-spacing:.03em;text-transform:uppercase;">' + h + '</th>';
       }).join('') + '</tr></thead><tbody>' +
       movs.map(function (m, i) {
         var fechaVal = gc_campoCI(m, 'fecha');
         var fecha = fechaVal ? new Date(fechaVal).toLocaleString('es-CL', { hour12: false }) : '—';
         var col = colores[m.tipo] || '#5a6b77';
+        var fila = gc_campoCI(m, '_fila');
+        var acciones = puedeEditar
+          ? '<td style="padding:5px 8px;border-bottom:1px solid #f0f3f5;white-space:nowrap;">' +
+            (fila ? (
+              '<span onclick="gc_inf_editarFila(' + fila + ')" title="Editar" ' +
+                'style="cursor:pointer;margin-right:8px;">✏️</span>' +
+              '<span onclick="gc_inf_borrarFila(' + fila + ')" title="Borrar" ' +
+                'style="cursor:pointer;color:#c62828;">🗑️</span>'
+            ) : '<span style="color:#aaa;font-size:10px;">sin ID</span>') +
+            '</td>'
+          : '';
         return '<tr style="background:' + (i % 2 ? '#fafbfc' : '#fff') + ';">' +
           '<td style="padding:5px 8px;border-bottom:1px solid #f0f3f5;white-space:nowrap;">' + fecha + '</td>' +
           '<td style="padding:5px 8px;border-bottom:1px solid #f0f3f5;font-weight:700;color:#0b3c5d;">' + (m.contenedor || '—') + '</td>' +
@@ -18302,6 +18374,7 @@ function gc_inf_mostrar(data) {
           '<td style="padding:5px 8px;border-bottom:1px solid #f0f3f5;">' + (m.guia || '—') + '</td>' +
           '<td style="padding:5px 8px;border-bottom:1px solid #f0f3f5;">' + (m.motivo || '—') + '</td>' +
           '<td style="padding:5px 8px;border-bottom:1px solid #f0f3f5;">' + (m.usuario || '—') + '</td>' +
+          acciones +
           '</tr>';
       }).join('') + '</tbody></table></div>';
   } else {
@@ -18340,6 +18413,39 @@ function gc_inf_mostrar(data) {
     '</div>';
 
   document.body.appendChild(el);
+}
+
+async function gc_inf_editarFila(fila) {
+  var mov = (gc_inf_ultimo || []).filter(function (m) { return Number(gc_campoCI(m, '_fila')) === Number(fila); })[0];
+  if (!mov) { mostrarAlerta('⚠️ No encontrado', 'No se encontró el movimiento. Vuelve a generar el informe.'); return; }
+  await gc_abrir(mov);
+}
+
+async function gc_inf_borrarFila(fila) {
+  var mov = (gc_inf_ultimo || []).filter(function (m) { return Number(gc_campoCI(m, '_fila')) === Number(fila); })[0];
+  var desc = mov ? ((mov.contenedor || '') + ' — ' + (mov.fecha ? new Date(mov.fecha).toLocaleDateString('es-CL') : '')) : ('fila ' + fila);
+
+  var ok = await mostrarConfirm(
+    '🗑️ Borrar movimiento',
+    'Vas a borrar definitivamente el movimiento <b>' + desc + '</b> de la hoja de Gate Control.' +
+    '<br><br>Esta acción no se puede deshacer. ¿Continuar?',
+    'Sí, borrar', 'Cancelar'
+  );
+  if (!ok) return;
+
+  mostrarCargando('Borrando movimiento...');
+  try {
+    var res = await fetch(URL_GAS, { method: 'POST', body: JSON.stringify({
+      accion: 'borrarMovimientoGateControl', _fila: fila, usuario: localStorage.getItem('usuario') || ''
+    }) });
+    var data = await res.json();
+    ocultarCargando();
+    if (data.ok) { mostrarAlerta('✅ Borrado', 'El movimiento fue eliminado.'); gc_inf_generar(); }
+    else mostrarAlerta('❌ Error', data.msg || 'No se pudo borrar.');
+  } catch (e) {
+    ocultarCargando();
+    mostrarAlerta('❌ Sin conexión', e.message);
+  }
 }
 
 function gc_inf_exportar() {
