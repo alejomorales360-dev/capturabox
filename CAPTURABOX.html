@@ -4583,6 +4583,21 @@ button:active {
         <option value="VOL8">Volumen VIII Arauco — filtro Maersk Cervantes</option>
       </select>
 
+      <div id="cb_naveWrap" style="display:none;background:#fff8e1;border:1.5px solid #ffca28;
+           border-radius:10px;padding:10px 12px;margin-bottom:12px;">
+        <div style="font-size:11px;font-weight:800;margin-bottom:4px;color:#7a5a10;">
+          NAVE DE ESTE ARCHIVO <span style="color:#c62828;">*</span>
+        </div>
+        <input id="cb_naveArchivo" placeholder="Ej: POLAR PERU V.634"
+               style="width:100%;padding:9px 10px;border:1.5px solid #ffca28;border-radius:8px;
+                      font-size:13px;font-weight:700;box-sizing:border-box;text-transform:uppercase;"
+               oninput="this.value=this.value.toUpperCase();">
+        <div style="font-size:11px;margin-top:5px;color:#7a5a10;">
+          Se usa para TODOS los lotes de este archivo, independiente de lo que traiga la
+          columna Nave del archivo original.
+        </div>
+      </div>
+
       <div id="cb_avisoStock" style="display:none;background:#e0f7fa;border:1px solid #80deea;
            border-radius:10px;padding:10px 12px;margin-bottom:12px;font-size:12px;color:#00695c;">
         <b>Stock del cliente:</b> se agregan los lotes nuevos, se conservan las
@@ -21504,6 +21519,7 @@ function cb_limpiar() {
   ids.forEach(function(id){ var e = document.getElementById(id); if (e) e.innerHTML = ''; });
   var t = document.getElementById('cb_pegar'); if (t) t.value = '';
   var f = document.getElementById('cb_file'); if (f) f.value = '';
+  var nv = document.getElementById('cb_naveArchivo'); if (nv) nv.value = '';
   var p2 = document.getElementById('cb_paso2'); if (p2) p2.style.display = 'none';
   var b = document.getElementById('cb_btnValidar'); if (b) b.style.display = 'none';
 }
@@ -21528,6 +21544,9 @@ function cb_cambiarDestino() {
 
   var avStock = document.getElementById('cb_avisoStock');
   if (avStock) avStock.style.display = (def.id === 'STOCK_CLIENTE') ? 'block' : 'none';
+
+  var naveWrap = document.getElementById('cb_naveWrap');
+  if (naveWrap) naveWrap.style.display = (def.id === 'LOTESDB') ? 'block' : 'none';
 
   box.innerHTML =
     '<div style="background:#f8fafb;border:1px solid #e6ebee;border-radius:10px;padding:10px 12px;">' +
@@ -21729,6 +21748,19 @@ function cb_mostrarInfoDatos() {
 async function cb_validar() {
   var def = cb_destinoActual();
   if (!def || !cb_filas.length) return;
+
+  // La nave se pide obligatoria para LotesDB y reemplaza lo que haya
+  // traído la columna Nave del archivo: garantiza que ningún lote se
+  // cargue sin nave, y que todos los de este archivo queden con la
+  // misma (evita naves mal escritas o incompletas en la planilla).
+  if (def.id === 'LOTESDB') {
+    var naveVal = String((document.getElementById('cb_naveArchivo') || {}).value || '').trim();
+    if (!naveVal) {
+      mostrarAlerta('⚠️ Falta la nave', 'Ingresa el nombre de la nave de este archivo antes de continuar.');
+      return;
+    }
+    cb_filas.forEach(function (f) { f.Nave = naveVal; });
+  }
 
   mostrarCargando('Revisando ' + cb_filas.length + ' filas...');
 
