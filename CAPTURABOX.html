@@ -17644,8 +17644,8 @@ async function gc_abrir(movExistente) {
 
     '<div><div style="font-size:11px; font-weight:800; color:#7a8b95; margin-bottom:4px;">ESTADO DEL CONTENEDOR</div>' +
     '<select id="gc_estado" class="rcFormInput" style="padding:10px 12px;">' +
-      '<option value="VACIO"' + (m.estado === 'VACIO' ? ' selected' : '') + '>Vacío</option>' +
-      '<option value="LLENO"' + (m.estado === 'LLENO' ? ' selected' : '') + '>Lleno</option>' +
+      '<option value="VACIO"' + (m.estado === 'VACIO' ? ' selected' : '') + '>Empty</option>' +
+      '<option value="LLENO"' + (m.estado === 'LLENO' ? ' selected' : '') + '>Full</option>' +
     '</select>' +
     '<div id="gc_estadoNota" style="font-size:10px;color:#7a8b95;margin-top:4px;"></div></div>' +
 
@@ -17760,13 +17760,13 @@ function gc_onTipoChange() {
   if (estadoSel) {
     if (tipo === 'DESPACHO') {
       estadoSel.value = 'LLENO'; estadoSel.disabled = true;
-      if (estadoNota) estadoNota.textContent = 'Un despacho siempre sale lleno.';
+      if (estadoNota) estadoNota.textContent = 'Un despacho siempre sale Full.';
     } else if (tipo === 'DEVOLUCION') {
       estadoSel.value = 'VACIO'; estadoSel.disabled = true;
-      if (estadoNota) estadoNota.textContent = 'Una devolución siempre vuelve vacía.';
+      if (estadoNota) estadoNota.textContent = 'Una devolución siempre vuelve Empty.';
     } else if (tipo === 'RECEPCION') {
       estadoSel.value = 'VACIO'; estadoSel.disabled = false;
-      if (estadoNota) estadoNota.textContent = 'Normalmente llega vacío, pero puede ser lleno en ocasiones.';
+      if (estadoNota) estadoNota.textContent = 'Normalmente llega Empty, pero puede ser Full en ocasiones.';
     } else {
       estadoSel.disabled = false;
       if (estadoNota) estadoNota.textContent = '';
@@ -18363,7 +18363,7 @@ function gc_inf_mostrar(data) {
           '<td style="padding:5px 8px;border-bottom:1px solid #f0f3f5;white-space:nowrap;">' + fecha + '</td>' +
           '<td style="padding:5px 8px;border-bottom:1px solid #f0f3f5;font-weight:700;color:#0b3c5d;">' + (m.contenedor || '—') + '</td>' +
           '<td style="padding:5px 8px;border-bottom:1px solid #f0f3f5;color:' + col + ';font-weight:700;">' + (nombres[m.tipo] || m.tipo) + '</td>' +
-          '<td style="padding:5px 8px;border-bottom:1px solid #f0f3f5;">' + (m.estado === 'LLENO' ? 'Lleno' : 'Vacío') + '</td>' +
+          '<td style="padding:5px 8px;border-bottom:1px solid #f0f3f5;">' + (m.estado === 'LLENO' ? 'Full' : 'Empty') + '</td>' +
           '<td style="padding:5px 8px;border-bottom:1px solid #f0f3f5;">' + (gc_campoCI(m, 'cliente') || '—') + '</td>' +
           '<td style="padding:5px 8px;border-bottom:1px solid #f0f3f5;">' + (m.transportista || '—') + '</td>' +
           '<td style="padding:5px 8px;border-bottom:1px solid #f0f3f5;">' + (m.patente || '—') + '</td>' +
@@ -18456,7 +18456,7 @@ function gc_inf_exportar() {
     var fechaVal = gc_campoCI(m, 'fecha');
     return {
       Fecha: fechaVal ? new Date(fechaVal).toLocaleString('es-CL', { hour12: false }) : '',
-      Contenedor: m.contenedor || '', Tipo: nombres[m.tipo] || m.tipo, Estado: m.estado === 'LLENO' ? 'Lleno' : 'Vacío',
+      Contenedor: m.contenedor || '', Tipo: nombres[m.tipo] || m.tipo, Estado: m.estado === 'LLENO' ? 'Full' : 'Empty',
       Cliente: gc_campoCI(m, 'cliente') || '',
       Transportista: m.transportista || '', Patente: m.patente || '', Chofer: m.chofer || '', 'Rut chofer': m.choferRut || '',
       Procedencia: m.procedencia || '', Destino: m.destino || '', Guía: m.guia || '', Motivo: m.motivo || '',
@@ -18514,7 +18514,7 @@ function gc_inf_exportarPDF() {
     var fechaVal = gc_campoCI(m, 'fecha');
     var f = fechaVal ? new Date(fechaVal).toLocaleString('es-CL', { hour12: false }) : '—';
     return '<tr><td>' + f + '</td><td>' + (m.contenedor || '—') + '</td><td>' + (nombres[m.tipo] || m.tipo) + '</td>' +
-      '<td>' + (m.estado === 'LLENO' ? 'Lleno' : 'Vacío') + '</td><td>' + (gc_campoCI(m, 'cliente') || '—') + '</td>' +
+      '<td>' + (m.estado === 'LLENO' ? 'Full' : 'Empty') + '</td><td>' + (gc_campoCI(m, 'cliente') || '—') + '</td>' +
       '<td>' + (m.transportista || '—') + '</td><td>' + (m.patente || '—') + '</td><td>' + (m.chofer || '—') + '</td>' +
       '<td>' + (m.procedencia || '—') + '</td><td>' + (m.destino || '—') + '</td><td>' + (m.guia || '—') + '</td>' +
       '<td>' + (m.motivo || '—') + '</td></tr>';
@@ -18539,12 +18539,12 @@ function gc_inf_exportarPDF() {
     '<p class="sub">Generado el ' + fecha + ' · ' + movs.length + ' movimientos en el período consultado</p>' +
     '<div class="kpis">' +
       '<div class="kpi"><div class="lbl">Movimientos</div><div class="val">' + movs.length + '</div></div>' +
-      '<div class="kpi"><div class="lbl">Vacíos</div><div class="val">' + totalVacios + '</div></div>' +
-      '<div class="kpi"><div class="lbl">Llenos</div><div class="val">' + totalLlenos + '</div></div>' +
+      '<div class="kpi"><div class="lbl">Empty</div><div class="val">' + totalVacios + '</div></div>' +
+      '<div class="kpi"><div class="lbl">Full</div><div class="val">' + totalLlenos + '</div></div>' +
       '<div class="kpi"><div class="lbl">Empresas</div><div class="val">' + Object.keys(porEmpresa).length + '</div></div>' +
     '</div>' +
     '<h3>Resumen por empresa transportista</h3>' +
-    '<table><tr><th>Empresa</th><th>Movimientos</th><th>Vacíos</th><th>Llenos</th><th>Tramos recorridos</th></tr>' +
+    '<table><tr><th>Empresa</th><th>Movimientos</th><th>Empty</th><th>Full</th><th>Tramos recorridos</th></tr>' +
     filasEmpresa + '</table>' +
     '<h3>Detalle de movimientos</h3>' +
     '<table><tr><th>Fecha</th><th>Contenedor</th><th>Tipo</th><th>Estado</th><th>Cliente</th><th>Transportista</th>' +
