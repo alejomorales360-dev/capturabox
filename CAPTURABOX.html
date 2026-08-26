@@ -17633,11 +17633,11 @@ async function gc_abrir(movExistente) {
 
     '<div><div style="font-size:11px; font-weight:800; color:#7a8b95; margin-bottom:4px;">N° DE CONTENEDOR</div>' +
     '<div style="display:flex; gap:8px;">' +
-      '<input id="gc_contenedor" class="rcFormInput" placeholder="Ej: MSCU1234567" list="gc_contenedorList" value="' + (m.contenedor || '') + '" ' +
-        'style="padding:10px 12px; flex:1;" autocapitalize="characters" oninput="gc_onContenedorInput(this);">' +
+      '<input id="gc_contenedor" class="rcFormInput" placeholder="Ej: MSCU123456-7" list="gc_contenedorList" value="' + gc_normalizarContenedor(m.contenedor || '') + '" ' +
+        'style="padding:10px 12px; flex:1;" autocapitalize="characters" oninput="gc_onContenedorInput(this);" onblur="gc_onBlurContenedor(this);">' +
       '<datalist id="gc_contenedorList"></datalist>' +
       '<button type="button" title="Escanear con la cámara del celular" ' +
-        'onclick="abrirScanCamara(function(codigo){ var el=document.getElementById(\'gc_contenedor\'); el.value=codigo; gc_onContenedorInput(el); })" ' +
+        'onclick="abrirScanCamara(function(codigo){ var el=document.getElementById(\'gc_contenedor\'); el.value=gc_normalizarContenedor(codigo); gc_onContenedorInput(el); })" ' +
         'style="flex-shrink:0; width:auto; margin-top:0; background:#eef6ff; color:#1b6ca8; border:none; ' +
         'border-radius:10px; padding:0 12px; font-size:16px; cursor:pointer;">📷</button>' +
       '<button id="gc_btnBuscar" onclick="gc_buscarDespacho()" style="display:none; flex-shrink:0; width:auto; margin-top:0; ' +
@@ -17796,6 +17796,24 @@ async function gc_desbloquearCliente() {
    en el sistema, para reconocerlos apenas se escriben las primeras
    siglas (usa <datalist>, no bloquea si falla o no hay conexión). */
 var gc_contenedorTimer = null;
+
+/* Estandariza el N° de contenedor al formato ISO 6346: 4 letras +
+   6 dígitos + guion + dígito verificador (ej: MRSU123456-7),
+   sin importar si el usuario lo escribió con espacios, sin guion,
+   en minúscula, etc. Si no calza con el formato esperado (4 letras +
+   7 dígitos), se deja igual pero en mayúscula y sin espacios — no se
+   inventa nada que no esté ahí. */
+function gc_normalizarContenedor(valor) {
+  var limpio = String(valor || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+  var m = limpio.match(/^([A-Z]{4})(\d{6})(\d)$/);
+  if (m) return m[1] + m[2] + '-' + m[3];
+  return limpio;
+}
+
+function gc_onBlurContenedor(el) {
+  el.value = gc_normalizarContenedor(el.value);
+  gc_onContenedorInput(el);
+}
 
 function gc_onContenedorInput(el) {
   el.value = el.value.toUpperCase();
@@ -18089,7 +18107,7 @@ function gc_aplicarLecturaDocumento(c) {
 }
 
 async function gc_buscarDespacho() {
-  var contenedor = String((document.getElementById('gc_contenedor') || {}).value || '').trim();
+  var contenedor = gc_normalizarContenedor((document.getElementById('gc_contenedor') || {}).value || '');
   if (!contenedor) { mostrarAlerta('Falta el contenedor', 'Escribe el número de contenedor para buscar su despacho.'); return; }
 
   var despachoInfo = document.getElementById('gc_despachoInfo');
@@ -18132,7 +18150,7 @@ async function gc_buscarDespacho() {
 function gc_recolectarDatosFormulario() {
   var fecha = (document.getElementById('gc_fecha') || {}).value || _fechaHoyLocal();
   var tipo = (document.getElementById('gc_tipo') || {}).value || 'RECEPCION';
-  var contenedor = String((document.getElementById('gc_contenedor') || {}).value || '').trim();
+  var contenedor = gc_normalizarContenedor((document.getElementById('gc_contenedor') || {}).value || '');
   var estado = (document.getElementById('gc_estado') || {}).value || 'VACIO';
   var patente = (document.getElementById('gc_patente') || {}).value || '';
   var chofer = (document.getElementById('gc_chofer') || {}).value || '';
