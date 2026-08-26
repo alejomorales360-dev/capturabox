@@ -10650,9 +10650,14 @@ function mostrarAlerta(titulo, mensaje) {
     el.id = 'cbAlertBox';
     el.style.cssText = 'position:fixed;inset:0;width:100vw;height:100vh;overflow-y:auto;' +
       'background:rgba(0,0,0,.6);display:flex;align-items:center;' +
-      'justify-content:center;z-index:1000000;padding:20px;box-sizing:border-box;';
-    document.body.appendChild(el);
+      'justify-content:center;z-index:2000000;padding:20px;box-sizing:border-box;';
   }
+  // Siempre al final del <body>: si se creó otro modal (Detalle Recepción,
+  // catálogos, etc.) DESPUÉS de la primera vez que se mostró esta alerta,
+  // ese modal quedaba pintado por encima aunque tuvieran el mismo z-index
+  // (a igual z-index gana el que está más adelante en el DOM). Moverlo al
+  // final en cada llamada garantiza que la alerta/confirm siempre se vea.
+  document.body.appendChild(el);
   el.innerHTML =
     '<div style="background:#fff;border-radius:18px;padding:24px 20px;max-width:360px;' +
     'width:100%;box-shadow:0 8px 32px rgba(0,0,0,.3);text-align:center;">' +
@@ -10676,9 +10681,11 @@ function mostrarConfirm(titulo, mensaje, txtSi, txtNo) {
       el.id = 'cbAlertBox';
       el.style.cssText = 'position:fixed;inset:0;width:100vw;height:100vh;overflow-y:auto;' +
         'background:rgba(0,0,0,.6);display:flex;align-items:center;' +
-        'justify-content:center;z-index:1000000;padding:20px;box-sizing:border-box;';
-      document.body.appendChild(el);
+        'justify-content:center;z-index:2000000;padding:20px;box-sizing:border-box;';
     }
+    // Ver comentario equivalente en mostrarAlerta(): siempre al final del
+    // <body> para que quede por encima de cualquier modal creado después.
+    document.body.appendChild(el);
     el.innerHTML =
       '<div style="background:#fff;border-radius:18px;padding:24px 20px;max-width:360px;' +
       'width:100%;box-shadow:0 8px 32px rgba(0,0,0,.3);text-align:center;">' +
@@ -17633,9 +17640,14 @@ async function gc_abrir() {
       '<div id="gc_choferRutDisplay" style="font-size:11px;color:#7a8b95;margin-top:4px;">—</div></div>' +
     '</div>' +
 
-    '<div><div style="font-size:11px; font-weight:800; color:#7a8b95; margin-bottom:4px;">CLIENTE</div>' +
+    '<div><div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:4px;">' +
+      '<div style="font-size:11px; font-weight:800; color:#7a8b95;">CLIENTE</div>' +
+      '<span id="gc_clienteEditarLink" onclick="gc_desbloquearCliente()" ' +
+        'style="display:none; font-size:11px; font-weight:800; color:#1b6ca8; cursor:pointer;">🔓 Editar</span>' +
+    '</div>' +
     '<select id="gc_cliente" class="rcFormInput" style="padding:10px 12px;" onchange="gc_onSelectCatalogo(\'gc_cliente\',\'cliente\')">' +
-      gc_htmlSelectClientes() + '</select></div>' +
+      gc_htmlSelectClientes() + '</select>' +
+    '<div id="gc_clienteNota" style="font-size:10px;color:#7a8b95;margin-top:4px;"></div></div>' +
 
     '<div><div id="gc_lblProcedencia" style="font-size:11px; font-weight:800; color:#7a8b95; margin-bottom:4px;">PROCEDENCIA</div>' +
     '<select id="gc_procedencia" class="rcFormInput" style="padding:10px 12px;" onchange="gc_onSelectCatalogo(\'gc_procedencia\',\'destino\')">' +
@@ -17695,6 +17707,25 @@ function gc_onTipoChange() {
   if (lblProcedencia) lblProcedencia.textContent = 'PROCEDENCIA';
   if (lblDestino) lblDestino.textContent = 'DESTINO EN BODEGA';
 
+  // El cliente queda fijo al contenedor: solo se elige manualmente al
+  // recepcionarlo (RECEPCION). En Despacho/Devolución/Falso flete se
+  // completa solo (autocompletar o "Buscar") y queda bloqueado, para
+  // no arriesgar despachar un contenedor a nombre del cliente que no es.
+  var elCliente = document.getElementById('gc_cliente');
+  var clienteNota = document.getElementById('gc_clienteNota');
+  var clienteEditarLink = document.getElementById('gc_clienteEditarLink');
+  if (elCliente) {
+    if (tipo === 'RECEPCION') {
+      elCliente.disabled = false;
+      if (clienteNota) clienteNota.textContent = 'Se establece al recepcionar el contenedor.';
+      if (clienteEditarLink) clienteEditarLink.style.display = 'none';
+    } else {
+      elCliente.disabled = true;
+      if (clienteNota) clienteNota.textContent = 'Queda fijo al contenedor: se completa solo al escribir o buscar el N° de contenedor.';
+      if (clienteEditarLink) clienteEditarLink.style.display = '';
+    }
+  }
+
   // Estado del contenedor: reglas de negocio de Gate Control
   if (estadoSel) {
     if (tipo === 'DESPACHO') {
@@ -17711,6 +17742,20 @@ function gc_onTipoChange() {
       if (estadoNota) estadoNota.textContent = '';
     }
   }
+}
+
+async function gc_desbloquearCliente() {
+  var ok = await mostrarConfirm(
+    '🔓 Editar cliente manualmente',
+    'El cliente debería quedar fijo al contenedor (se completa solo al escribir o buscar el N° de contenedor). ' +
+    'Solo cámbialo a mano si el contenedor no fue recepcionado antes en el sistema.<br><br>¿Continuar?',
+    'Sí, editar', 'Cancelar'
+  );
+  if (!ok) return;
+  var el = document.getElementById('gc_cliente');
+  if (el) el.disabled = false;
+  var link = document.getElementById('gc_clienteEditarLink');
+  if (link) link.style.display = 'none';
 }
 
 /* Autocompletar N° de contenedor contra contenedores ya consolidados
@@ -18035,7 +18080,12 @@ async function gc_registrar() {
   var obs = String((document.getElementById('gc_obs') || {}).value || '').trim();
 
   if (!contenedor) { mostrarAlerta('⚠️ Faltan datos', 'El número de contenedor es obligatorio.'); return false; }
-  if (!cliente) { mostrarAlerta('⚠️ Faltan datos', 'Selecciona el cliente dueño del contenedor.'); return false; }
+  if (!cliente) {
+    var msgCliente = (tipo === 'RECEPCION')
+      ? 'Selecciona el cliente dueño del contenedor.'
+      : 'No se pudo determinar el cliente del contenedor. Escribe o busca el N° de contenedor primero, o usa "🔓 Editar" junto a Cliente si no fue recepcionado antes en el sistema.';
+    mostrarAlerta('⚠️ Faltan datos', msgCliente); return false;
+  }
   if (!patente) { mostrarAlerta('⚠️ Faltan datos', 'Selecciona la patente del camión.'); return false; }
   if (!chofer) { mostrarAlerta('⚠️ Faltan datos', 'Selecciona el chofer.'); return false; }
   if (tipo === 'FALSO_FLETE' && !motivo) { mostrarAlerta('⚠️ Falta el motivo', 'Indica el motivo del falso flete (se usa para el pago al transportista).'); return false; }
@@ -18188,6 +18238,22 @@ async function gc_inf_generar() {
   }
 }
 
+/* Lee una propiedad de un movimiento sin importar mayúsculas/minúsculas.
+   El mapeo de columnas del backend (encabezado -> camelCase) solo baja
+   la PRIMERA letra: si en la hoja el encabezado está en MAYÚSCULAS
+   (ej. "FECHA" en vez de "Fecha"), la clave real que llega termina
+   siendo algo como "fECHA" y m.fecha queda undefined aunque el dato
+   sí esté ahí. Esto lo encuentra igual buscando por nombre sin
+   importar el casing exacto. */
+function gc_campoCI(m, nombre) {
+  if (!m) return undefined;
+  var objetivo = nombre.toLowerCase();
+  for (var k in m) {
+    if (Object.prototype.hasOwnProperty.call(m, k) && k.toLowerCase() === objetivo) return m[k];
+  }
+  return undefined;
+}
+
 function gc_inf_mostrar(data) {
   var prev = document.getElementById('gcInfModal');
   if (prev) prev.remove();
@@ -18218,14 +18284,15 @@ function gc_inf_mostrar(data) {
         return '<th style="padding:5px 8px;text-align:left;font-size:10px;color:#7a8b95;border-bottom:2px solid #e6ebee;white-space:nowrap;letter-spacing:.03em;text-transform:uppercase;">' + h + '</th>';
       }).join('') + '</tr></thead><tbody>' +
       movs.map(function (m, i) {
-        var fecha = m.fecha ? new Date(m.fecha).toLocaleString('es-CL', { hour12: false }) : '—';
+        var fechaVal = gc_campoCI(m, 'fecha');
+        var fecha = fechaVal ? new Date(fechaVal).toLocaleString('es-CL', { hour12: false }) : '—';
         var col = colores[m.tipo] || '#5a6b77';
         return '<tr style="background:' + (i % 2 ? '#fafbfc' : '#fff') + ';">' +
           '<td style="padding:5px 8px;border-bottom:1px solid #f0f3f5;white-space:nowrap;">' + fecha + '</td>' +
           '<td style="padding:5px 8px;border-bottom:1px solid #f0f3f5;font-weight:700;color:#0b3c5d;">' + (m.contenedor || '—') + '</td>' +
           '<td style="padding:5px 8px;border-bottom:1px solid #f0f3f5;color:' + col + ';font-weight:700;">' + (nombres[m.tipo] || m.tipo) + '</td>' +
           '<td style="padding:5px 8px;border-bottom:1px solid #f0f3f5;">' + (m.estado === 'LLENO' ? 'Lleno' : 'Vacío') + '</td>' +
-          '<td style="padding:5px 8px;border-bottom:1px solid #f0f3f5;">' + (m.cliente || '—') + '</td>' +
+          '<td style="padding:5px 8px;border-bottom:1px solid #f0f3f5;">' + (gc_campoCI(m, 'cliente') || '—') + '</td>' +
           '<td style="padding:5px 8px;border-bottom:1px solid #f0f3f5;">' + (m.transportista || '—') + '</td>' +
           '<td style="padding:5px 8px;border-bottom:1px solid #f0f3f5;">' + (m.patente || '—') + '</td>' +
           '<td style="padding:5px 8px;border-bottom:1px solid #f0f3f5;">' + (m.chofer || '—') + '</td>' +
@@ -18280,10 +18347,11 @@ function gc_inf_exportar() {
 
   var nombres = { RECEPCION: 'Recepción', DESPACHO: 'Despacho', DEVOLUCION: 'Devolución', FALSO_FLETE: 'Falso flete' };
   var filas = gc_inf_ultimo.map(function (m) {
+    var fechaVal = gc_campoCI(m, 'fecha');
     return {
-      Fecha: m.fecha ? new Date(m.fecha).toLocaleString('es-CL', { hour12: false }) : '',
+      Fecha: fechaVal ? new Date(fechaVal).toLocaleString('es-CL', { hour12: false }) : '',
       Contenedor: m.contenedor || '', Tipo: nombres[m.tipo] || m.tipo, Estado: m.estado === 'LLENO' ? 'Lleno' : 'Vacío',
-      Cliente: m.cliente || '',
+      Cliente: gc_campoCI(m, 'cliente') || '',
       Transportista: m.transportista || '', Patente: m.patente || '', Chofer: m.chofer || '', 'Rut chofer': m.choferRut || '',
       Procedencia: m.procedencia || '', Destino: m.destino || '', Guía: m.guia || '', Motivo: m.motivo || '',
       Observaciones: m.observaciones || '', 'Registró': m.usuario || ''
@@ -18337,9 +18405,10 @@ function gc_inf_exportarPDF() {
   }).join('');
 
   var filasDetalle = movs.map(function (m) {
-    var f = m.fecha ? new Date(m.fecha).toLocaleString('es-CL', { hour12: false }) : '—';
+    var fechaVal = gc_campoCI(m, 'fecha');
+    var f = fechaVal ? new Date(fechaVal).toLocaleString('es-CL', { hour12: false }) : '—';
     return '<tr><td>' + f + '</td><td>' + (m.contenedor || '—') + '</td><td>' + (nombres[m.tipo] || m.tipo) + '</td>' +
-      '<td>' + (m.estado === 'LLENO' ? 'Lleno' : 'Vacío') + '</td><td>' + (m.cliente || '—') + '</td>' +
+      '<td>' + (m.estado === 'LLENO' ? 'Lleno' : 'Vacío') + '</td><td>' + (gc_campoCI(m, 'cliente') || '—') + '</td>' +
       '<td>' + (m.transportista || '—') + '</td><td>' + (m.patente || '—') + '</td><td>' + (m.chofer || '—') + '</td>' +
       '<td>' + (m.procedencia || '—') + '</td><td>' + (m.destino || '—') + '</td><td>' + (m.guia || '—') + '</td>' +
       '<td>' + (m.motivo || '—') + '</td></tr>';
