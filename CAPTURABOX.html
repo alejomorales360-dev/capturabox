@@ -17623,11 +17623,11 @@ async function gc_abrir(movExistente) {
   var contenido =
     '<div style="display:flex; flex-direction:column; gap:12px; padding:4px 0;">' +
 
-    '<div><div style="font-size:11px; font-weight:800; color:#7a8b95; margin-bottom:4px;">FECHA DEL MOVIMIENTO</div>' +
+    '<div><div style="font-size:11px; font-weight:800; color:#7a8b95; margin-bottom:4px;">FECHA DEL MOVIMIENTO <span style="color:#c62828;">*</span></div>' +
     '<input id="gc_fecha" type="date" class="rcFormInput" value="' + fechaVal + '" style="padding:10px 12px;">' +
     '<div style="font-size:10px; color:#7a8b95; margin-top:4px;">Es hoy por defecto; cámbiala si el movimiento fue de otro día.</div></div>' +
 
-    '<div><div style="font-size:11px; font-weight:800; color:#7a8b95; margin-bottom:4px;">TIPO DE MOVIMIENTO</div>' +
+    '<div><div style="font-size:11px; font-weight:800; color:#7a8b95; margin-bottom:4px;">TIPO DE MOVIMIENTO <span style="color:#c62828;">*</span></div>' +
     '<select id="gc_tipo" class="rcFormInput" style="padding:10px 12px;" onchange="gc_onTipoChange()">' +
       '<option value="RECEPCION"' + (tipoVal === 'RECEPCION' ? ' selected' : '') + '>Recepción</option>' +
       '<option value="DESPACHO"' + (tipoVal === 'DESPACHO' ? ' selected' : '') + '>Despacho</option>' +
@@ -17635,7 +17635,7 @@ async function gc_abrir(movExistente) {
       '<option value="FALSO_FLETE"' + (tipoVal === 'FALSO_FLETE' ? ' selected' : '') + '>Falso flete</option>' +
     '</select></div>' +
 
-    '<div><div style="font-size:11px; font-weight:800; color:#7a8b95; margin-bottom:4px;">N° DE CONTENEDOR</div>' +
+    '<div><div style="font-size:11px; font-weight:800; color:#7a8b95; margin-bottom:4px;">N° DE CONTENEDOR <span style="color:#c62828;">*</span></div>' +
     '<div style="display:flex; gap:8px;">' +
       '<input id="gc_contenedor" class="rcFormInput" placeholder="Ej: MSCU123456-7" list="gc_contenedorList" value="' + gc_normalizarContenedor(m.contenedor || '') + '" ' +
         'style="padding:10px 12px; flex:1;" autocapitalize="characters" oninput="gc_onContenedorInput(this);" onblur="gc_onBlurContenedor(this);">' +
@@ -17650,7 +17650,7 @@ async function gc_abrir(movExistente) {
 
     '<div id="gc_despachoInfo" style="display:none; background:#f4f7f9; border-radius:8px; padding:10px 12px; font-size:12px; color:#1c2b36;"></div>' +
 
-    '<div><div style="font-size:11px; font-weight:800; color:#7a8b95; margin-bottom:4px;">ESTADO DEL CONTENEDOR</div>' +
+    '<div><div style="font-size:11px; font-weight:800; color:#7a8b95; margin-bottom:4px;">ESTADO DEL CONTENEDOR <span style="color:#c62828;">*</span></div>' +
     '<select id="gc_estado" class="rcFormInput" style="padding:10px 12px;">' +
       '<option value="VACIO"' + (m.estado === 'VACIO' ? ' selected' : '') + '>Empty</option>' +
       '<option value="LLENO"' + (m.estado === 'LLENO' ? ' selected' : '') + '>Full</option>' +
@@ -17658,18 +17658,18 @@ async function gc_abrir(movExistente) {
     '<div id="gc_estadoNota" style="font-size:10px;color:#7a8b95;margin-top:4px;"></div></div>' +
 
     '<div style="display:flex; gap:10px;">' +
-      '<div style="flex:1;"><div style="font-size:11px; font-weight:800; color:#7a8b95; margin-bottom:4px;">PATENTE</div>' +
+      '<div style="flex:1;"><div style="font-size:11px; font-weight:800; color:#7a8b95; margin-bottom:4px;">PATENTE <span style="color:#c62828;">*</span></div>' +
       '<select id="gc_patente" class="rcFormInput" style="padding:10px 12px;" onchange="gc_onSelectCatalogo(\'gc_patente\',\'camion\')">' +
         gc_htmlSelectCamiones(m.patente) + '</select>' +
       '<div id="gc_empresaDisplay" style="font-size:11px;color:#7a8b95;margin-top:4px;">—</div></div>' +
-      '<div style="flex:1;"><div style="font-size:11px; font-weight:800; color:#7a8b95; margin-bottom:4px;">CHOFER</div>' +
+      '<div style="flex:1;"><div style="font-size:11px; font-weight:800; color:#7a8b95; margin-bottom:4px;">CHOFER <span style="color:#c62828;">*</span></div>' +
       '<select id="gc_chofer" class="rcFormInput" style="padding:10px 12px;" onchange="gc_onSelectCatalogo(\'gc_chofer\',\'chofer\')">' +
         gc_htmlSelectChoferes(m.chofer) + '</select>' +
       '<div id="gc_choferRutDisplay" style="font-size:11px;color:#7a8b95;margin-top:4px;">—</div></div>' +
     '</div>' +
 
     '<div><div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:4px;">' +
-      '<div style="font-size:11px; font-weight:800; color:#7a8b95;">CLIENTE</div>' +
+      '<div style="font-size:11px; font-weight:800; color:#7a8b95;">CLIENTE <span style="color:#c62828;">*</span></div>' +
       '<span id="gc_clienteEditarLink" onclick="gc_desbloquearCliente()" ' +
         'style="display:none; font-size:11px; font-weight:800; color:#1b6ca8; cursor:pointer;">🔓 Editar</span>' +
     '</div>' +
@@ -17677,21 +17677,21 @@ async function gc_abrir(movExistente) {
       gc_htmlSelectClientes(m.cliente) + '</select>' +
     '<div id="gc_clienteNota" style="font-size:10px;color:#7a8b95;margin-top:4px;"></div></div>' +
 
-    '<div><div id="gc_lblProcedencia" style="font-size:11px; font-weight:800; color:#7a8b95; margin-bottom:4px;">PROCEDENCIA</div>' +
+    '<div><div id="gc_lblProcedencia" style="font-size:11px; font-weight:800; color:#7a8b95; margin-bottom:4px;">PROCEDENCIA *</div>' +
     '<select id="gc_procedencia" class="rcFormInput" style="padding:10px 12px;" onchange="gc_onSelectCatalogo(\'gc_procedencia\',\'destino\')">' +
       gc_htmlSelectDestinos(m.procedencia) + '</select></div>' +
 
-    '<div><div id="gc_lblDestino" style="font-size:11px; font-weight:800; color:#7a8b95; margin-bottom:4px;">DESTINO EN BODEGA</div>' +
+    '<div><div id="gc_lblDestino" style="font-size:11px; font-weight:800; color:#7a8b95; margin-bottom:4px;">DESTINO EN BODEGA *</div>' +
     '<select id="gc_destino" class="rcFormInput" style="padding:10px 12px;" onchange="gc_onSelectCatalogo(\'gc_destino\',\'destino\')">' +
       gc_htmlSelectDestinos(m.destino) + '</select></div>' +
 
-    '<div id="gc_guiaWrap" style="display:none;"><div style="font-size:11px; font-weight:800; color:#7a8b95; margin-bottom:4px;">N° DE GUÍA</div>' +
+    '<div id="gc_guiaWrap" style="display:none;"><div style="font-size:11px; font-weight:800; color:#7a8b95; margin-bottom:4px;">N° DE GUÍA <span style="color:#c62828;">*</span></div>' +
     '<input id="gc_guia" class="rcFormInput" placeholder="Número de guía con la que sale el contenedor" value="' + (m.guia || '') + '" style="padding:10px 12px;"></div>' +
 
     '<div id="gc_motivoWrap" style="display:none;"><div style="font-size:11px; font-weight:800; color:#c62828; margin-bottom:4px;">MOTIVO DEL FALSO FLETE</div>' +
     '<textarea id="gc_motivo" class="rcFormInput" placeholder="Ej: cliente rechazó recepción, dirección incorrecta, etc." style="padding:10px 12px; min-height:60px; resize:vertical;">' + (m.motivo || '') + '</textarea></div>' +
 
-    '<div><div style="font-size:11px; font-weight:800; color:#7a8b95; margin-bottom:4px;">FOTO DEL DOCUMENTO (guía / manifiesto)</div>' +
+    '<div><div style="font-size:11px; font-weight:800; color:#7a8b95; margin-bottom:4px;">FOTO DEL DOCUMENTO (opcional)</div>' +
     (gc_modoEdicion ? '<div style="font-size:11px; color:#7a8b95; margin-bottom:6px;">' +
       (fotosNota ? 'Ya tiene ' + fotosNota + ' foto(s) guardada(s). Agrega nuevas solo si quieres reemplazarlas.' : 'Sin fotos guardadas.') +
       '</div>' : '') +
@@ -17736,8 +17736,8 @@ function gc_onTipoChange() {
 
   // Procedencia y destino se llaman igual en todos los tipos de movimiento;
   // el cliente dueño del contenedor ya se captura aparte en el campo CLIENTE.
-  if (lblProcedencia) lblProcedencia.textContent = 'PROCEDENCIA';
-  if (lblDestino) lblDestino.textContent = 'DESTINO EN BODEGA';
+  if (lblProcedencia) lblProcedencia.textContent = 'PROCEDENCIA *';
+  if (lblDestino) lblDestino.textContent = 'DESTINO EN BODEGA *';
 
   // El cliente queda fijo al contenedor: solo se elige manualmente al
   // recepcionarlo (RECEPCION). En Despacho/Devolución/Falso flete se
@@ -18165,15 +18165,21 @@ function gc_recolectarDatosFormulario() {
   var motivo = String((document.getElementById('gc_motivo') || {}).value || '').trim();
   var obs = String((document.getElementById('gc_obs') || {}).value || '').trim();
 
+  if (!fecha) { mostrarAlerta('⚠️ Faltan datos', 'La fecha del movimiento es obligatoria.'); return null; }
+  if (!tipo) { mostrarAlerta('⚠️ Faltan datos', 'Selecciona el tipo de movimiento.'); return null; }
   if (!contenedor) { mostrarAlerta('⚠️ Faltan datos', 'El número de contenedor es obligatorio.'); return null; }
+  if (!estado) { mostrarAlerta('⚠️ Faltan datos', 'Selecciona el estado del contenedor.'); return null; }
+  if (!patente) { mostrarAlerta('⚠️ Faltan datos', 'Selecciona la patente del camión.'); return null; }
+  if (!chofer) { mostrarAlerta('⚠️ Faltan datos', 'Selecciona el chofer.'); return null; }
   if (!cliente) {
     var msgCliente = (tipo === 'RECEPCION' || gc_modoEdicion)
       ? 'Selecciona el cliente dueño del contenedor.'
       : 'No se pudo determinar el cliente del contenedor. Escribe o busca el N° de contenedor primero, o usa "🔓 Editar" junto a Cliente si no fue recepcionado antes en el sistema.';
     mostrarAlerta('⚠️ Faltan datos', msgCliente); return null;
   }
-  if (!patente) { mostrarAlerta('⚠️ Faltan datos', 'Selecciona la patente del camión.'); return null; }
-  if (!chofer) { mostrarAlerta('⚠️ Faltan datos', 'Selecciona el chofer.'); return null; }
+  if (!procedencia) { mostrarAlerta('⚠️ Faltan datos', 'Selecciona la procedencia.'); return null; }
+  if (!destino) { mostrarAlerta('⚠️ Faltan datos', 'Selecciona el destino en bodega.'); return null; }
+  if (tipo === 'DESPACHO' && !guia) { mostrarAlerta('⚠️ Faltan datos', 'Indica el N° de guía con la que sale el contenedor.'); return null; }
   if (tipo === 'FALSO_FLETE' && !motivo) { mostrarAlerta('⚠️ Falta el motivo', 'Indica el motivo del falso flete (se usa para el pago al transportista).'); return null; }
 
   var camion = gc_catalogos.camiones.filter(function (c) { return c.patente === patente; })[0];
