@@ -4672,17 +4672,8 @@ button:active {
           <b>clase_merc</b> → Producto &nbsp;·&nbsp; <b>ptodes</b> → Destino<br>
           <b>material</b> → Material (sin ceros a la izquierda)
         </div>
-        <div style="margin-top:8px;">
-          <div style="font-size:11px;font-weight:800;margin-bottom:4px;">CLIENTE DE ESTE ARCHIVO</div>
-          <select id="cb_clienteZoopp"
-                  style="width:100%;padding:9px 10px;border:1.5px solid #90caf9;border-radius:8px;
-                         font-size:13px;font-weight:700;box-sizing:border-box;background:#fff;">
-            <option value="ARAUCO">ARAUCO</option>
-            <option value="JCE">JCE</option>
-            <option value="FORACTION">FORACTION</option>
-            <option value="MASISA">MASISA</option>
-            <option value="CMPC">CMPC</option>
-          </select>
+        <div style="margin-top:8px;font-size:12px;">
+          <b>Cliente:</b> ARAUCO <span style="color:#5a8bb0;">(automático — el ZOOPP siempre es de Arauco)</span>
         </div>
       </div>
 
@@ -21471,6 +21462,29 @@ var cb_filas = [];         // filas parseadas del archivo o del pegado
 var cb_archivo = "";       // nombre del archivo cargado
 var cb_validacion = null;  // resultado de la validación
 
+/* Qué formatos de plantilla tiene sentido ofrecer según el destino
+   elegido. ESTANDAR (columnas exactas) siempre está disponible: es
+   genérico y aplica a cualquier destino y cualquier cliente. */
+var CB_FORMATOS_POR_DESTINO = {
+  LOTESDB: [
+    { value: 'ESTANDAR', label: 'Estándar — columnas exactas' },
+    { value: 'JCE', label: 'Packing List JCE — tal como lo envía el cliente' },
+    { value: 'ZOOPP', label: 'Consolidado Arauco (ZOOPP) — planilla de embarque' }
+  ],
+  STOCK_CLIENTE: [
+    { value: 'ESTANDAR', label: 'Estándar — columnas exactas' },
+    { value: 'ARAUCO', label: 'Stock Arauco (ZQUSTOCKHOY) — archivo .XLS/.DBF' },
+    { value: 'JCE_STOCK', label: 'Stock JCE — planilla de stock (hoja STOCK)' }
+  ],
+  LOTESREEX: [
+    { value: 'ESTANDAR', label: 'Estándar — columnas exactas' },
+    { value: 'VOL8', label: 'Volumen VIII Arauco — filtro Maersk Cervantes' }
+  ],
+  DEFAULT: [
+    { value: 'ESTANDAR', label: 'Estándar — columnas exactas' }
+  ]
+};
+
 function cb_puedeCargar() {
   if (String(localStorage.getItem('usuario_esadmin') || '') === '1') return true;
   var rol = String(localStorage.getItem('usuario_rol') || '').trim().toLowerCase();
@@ -21547,6 +21561,20 @@ function cb_cambiarDestino() {
 
   var naveWrap = document.getElementById('cb_naveWrap');
   if (naveWrap) naveWrap.style.display = (def.id === 'LOTESDB') ? 'block' : 'none';
+
+  // Solo se muestran los formatos de plantilla que de verdad alimentan
+  // este destino (ESTANDAR siempre aparece: aplica a cualquier destino
+  // y cualquier cliente). Evita que alguien elija por error, por
+  // ejemplo, "Stock Arauco" estando en LotesDB.
+  var selFormato = document.getElementById('cb_formatoArchivo');
+  if (selFormato) {
+    var opciones = (CB_FORMATOS_POR_DESTINO[def.id] || CB_FORMATOS_POR_DESTINO.DEFAULT);
+    selFormato.innerHTML = opciones.map(function (o) {
+      return '<option value="' + o.value + '">' + o.label + '</option>';
+    }).join('');
+    selFormato.value = 'ESTANDAR';
+  }
+  cb_cambiarFormato();
 
   box.innerHTML =
     '<div style="background:#f8fafb;border:1px solid #e6ebee;border-radius:10px;padding:10px 12px;">' +
@@ -22288,6 +22316,13 @@ document.addEventListener('DOMContentLoaded', function() {
 
 function cb_cambiarFormato() {
   var f = document.getElementById('cb_formatoArchivo')?.value || 'ESTANDAR';
+
+  // El cliente de Stock queda editable salvo para los formatos
+  // propios de un cliente único (Stock Arauco, Stock JCE), donde se
+  // fija solo y se bloquea para que nadie lo pueda cambiar por error.
+  var selCliReset = document.getElementById('cb_clienteStock');
+  if (selCliReset && f !== 'ARAUCO' && f !== 'JCE_STOCK') selCliReset.disabled = false;
+
   var aviso = document.getElementById('cb_avisoJCE');
   var avArauco = document.getElementById('cb_avisoArauco');
   var avStockJCE = document.getElementById('cb_avisoStockJCE');
@@ -22332,7 +22367,7 @@ function cb_cambiarFormato() {
       if (avArauco) avArauco.style.display = 'block';
     }
     var selCli = document.getElementById('cb_clienteStock');
-    if (selCli && !selCli.value) selCli.value = 'ARAUCO';
+    if (selCli) { selCli.value = 'ARAUCO'; selCli.disabled = true; }
   }
 
   // El stock de JCE también solo alimenta STOCK_CLIENTE
@@ -22345,7 +22380,7 @@ function cb_cambiarFormato() {
       if (avStockJCE) avStockJCE.style.display = 'block';
     }
     var selCliJS = document.getElementById('cb_clienteStock');
-    if (selCliJS) selCliJS.value = 'JCE';
+    if (selCliJS) { selCliJS.value = 'JCE'; selCliJS.disabled = true; }
   }
 
   // Volumen VIII solo alimenta LotesReex
@@ -23098,7 +23133,7 @@ function cb_parsearZoopp(wb) {
 
   if (iLote === -1) throw new Error('No se encontró la columna "loteof".');
 
-  var cliente = (document.getElementById('cb_clienteZoopp') || {}).value || 'ARAUCO';
+  var cliente = 'ARAUCO'; // el ZOOPP siempre es de Arauco (automático, no editable)
 
   var filas = [];
   var vistos = {};
