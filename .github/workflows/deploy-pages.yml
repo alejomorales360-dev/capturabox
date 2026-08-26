@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - main
-      - claude/app-html-creation-v0lg8x
   workflow_dispatch:
 
 permissions:
