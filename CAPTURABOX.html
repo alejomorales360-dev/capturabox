@@ -18436,6 +18436,40 @@ function gc_campoCI(m, nombre) {
   return undefined;
 }
 
+/* Las fotos del documento se guardan en el backend como una lista de
+   links de Drive separados por coma (columna "Fotos"). */
+function gc_fotosArray(m) {
+  var raw = gc_campoCI(m, 'fotos');
+  if (!raw) return [];
+  return String(raw).split(',')
+    .map(function (s) { return s.trim(); })
+    .filter(function (s) { return s.indexOf('http') === 0; });
+}
+
+/* Convierte un link de Drive (…/file/d/ID/view) en una miniatura visible
+   directamente en un <img>, sin necesitar descargar el archivo. */
+function gc_fotoThumb_(url) {
+  var m = String(url || '').match(/\/d\/([a-zA-Z0-9_-]+)/);
+  return m ? ('https://drive.google.com/thumbnail?id=' + m[1] + '&sz=w400') : '';
+}
+
+function gc_verFotos(i) {
+  var m = (gc_inf_ultimo || [])[i];
+  var urls = gc_fotosArray(m);
+  if (!urls.length) { mostrarAlerta('📷 Sin fotos', 'Este movimiento no tiene fotos del documento.'); return; }
+  var html = '<div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center;">' +
+    urls.map(function (u) {
+      var thumb = gc_fotoThumb_(u);
+      return '<a href="' + u + '" target="_blank" rel="noopener" style="display:block;">' +
+        (thumb
+          ? '<img src="' + thumb + '" style="width:110px;height:110px;object-fit:cover;border-radius:10px;border:1.5px solid #e6ebee;">'
+          : '<span style="display:flex;align-items:center;justify-content:center;width:110px;height:110px;border-radius:10px;border:1.5px solid #e6ebee;font-size:26px;">📷</span>') +
+        '</a>';
+    }).join('') +
+    '</div><div style="margin-top:10px;font-size:11px;color:#7a8b95;">Tocá una foto para abrirla en Drive.</div>';
+  mostrarAlerta('📷 Fotos del documento', html);
+}
+
 function gc_inf_mostrar(data) {
   var prev = document.getElementById('gcInfModal');
   if (prev) prev.remove();
@@ -18459,13 +18493,14 @@ function gc_inf_mostrar(data) {
     }).join('') + '</div>';
 
   var puedeEditar = gc_puedeEditar();
+  var tieneAcciones = puedeEditar || movs.some(function (m) { return gc_fotosArray(m).length > 0; });
   var filasHtml = '';
   if (movs.length) {
     filasHtml = '<div style="overflow-x:auto;-webkit-overflow-scrolling:touch;">' +
       '<table style="width:100%;border-collapse:collapse;font-size:11px;min-width:620px;">' +
       '<thead><tr>' +
       ['Fecha', 'Contenedor', 'Tipo', 'Estado', 'Cliente', 'Transportista', 'Patente', 'Chofer', 'Rut chofer', 'Procedencia', 'Destino', 'Guía', 'Motivo', 'Registró']
-        .concat(puedeEditar ? ['Acciones'] : []).map(function (h) {
+        .concat(tieneAcciones ? ['Acciones'] : []).map(function (h) {
         return '<th style="padding:5px 8px;text-align:left;font-size:10px;color:#7a8b95;border-bottom:2px solid #e6ebee;white-space:nowrap;letter-spacing:.03em;text-transform:uppercase;">' + h + '</th>';
       }).join('') + '</tr></thead><tbody>' +
       movs.map(function (m, i) {
@@ -18473,15 +18508,17 @@ function gc_inf_mostrar(data) {
         var fecha = fechaVal ? new Date(fechaVal).toLocaleString('es-CL', { hour12: false }) : '—';
         var col = colores[m.tipo] || '#5a6b77';
         var fila = gc_campoCI(m, '_fila');
-        var acciones = puedeEditar
-          ? '<td style="padding:5px 8px;border-bottom:1px solid #f0f3f5;white-space:nowrap;">' +
-            (fila ? (
-              '<span onclick="gc_inf_editarFila(' + fila + ')" title="Editar" ' +
-                'style="cursor:pointer;margin-right:8px;">✏️</span>' +
-              '<span onclick="gc_inf_borrarFila(' + fila + ')" title="Borrar" ' +
-                'style="cursor:pointer;color:#c62828;">🗑️</span>'
-            ) : '<span style="color:#aaa;font-size:10px;">sin ID</span>') +
-            '</td>'
+        var fotos = gc_fotosArray(m);
+        var accionesContenido =
+          (fotos.length ? '<span onclick="gc_verFotos(' + i + ')" title="Ver foto" style="cursor:pointer;margin-right:8px;">📷</span>' : '') +
+          (puedeEditar ? (fila ? (
+            '<span onclick="gc_inf_editarFila(' + fila + ')" title="Editar" ' +
+              'style="cursor:pointer;margin-right:8px;">✏️</span>' +
+            '<span onclick="gc_inf_borrarFila(' + fila + ')" title="Borrar" ' +
+              'style="cursor:pointer;color:#c62828;">🗑️</span>'
+          ) : '<span style="color:#aaa;font-size:10px;">sin ID</span>') : '');
+        var acciones = tieneAcciones
+          ? '<td style="padding:5px 8px;border-bottom:1px solid #f0f3f5;white-space:nowrap;">' + accionesContenido + '</td>'
           : '';
         return '<tr style="background:' + (i % 2 ? '#fafbfc' : '#fff') + ';">' +
           '<td style="padding:5px 8px;border-bottom:1px solid #f0f3f5;white-space:nowrap;">' + fecha + '</td>' +
