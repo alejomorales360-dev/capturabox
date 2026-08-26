@@ -17870,33 +17870,48 @@ function gc_actualizarRutDesdeChofer() {
 /* Modal chico para agregar un valor nuevo a un catálogo (camión, chofer
    o destino) sin cerrar el formulario principal que está abierto detrás
    (usa un id propio, no 'adminModalForm', para no chocar con mostrarModalForm). */
-function gc_modalAgregar(tipo) {
+/* itemExistente: si viene, el modal edita ese registro en vez de crear
+   uno nuevo (precarga los campos y guarda con gateControlEditarCatalogo,
+   indicando el valor original para poder ubicar la fila aunque se
+   corrija el nombre/patente). */
+function gc_modalAgregar(tipo, itemExistente) {
   return new Promise(function (resolve) {
     var prev = document.getElementById('gcAddModal');
     if (prev) prev.remove();
 
+    var esEdicion = !!itemExistente;
     var titulos = { camion: 'Nuevo camión', chofer: 'Nuevo chofer', destino: 'Nuevo destino / procedencia', cliente: 'Nuevo cliente' };
+    var titulosEditar = { camion: 'Editar camión', chofer: 'Editar chofer', destino: 'Editar destino / procedencia', cliente: 'Editar cliente' };
+    var titulo = esEdicion ? titulosEditar[tipo] : titulos[tipo];
+
+    var patenteVal = esEdicion && tipo === 'camion' ? itemExistente.patente : '';
+    var empresaVal = esEdicion && tipo === 'camion' ? (itemExistente.empresa || '') : '';
+    var nombreVal = esEdicion && (tipo === 'chofer' || tipo === 'cliente' || tipo === 'destino')
+      ? (tipo === 'chofer' ? itemExistente.nombre : itemExistente) : '';
+    var rutVal = esEdicion && tipo === 'chofer' ? (itemExistente.rut || '') : '';
+    var original = esEdicion ? (tipo === 'camion' ? itemExistente.patente : (tipo === 'chofer' ? itemExistente.nombre : itemExistente)) : '';
+
     var campos;
     if (tipo === 'camion') {
       campos =
         '<div style="margin-bottom:10px;"><div style="font-size:11px;font-weight:800;color:#7a8b95;margin-bottom:4px;">PATENTE</div>' +
-        '<input id="gcAdd_patente" class="rcFormInput" style="padding:10px 12px;" autocapitalize="characters" oninput="this.value=this.value.toUpperCase();"></div>' +
+        '<input id="gcAdd_patente" class="rcFormInput" value="' + patenteVal + '" style="padding:10px 12px;" autocapitalize="characters" oninput="this.value=this.value.toUpperCase();"></div>' +
         '<div><div style="font-size:11px;font-weight:800;color:#7a8b95;margin-bottom:4px;">EMPRESA TRANSPORTISTA</div>' +
-        '<input id="gcAdd_empresa" class="rcFormInput" style="padding:10px 12px;"></div>';
+        '<input id="gcAdd_empresa" class="rcFormInput" value="' + empresaVal + '" style="padding:10px 12px;"></div>';
     } else if (tipo === 'chofer') {
       campos =
         '<div style="margin-bottom:10px;"><div style="font-size:11px;font-weight:800;color:#7a8b95;margin-bottom:4px;">NOMBRE DEL CHOFER</div>' +
-        '<input id="gcAdd_nombre" class="rcFormInput" style="padding:10px 12px;"></div>' +
+        '<input id="gcAdd_nombre" class="rcFormInput" value="' + nombreVal + '" style="padding:10px 12px;"></div>' +
         '<div><div style="font-size:11px;font-weight:800;color:#7a8b95;margin-bottom:4px;">RUT</div>' +
-        '<input id="gcAdd_rut" class="rcFormInput" placeholder="Ej: 16036823-3" style="padding:10px 12px;"></div>';
+        '<input id="gcAdd_rut" class="rcFormInput" value="' + rutVal + '" placeholder="Ej: 16036823-3" style="padding:10px 12px;"></div>';
     } else if (tipo === 'cliente') {
       campos =
         '<div><div style="font-size:11px;font-weight:800;color:#7a8b95;margin-bottom:4px;">NOMBRE DEL CLIENTE</div>' +
-        '<input id="gcAdd_nombre" class="rcFormInput" placeholder="Ej: Cliente ARAUCO" style="padding:10px 12px;"></div>';
+        '<input id="gcAdd_nombre" class="rcFormInput" value="' + nombreVal + '" placeholder="Ej: Cliente ARAUCO" style="padding:10px 12px;"></div>';
     } else {
       campos =
         '<div><div style="font-size:11px;font-weight:800;color:#7a8b95;margin-bottom:4px;">NOMBRE</div>' +
-        '<input id="gcAdd_nombre" class="rcFormInput" placeholder="Ej: Bodega 2, Puerto Valparaíso" style="padding:10px 12px;"></div>';
+        '<input id="gcAdd_nombre" class="rcFormInput" value="' + nombreVal + '" placeholder="Ej: Bodega 2, Puerto Valparaíso" style="padding:10px 12px;"></div>';
     }
 
     var el = document.createElement('div');
@@ -17906,11 +17921,11 @@ function gc_modalAgregar(tipo) {
       'z-index:1000010;padding:20px;box-sizing:border-box;';
     el.innerHTML =
       '<div style="background:#fff;border-radius:16px;width:100%;max-width:360px;">' +
-        '<div style="background:#0b3c5d;color:#fff;padding:14px 16px;border-radius:16px 16px 0 0;font-size:15px;font-weight:800;">' + titulos[tipo] + '</div>' +
+        '<div style="background:#0b3c5d;color:#fff;padding:14px 16px;border-radius:16px 16px 0 0;font-size:15px;font-weight:800;">' + titulo + '</div>' +
         '<div style="padding:16px;">' + campos + '</div>' +
         '<div style="padding:0 16px 16px;display:flex;gap:10px;">' +
           '<button id="gcAdd_cancelar" style="flex:1;background:#f4f7f9;color:#5a6b77;border:none;border-radius:12px;padding:12px;font-weight:700;cursor:pointer;">Cancelar</button>' +
-          '<button id="gcAdd_guardar" style="flex:2;background:#0b3c5d;color:#fff;border:none;border-radius:12px;padding:12px;font-weight:800;cursor:pointer;">Agregar</button>' +
+          '<button id="gcAdd_guardar" style="flex:2;background:#0b3c5d;color:#fff;border:none;border-radius:12px;padding:12px;font-weight:800;cursor:pointer;">' + (esEdicion ? 'Guardar cambios' : 'Agregar') + '</button>' +
         '</div>' +
       '</div>';
     document.body.appendChild(el);
@@ -17920,7 +17935,8 @@ function gc_modalAgregar(tipo) {
 
     document.getElementById('gcAdd_guardar').onclick = async function () {
       var btn = this;
-      var payload = { accion: 'gateControlAgregarCatalogo', tipo: tipo };
+      var payload = { accion: esEdicion ? 'gateControlEditarCatalogo' : 'gateControlAgregarCatalogo', tipo: tipo };
+      if (esEdicion) payload.original = original;
       var etiqueta = '';
       var patente, empresa, nombre, rut;
 
@@ -17944,16 +17960,30 @@ function gc_modalAgregar(tipo) {
       try {
         var res = await fetch(URL_GAS, { method: 'POST', body: JSON.stringify(payload) });
         var data = await res.json();
-        if (!data.ok) { mostrarAlerta('❌ Error', data.msg || 'No se pudo agregar.'); btn.disabled = false; btn.textContent = 'Agregar'; return; }
+        if (!data.ok) { mostrarAlerta('❌ Error', data.msg || (esEdicion ? 'No se pudo guardar.' : 'No se pudo agregar.')); btn.disabled = false; btn.textContent = esEdicion ? 'Guardar cambios' : 'Agregar'; return; }
 
-        if (tipo === 'camion') gc_catalogos.camiones.push({ patente: patente, empresa: empresa });
-        else if (tipo === 'chofer') gc_catalogos.choferes.push({ nombre: nombre, rut: rut });
-        else if (tipo === 'cliente') gc_catalogos.clientes.push(nombre);
-        else gc_catalogos.destinos.push(nombre);
+        if (esEdicion) {
+          var claveLista = tipo === 'camion' ? 'camiones' : (tipo === 'chofer' ? 'choferes' : (tipo === 'cliente' ? 'clientes' : 'destinos'));
+          var idxExistente = gc_catalogos[claveLista].findIndex(function (it) {
+            var clave = tipo === 'camion' ? it.patente : (tipo === 'chofer' ? it.nombre : it);
+            return clave === original;
+          });
+          if (idxExistente !== -1) {
+            if (tipo === 'camion') gc_catalogos.camiones[idxExistente] = { patente: patente, empresa: empresa };
+            else if (tipo === 'chofer') gc_catalogos.choferes[idxExistente] = { nombre: nombre, rut: rut };
+            else if (tipo === 'cliente') gc_catalogos.clientes[idxExistente] = nombre;
+            else gc_catalogos.destinos[idxExistente] = nombre;
+          }
+        } else {
+          if (tipo === 'camion') gc_catalogos.camiones.push({ patente: patente, empresa: empresa });
+          else if (tipo === 'chofer') gc_catalogos.choferes.push({ nombre: nombre, rut: rut });
+          else if (tipo === 'cliente') gc_catalogos.clientes.push(nombre);
+          else gc_catalogos.destinos.push(nombre);
+        }
 
         cerrar(etiqueta);
       } catch (e) {
-        mostrarAlerta('❌ Sin conexión', 'No se pudo agregar.'); btn.disabled = false; btn.textContent = 'Agregar';
+        mostrarAlerta('❌ Sin conexión', esEdicion ? 'No se pudo guardar.' : 'No se pudo agregar.'); btn.disabled = false; btn.textContent = esEdicion ? 'Guardar cambios' : 'Agregar';
       }
     };
   });
@@ -18183,45 +18213,71 @@ function gc_mostrarCatalogos() {
   var prev = document.getElementById('gcCatModal');
   if (prev) prev.remove();
 
-  function lista(titulo, items, tipo, render) {
-    var filas = items.length
-      ? items.map(function (it, i) {
-          return '<div style="display:flex; align-items:center; justify-content:space-between; padding:8px 0; border-bottom:1px solid #f0f3f5;">' +
-            '<span style="font-size:13px; color:#1c2b36;">' + render(it) + '</span>' +
-            '<button onclick="gc_eliminarCatalogo(\'' + tipo + '\',' + i + ')" style="background:none; border:none; color:#c62828; font-size:16px; cursor:pointer;">🗑</button>' +
-          '</div>';
-        }).join('')
-      : '<div style="color:#7a8b95; font-size:12px; padding:8px 0;">Sin registros.</div>';
+  /* Cada categoría se pinta como tabla propia: columnas fijas y
+     alineadas, encabezado con el total de registros, y acciones
+     (editar/eliminar) en una columna aparte a la derecha. */
+  function tabla(titulo, items, tipo, columnas, render) {
+    var thead = '<tr>' + columnas.map(function (c, i) {
+      var alinear = i === 0 ? 'left' : (c === 'ACCIONES' ? 'center' : 'left');
+      return '<th style="padding:8px 10px;text-align:' + alinear + ';font-size:10px;color:#7a8b95;' +
+        'border-bottom:2px solid #e6ebee;letter-spacing:.04em;text-transform:uppercase;white-space:nowrap;">' + c + '</th>';
+    }).join('') + '</tr>';
 
-    return '<div style="margin-bottom:16px;">' +
-      '<div style="display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:4px;">' +
-        '<div style="flex:1; font-size:11px; font-weight:800; color:#7a8b95; letter-spacing:.05em; text-transform:uppercase;">' + titulo + '</div>' +
-        '<button onclick="gc_agregarDesdeCatalogos(\'' + tipo + '\')" style="flex-shrink:0; width:auto; margin-top:0; background:#eef2f5; color:#0b3c5d; border:none; border-radius:8px; padding:4px 10px; font-size:11px; font-weight:800; cursor:pointer; white-space:nowrap;">+ Agregar</button>' +
-      '</div>' + filas + '</div>';
+    var tbody = items.length
+      ? items.map(function (it, i) {
+          var celdas = render(it).map(function (v, ci) {
+            return '<td style="padding:9px 10px;font-size:13px;color:#1c2b36;border-bottom:1px solid #f0f3f5;' +
+              (ci === 0 ? 'font-weight:700;' : '') + '">' + (v || '—') + '</td>';
+          }).join('');
+          var acciones = '<td style="padding:9px 10px;text-align:center;border-bottom:1px solid #f0f3f5;white-space:nowrap;">' +
+            '<span onclick="gc_editarDesdeCatalogos(\'' + tipo + '\',' + i + ')" title="Editar" ' +
+              'style="cursor:pointer;margin-right:14px;">✏️</span>' +
+            '<span onclick="gc_eliminarCatalogo(\'' + tipo + '\',' + i + ')" title="Eliminar" ' +
+              'style="cursor:pointer;color:#c62828;">🗑️</span>' +
+          '</td>';
+          return '<tr style="background:' + (i % 2 ? '#fafbfc' : '#fff') + ';">' + celdas + acciones + '</tr>';
+        }).join('')
+      : '<tr><td colspan="' + columnas.length + '" style="padding:14px 10px;color:#7a8b95;font-size:12px;">Sin registros.</td></tr>';
+
+    return '<div style="margin-bottom:24px;">' +
+      '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px;">' +
+        '<div style="font-size:13px;font-weight:800;color:#0b3c5d;">' + titulo +
+          ' <span style="font-weight:600;color:#9aa7b0;font-size:12px;">(' + items.length + ')</span></div>' +
+        '<button onclick="gc_agregarDesdeCatalogos(\'' + tipo + '\')" style="flex-shrink:0;width:auto;margin-top:0;' +
+          'background:#eef2f5;color:#0b3c5d;border:none;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:800;' +
+          'cursor:pointer;white-space:nowrap;">+ Agregar</button>' +
+      '</div>' +
+      '<div style="overflow-x:auto;-webkit-overflow-scrolling:touch;border:1px solid #eef2f5;border-radius:10px;">' +
+        '<table style="width:100%;border-collapse:collapse;min-width:320px;">' +
+          '<thead>' + thead + '</thead><tbody>' + tbody + '</tbody>' +
+        '</table>' +
+      '</div>' +
+    '</div>';
   }
 
   var html =
-    lista('Clientes', gc_catalogos.clientes, 'cliente', function (n) { return n; }) +
-    lista('Camiones', gc_catalogos.camiones, 'camion', function (c) { return c.patente + (c.empresa ? ' — ' + c.empresa : ''); }) +
-    lista('Choferes', gc_catalogos.choferes, 'chofer', function (c) { return c.nombre + (c.rut ? ' — ' + c.rut : ''); }) +
-    lista('Destinos / procedencias', gc_catalogos.destinos, 'destino', function (n) { return n; });
+    tabla('Clientes', gc_catalogos.clientes, 'cliente', ['NOMBRE', 'ACCIONES'], function (n) { return [n]; }) +
+    tabla('Camiones', gc_catalogos.camiones, 'camion', ['PATENTE', 'EMPRESA', 'ACCIONES'], function (c) { return [c.patente, c.empresa]; }) +
+    tabla('Choferes', gc_catalogos.choferes, 'chofer', ['NOMBRE', 'RUT', 'ACCIONES'], function (c) { return [c.nombre, c.rut]; }) +
+    tabla('Destinos / procedencias', gc_catalogos.destinos, 'destino', ['NOMBRE', 'ACCIONES'], function (n) { return [n]; });
 
   var el = document.createElement('div');
   el.id = 'gcCatModal';
-  el.style.cssText = 'position:fixed;inset:0;width:100vw;height:100vh;overflow-y:auto;' +
-    'background:rgba(0,0,0,.55);display:flex;align-items:flex-start;justify-content:center;' +
-    'z-index:1000000;padding:16px;box-sizing:border-box;';
+  el.style.cssText = 'position:fixed;inset:0;width:100vw;height:100vh;' +
+    'background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;' +
+    'z-index:1000000;padding:8px;box-sizing:border-box;';
 
   el.innerHTML =
-    '<div style="background:#fff;border-radius:16px;width:100%;max-width:460px;margin-top:8px;">' +
-      '<div style="background:#0b3c5d;color:#fff;padding:14px 16px;border-radius:16px 16px 0 0;' +
-           'display:flex;justify-content:space-between;align-items:center;">' +
-        '<div style="font-size:16px;font-weight:800;">Catálogos de Gate Control</div>' +
+    '<div style="background:#fff;border-radius:16px;width:100%;height:calc(100vh - 16px);max-width:1100px;' +
+         'display:flex;flex-direction:column;overflow:hidden;">' +
+      '<div style="background:#0b3c5d;color:#fff;padding:14px 18px;' +
+           'display:flex;justify-content:space-between;align-items:center;flex-shrink:0;">' +
+        '<div style="font-size:17px;font-weight:800;">Catálogos de Gate Control</div>' +
         '<button onclick="document.getElementById(\'gcCatModal\').remove()" ' +
           'style="background:rgba(255,255,255,.2);color:#fff;border:none;width:30px;height:30px;' +
           'border-radius:8px;font-size:18px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;">&times;</button>' +
       '</div>' +
-      '<div style="padding:16px;max-height:70vh;overflow-y:auto;">' + html + '</div>' +
+      '<div style="padding:18px;overflow-y:auto;flex:1;">' + html + '</div>' +
     '</div>';
 
   document.body.appendChild(el);
@@ -18230,6 +18286,14 @@ function gc_mostrarCatalogos() {
 async function gc_agregarDesdeCatalogos(tipo) {
   var nuevo = await gc_modalAgregar(tipo);
   if (nuevo) gc_mostrarCatalogos();
+}
+
+async function gc_editarDesdeCatalogos(tipo, index) {
+  var claveLista = tipo === 'camion' ? 'camiones' : (tipo === 'chofer' ? 'choferes' : (tipo === 'cliente' ? 'clientes' : 'destinos'));
+  var item = gc_catalogos[claveLista][index];
+  if (!item) return;
+  var resultado = await gc_modalAgregar(tipo, item);
+  if (resultado) gc_mostrarCatalogos();
 }
 
 async function gc_eliminarCatalogo(tipo, index) {
