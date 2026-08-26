@@ -18316,6 +18316,7 @@ function gc_campoCI(m, nombre) {
 function gc_inf_mostrar(data) {
   var prev = document.getElementById('gcInfModal');
   if (prev) prev.remove();
+  gc_inf_esPantallaCompleta = false;
 
   var movs = data.movimientos || [];
   gc_inf_ultimo = movs;
@@ -18388,15 +18389,20 @@ function gc_inf_mostrar(data) {
     'z-index:1000000;padding:16px;box-sizing:border-box;';
 
   el.innerHTML =
-    '<div style="background:#fff;border-radius:16px;width:100%;max-width:900px;margin-top:8px;">' +
+    '<div id="gcInfCaja" style="background:#fff;border-radius:16px;width:100%;max-width:900px;margin-top:8px;">' +
       '<div style="background:#0b3c5d;color:#fff;padding:14px 16px;border-radius:16px 16px 0 0;' +
-           'display:flex;justify-content:space-between;align-items:center;">' +
+           'display:flex;justify-content:space-between;align-items:center;gap:8px;">' +
         '<div style="font-size:18px;font-weight:800;">🚧 Informe de Gate Control</div>' +
+        '<div style="display:flex;gap:6px;flex-shrink:0;">' +
+        '<button onclick="gc_inf_toggleFullscreen()" title="Pantalla completa" id="gcInfBtnFull" ' +
+          'style="background:rgba(255,255,255,.2);color:#fff;border:none;width:30px;height:30px;' +
+          'border-radius:8px;font-size:15px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;">⛶</button>' +
         '<button onclick="document.getElementById(\'gcInfModal\').remove()" ' +
           'style="background:rgba(255,255,255,.2);color:#fff;border:none;width:30px;height:30px;' +
           'border-radius:8px;font-size:18px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;">&times;</button>' +
+        '</div>' +
       '</div>' +
-      '<div style="padding:14px 16px;max-height:70vh;overflow-y:auto;">' +
+      '<div id="gcInfCuerpo" style="padding:14px 16px;max-height:70vh;overflow-y:auto;">' +
         kpisHtml + filasHtml +
       '</div>' +
       '<div style="padding:0 16px 14px;display:flex;gap:10px;flex-wrap:wrap;">' +
@@ -18413,6 +18419,44 @@ function gc_inf_mostrar(data) {
     '</div>';
 
   document.body.appendChild(el);
+}
+
+var gc_inf_esPantallaCompleta = false;
+
+function gc_inf_toggleFullscreen() {
+  var caja = document.getElementById('gcInfCaja');
+  var cuerpo = document.getElementById('gcInfCuerpo');
+  var modal = document.getElementById('gcInfModal');
+  var btn = document.getElementById('gcInfBtnFull');
+  if (!caja || !cuerpo || !modal) return;
+
+  gc_inf_esPantallaCompleta = !gc_inf_esPantallaCompleta;
+
+  if (gc_inf_esPantallaCompleta) {
+    caja.style.maxWidth = '100%';
+    caja.style.width = '100%';
+    caja.style.height = 'calc(100vh - 16px)';
+    caja.style.marginTop = '0';
+    caja.style.display = 'flex';
+    caja.style.flexDirection = 'column';
+    cuerpo.style.maxHeight = 'none';
+    cuerpo.style.flex = '1';
+    modal.style.padding = '8px';
+    if (btn) btn.textContent = '⤢';
+    if (btn) btn.title = 'Salir de pantalla completa';
+  } else {
+    caja.style.maxWidth = '900px';
+    caja.style.width = '100%';
+    caja.style.height = '';
+    caja.style.marginTop = '8px';
+    caja.style.display = '';
+    caja.style.flexDirection = '';
+    cuerpo.style.maxHeight = '70vh';
+    cuerpo.style.flex = '';
+    modal.style.padding = '16px';
+    if (btn) btn.textContent = '⛶';
+    if (btn) btn.title = 'Pantalla completa';
+  }
 }
 
 async function gc_inf_editarFila(fila) {
