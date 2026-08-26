@@ -18570,7 +18570,18 @@ function gc_inf_mostrar(data) {
   if (prev) prev.remove();
   gc_inf_esPantallaCompleta = false;
 
-  var movs = data.movimientos || [];
+  // El backend entrega los movimientos en orden de ingreso a la hoja,
+  // pero la fecha del movimiento puede corregirse a mano en el
+  // formulario (ej. algo que pasó ayer y se carga hoy). El informe
+  // debe ordenarse siempre por esa fecha, no por cuándo se guardó.
+  var movs = (data.movimientos || []).slice();
+  movs.sort(function (a, b) {
+    var fa = new Date(gc_campoCI(a, 'fecha') || 0).getTime();
+    var fb = new Date(gc_campoCI(b, 'fecha') || 0).getTime();
+    if (isNaN(fa)) fa = 0;
+    if (isNaN(fb)) fb = 0;
+    return fb - fa; // más reciente primero
+  });
   gc_inf_ultimo = movs;
 
   var nombres = { RECEPCION: 'Recepción', DESPACHO: 'Despacho', DEVOLUCION: 'Devolución', FALSO_FLETE: 'Falso flete' };
