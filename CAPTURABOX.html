@@ -17636,6 +17636,10 @@ async function gc_abrir(movExistente) {
       '<input id="gc_contenedor" class="rcFormInput" placeholder="Ej: MSCU1234567" list="gc_contenedorList" value="' + (m.contenedor || '') + '" ' +
         'style="padding:10px 12px; flex:1;" autocapitalize="characters" oninput="gc_onContenedorInput(this);">' +
       '<datalist id="gc_contenedorList"></datalist>' +
+      '<button type="button" title="Escanear con la cámara del celular" ' +
+        'onclick="abrirScanCamara(function(codigo){ var el=document.getElementById(\'gc_contenedor\'); el.value=codigo; gc_onContenedorInput(el); })" ' +
+        'style="flex-shrink:0; width:auto; margin-top:0; background:#eef6ff; color:#1b6ca8; border:none; ' +
+        'border-radius:10px; padding:0 12px; font-size:16px; cursor:pointer;">📷</button>' +
       '<button id="gc_btnBuscar" onclick="gc_buscarDespacho()" style="display:none; flex-shrink:0; width:auto; margin-top:0; ' +
         'background:#0b3c5d; color:#fff; border:none; border-radius:10px; padding:0 14px; font-size:12px; font-weight:800; cursor:pointer; white-space:nowrap;">Buscar</button>' +
     '</div></div>' +
@@ -18164,9 +18168,42 @@ function gc_recolectarDatosFormulario() {
   };
 }
 
+/* Evita duplicar el mismo tipo de movimiento para un contenedor que ya
+   lo tiene registrado sin que haya "salido" después (ej: dos Recepciones
+   seguidas del mismo contenedor). Si el último movimiento fue de OTRO
+   tipo no avisa nada: el contenedor puede repetirse legítimamente bajo
+   otro concepto (ej. vuelve por Falso flete y después hay que
+   despacharlo de nuevo). Si la verificación falla (sin conexión, etc.)
+   no bloquea el registro. */
+async function gc_verificarDuplicado(contenedor, tipo) {
+  try {
+    var res = await fetch(URL_GAS, { method: 'POST', body: JSON.stringify({
+      accion: 'gateControlUltimoMovimiento', contenedor: contenedor
+    }) });
+    var data = await res.json();
+    if (!data.ok || !data.encontrado || data.tipo !== tipo) return true;
+
+    var nombresTipo = { RECEPCION: 'Recepción', DESPACHO: 'Despacho', DEVOLUCION: 'Devolución', FALSO_FLETE: 'Falso flete' };
+    var fechaTxt = data.fecha ? new Date(data.fecha).toLocaleString('es-CL', { hour12: false }) : '';
+    return await mostrarConfirm(
+      '⚠️ Posible duplicado',
+      'El contenedor <b>' + contenedor + '</b> ya tiene un movimiento de <b>' + (nombresTipo[tipo] || tipo) + '</b>' +
+      (fechaTxt ? ' registrado el ' + fechaTxt : '') +
+      ', sin que haya salido o vuelto después.<br><br>¿Seguro que quieres registrar otro igual?',
+      'Sí, registrar de todos modos', 'Cancelar'
+    );
+  } catch (e) {
+    return true; // sin conexión: no bloquea, se valida igual al guardar
+  }
+}
+
 async function gc_registrar() {
   var payload = gc_recolectarDatosFormulario();
   if (!payload) return false;
+
+  var continuar = await gc_verificarDuplicado(payload.contenedor, payload.tipo);
+  if (!continuar) return false;
+
   payload.accion = 'registrarMovimientoGateControl';
 
   try {
@@ -18497,27 +18534,31 @@ function gc_inf_toggleFullscreen() {
   gc_inf_esPantallaCompleta = !gc_inf_esPantallaCompleta;
 
   if (gc_inf_esPantallaCompleta) {
-    caja.style.maxWidth = '100%';
-    caja.style.width = '100%';
-    caja.style.height = 'calc(100vh - 16px)';
-    caja.style.marginTop = '0';
+    modal.style.padding = '0';
+    modal.style.alignItems = 'stretch';
+    caja.style.maxWidth = 'none';
+    caja.style.width = '100vw';
+    caja.style.height = '100vh';
+    caja.style.margin = '0';
+    caja.style.borderRadius = '0';
     caja.style.display = 'flex';
     caja.style.flexDirection = 'column';
     cuerpo.style.maxHeight = 'none';
     cuerpo.style.flex = '1';
-    modal.style.padding = '8px';
     if (btn) btn.textContent = '⤢';
     if (btn) btn.title = 'Salir de pantalla completa';
   } else {
+    modal.style.padding = '16px';
+    modal.style.alignItems = 'flex-start';
     caja.style.maxWidth = '900px';
     caja.style.width = '100%';
     caja.style.height = '';
-    caja.style.marginTop = '8px';
+    caja.style.margin = '8px auto 0';
+    caja.style.borderRadius = '16px';
     caja.style.display = '';
     caja.style.flexDirection = '';
     cuerpo.style.maxHeight = '70vh';
     cuerpo.style.flex = '';
-    modal.style.padding = '16px';
     if (btn) btn.textContent = '⛶';
     if (btn) btn.title = 'Pantalla completa';
   }
