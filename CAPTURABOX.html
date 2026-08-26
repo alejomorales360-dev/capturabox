@@ -3536,6 +3536,9 @@ button:active {
        font-size:12px;font-weight:700;color:#b04a10;"></div>
 
   <div class="rcInfoCard">
+    <div style="display:flex; justify-content:flex-end; margin-bottom:2px;">
+      <span onclick="rc_editarEncabezado()" style="font-size:11px; font-weight:800; color:#1b6ca8; cursor:pointer;">✏️ Editar datos</span>
+    </div>
     <div class="rcInfoRow">
       <div class="rcInfoItem"><div class="rcInfoLbl">Cliente</div><div class="rcInfoVal" id="datoCliente">&mdash;</div></div>
       <div class="rcInfoItem"><div class="rcInfoLbl">Patente</div><div class="rcInfoVal" id="datoPatente">&mdash;</div></div>
@@ -3688,7 +3691,7 @@ button:active {
   <h3>Recepción sin Código</h3>
 
   <div>
-    <strong>Datos</strong><br>
+    <strong>Datos</strong> <span onclick="rc_editarEncabezado()" style="font-size:11px; font-weight:800; color:#1b6ca8; cursor:pointer;">✏️ Editar</span><br>
     Cliente: <span id="datoClienteManual"></span> |
     Guías: <span id="datoGuiasManual"></span> |
     Patente: <span id="datoPatenteManual"></span>
@@ -8732,6 +8735,92 @@ async function rc_editarRecepcionEnviada() {
   ir('pantallaRecepcionManual');
   ub_prefillAll('rcManual');
   setTimeout(() => document.getElementById('cantidadManual')?.focus(), 250);
+}
+
+/* Actualiza los divs/spans de solo lectura del encabezado (Cliente,
+   Patente, Guías, Protección, Volumen) con los datos del job — se usa
+   tanto al abrir/reabrir una recepción como al guardar una edición de
+   encabezado desde rc_editarEncabezado(). El N° de Operación no se
+   toca acá: es fijo y no se edita. */
+function rc_pintarEncabezado(job) {
+  var guiasTxt = Array.isArray(job.guias) ? job.guias.join(' / ') : (job.guias || '');
+  var tipo = (job.tipo || 'codigo').toLowerCase();
+  if (tipo === 'codigo') {
+    var elC = document.getElementById('datoCliente'); if (elC) elC.innerText = job.cliente || '—';
+    var elP = document.getElementById('datoPatente'); if (elP) elP.innerText = job.patente || '—';
+    var elG = document.getElementById('datoGuia'); if (elG) elG.innerText = guiasTxt || '—';
+    var elPr = document.getElementById('datoProteccion'); if (elPr) elPr.innerText = job.proteccion || '—';
+    var elV = document.getElementById('datoVolumen'); if (elV) elV.innerText = job.volumenTotal ? job.volumenTotal + ' m³' : '—';
+  } else {
+    var elCM = document.getElementById('datoClienteManual'); if (elCM) elCM.innerText = job.cliente || '';
+    var elPM = document.getElementById('datoPatenteManual'); if (elPM) elPM.innerText = job.patente || '';
+    var elGM = document.getElementById('datoGuiasManual'); if (elGM) elGM.innerText = guiasTxt || '';
+  }
+}
+
+/* Permite corregir los datos de ENCABEZADO de la recepción activa
+   (Cliente, Patente, Guías, Protección, Volumen Total) sin tener que
+   reingresar los lotes — ya sea que la recepción esté recién
+   empezada o se haya reabierto para editar (rc_editarRecepcionEnviada).
+   El N° de Operación queda fijo: es el identificador que usa el
+   backend para no duplicar el registro. */
+async function rc_editarEncabezado() {
+  if (!rc_jobActualId) { mostrarAlerta('⚠️ Sin datos', 'No hay una recepción activa para editar.'); return; }
+  var job = await rc_getJob(rc_jobActualId);
+  if (!job) { mostrarAlerta('⚠️ Sin datos', 'No se encontró la recepción activa.'); return; }
+
+  var guiasTxt = Array.isArray(job.guias) ? job.guias.join(' / ') : (job.guias || '');
+  var clientesOpts = ['ARAUCO', 'FORACTION', 'MASISA', 'JCE', 'CMPC'];
+  var proteccionOpts = ['Carpa', 'Cortina', 'Cintas', 'Sin proteccion', 'Otro'];
+
+  var contenido =
+    '<div style="display:flex; flex-direction:column; gap:12px;">' +
+    '<div><label class="rcFormLbl">Cliente</label>' +
+    '<select id="rc_ed_cliente" class="rcFormSelect">' +
+      '<option value="">Seleccione…</option>' +
+      clientesOpts.map(function (c) { return '<option' + (c === job.cliente ? ' selected' : '') + '>' + c + '</option>'; }).join('') +
+    '</select></div>' +
+    '<div><label class="rcFormLbl">Patente</label>' +
+    '<input id="rc_ed_patente" class="rcFormInput" style="text-transform:uppercase;" ' +
+      'value="' + (job.patente || '') + '" oninput="this.value=this.value.toUpperCase();"></div>' +
+    '<div><label class="rcFormLbl">Guías (separadas por /)</label>' +
+    '<input id="rc_ed_guias" class="rcFormInput" value="' + guiasTxt.replace(/"/g, '&quot;') + '"></div>' +
+    '<div><label class="rcFormLbl">Protección del camión</label>' +
+    '<select id="rc_ed_proteccion" class="rcFormSelect">' +
+      '<option value="">Seleccione…</option>' +
+      proteccionOpts.map(function (p) { return '<option' + (p === job.proteccion ? ' selected' : '') + '>' + p + '</option>'; }).join('') +
+    '</select></div>' +
+    '<div><label class="rcFormLbl">Volumen Total (m³)</label>' +
+    '<input id="rc_ed_volumen" class="rcFormInput" type="number" min="0" step="0.001" ' +
+      'value="' + (job.volumenTotal || '') + '"></div>' +
+    '</div>';
+
+  mostrarModalForm('✏️ Editar datos de la recepción', contenido, async function () {
+    var cliente = (document.getElementById('rc_ed_cliente') || {}).value || '';
+    var patente = String((document.getElementById('rc_ed_patente') || {}).value || '').trim().toUpperCase();
+    var guiasRaw = String((document.getElementById('rc_ed_guias') || {}).value || '').trim();
+    var proteccion = (document.getElementById('rc_ed_proteccion') || {}).value || '';
+    var volumenTotal = parseFloat((document.getElementById('rc_ed_volumen') || {}).value || '0') || 0;
+
+    if (!cliente) { mostrarAlerta('⚠️ Faltan datos', 'Selecciona el cliente.'); return false; }
+    if (!patente) { mostrarAlerta('⚠️ Faltan datos', 'Ingresa la patente.'); return false; }
+    var guias = guiasRaw.split('/').map(function (s) { return s.trim(); }).filter(Boolean);
+    if (!guias.length) { mostrarAlerta('⚠️ Faltan datos', 'Ingresa al menos una guía.'); return false; }
+
+    var jobActual = await rc_getJob(rc_jobActualId);
+    if (!jobActual) { mostrarAlerta('❌ Error', 'La recepción activa ya no está disponible.'); return false; }
+    jobActual.cliente = cliente;
+    jobActual.patente = patente;
+    jobActual.guias = guias;
+    jobActual.proteccion = proteccion;
+    jobActual.volumenTotal = volumenTotal;
+    jobActual.updatedAt = Date.now();
+    await rc_putJob(jobActual);
+
+    rc_pintarEncabezado(jobActual);
+    mostrarAlerta('✅ Actualizado', 'Los datos de la recepción quedaron actualizados.');
+    return true;
+  });
 }
 
 /** Imprime solo el contenido del modal de detalle recepción */
