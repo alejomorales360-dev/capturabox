@@ -10650,9 +10650,14 @@ function mostrarAlerta(titulo, mensaje) {
     el.id = 'cbAlertBox';
     el.style.cssText = 'position:fixed;inset:0;width:100vw;height:100vh;overflow-y:auto;' +
       'background:rgba(0,0,0,.6);display:flex;align-items:center;' +
-      'justify-content:center;z-index:1000000;padding:20px;box-sizing:border-box;';
-    document.body.appendChild(el);
+      'justify-content:center;z-index:2000000;padding:20px;box-sizing:border-box;';
   }
+  // Siempre al final del <body>: si se creó otro modal (Detalle Recepción,
+  // catálogos, etc.) DESPUÉS de la primera vez que se mostró esta alerta,
+  // ese modal quedaba pintado por encima aunque tuvieran el mismo z-index
+  // (a igual z-index gana el que está más adelante en el DOM). Moverlo al
+  // final en cada llamada garantiza que la alerta/confirm siempre se vea.
+  document.body.appendChild(el);
   el.innerHTML =
     '<div style="background:#fff;border-radius:18px;padding:24px 20px;max-width:360px;' +
     'width:100%;box-shadow:0 8px 32px rgba(0,0,0,.3);text-align:center;">' +
@@ -10676,9 +10681,11 @@ function mostrarConfirm(titulo, mensaje, txtSi, txtNo) {
       el.id = 'cbAlertBox';
       el.style.cssText = 'position:fixed;inset:0;width:100vw;height:100vh;overflow-y:auto;' +
         'background:rgba(0,0,0,.6);display:flex;align-items:center;' +
-        'justify-content:center;z-index:1000000;padding:20px;box-sizing:border-box;';
-      document.body.appendChild(el);
+        'justify-content:center;z-index:2000000;padding:20px;box-sizing:border-box;';
     }
+    // Ver comentario equivalente en mostrarAlerta(): siempre al final del
+    // <body> para que quede por encima de cualquier modal creado después.
+    document.body.appendChild(el);
     el.innerHTML =
       '<div style="background:#fff;border-radius:18px;padding:24px 20px;max-width:360px;' +
       'width:100%;box-shadow:0 8px 32px rgba(0,0,0,.3);text-align:center;">' +
