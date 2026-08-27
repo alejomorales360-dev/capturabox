@@ -25296,6 +25296,59 @@ async function rx_descartarJobDesdeResumen(id) {
 }
 
 
+/* =========================================================
+   AVISO DE VERSIÓN NUEVA
+   Los equipos móviles (lectores de código de barra) quedan con la
+   app abierta días enteros sin cerrarla nunca, así que el chequeo
+   normal del service worker (que solo mira si hay versión nueva al
+   navegar/recargar) nunca se dispara. Esto revisa cada cierto tiempo
+   si el HTML publicado cambió y avisa con un banner para actualizar
+   sin perder lo que se esté haciendo (no recarga solo).
+   El "?__chk=" en la URL hace que el service worker (sw.js) mande
+   este pedido derecho a la red, sin caché de por medio.
+========================================================= */
+var _appFirmaHtml = null;
+
+function _firmaTexto(texto) {
+  // Hash rápido (no criptográfico) por muestreo: alcanza para detectar
+  // que el HTML cambió sin tener que comparar el archivo completo.
+  var h = 0;
+  for (var i = 0; i < texto.length; i += 41) h = (h * 31 + texto.charCodeAt(i)) | 0;
+  return h + "_" + texto.length;
+}
+
+function _mostrarAvisoNuevaVersion() {
+  if (document.getElementById("avisoNuevaVersion")) return;
+  var el = document.createElement("div");
+  el.id = "avisoNuevaVersion";
+  el.style.cssText = "position:fixed;left:0;right:0;bottom:0;z-index:3000000;" +
+    "background:#0b3c5d;color:#fff;padding:12px 16px;display:flex;align-items:center;" +
+    "justify-content:space-between;gap:10px;font-size:13px;font-weight:700;" +
+    "box-shadow:0 -2px 10px rgba(0,0,0,.3);";
+  el.innerHTML =
+    "<span>🔄 Hay una versión nueva de la app.</span>" +
+    "<button onclick=\"location.reload()\" style=\"background:#11a06b;color:#fff;border:none;" +
+    "border-radius:8px;padding:8px 14px;font-weight:800;cursor:pointer;white-space:nowrap;flex-shrink:0;\">" +
+    "Actualizar ahora</button>";
+  document.body.appendChild(el);
+}
+
+async function _verificarVersionApp() {
+  try {
+    var res = await fetch(location.pathname + "?__chk=" + Date.now(), { cache: "no-store" });
+    var texto = await res.text();
+    var firma = _firmaTexto(texto);
+    if (_appFirmaHtml === null) { _appFirmaHtml = firma; return; }
+    if (firma !== _appFirmaHtml) _mostrarAvisoNuevaVersion();
+  } catch (e) { /* sin conexión: se reintenta en el próximo chequeo */ }
+}
+
+setTimeout(_verificarVersionApp, 4000);
+setInterval(_verificarVersionApp, 5 * 60 * 1000);
+document.addEventListener("visibilitychange", function () {
+  if (document.visibilityState === "visible") _verificarVersionApp();
+});
+
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
     navigator.serviceWorker.register("sw.js").catch((err) => {
