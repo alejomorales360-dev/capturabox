@@ -18304,7 +18304,8 @@ async function gc_verificarDuplicado(contenedor, tipo) {
       accion: 'gateControlUltimoMovimiento', contenedor: contenedor
     }) });
     var data = await res.json();
-    if (!data.ok || !data.encontrado || data.tipo !== tipo) return true;
+    var tipoUltimo = String(data.tipo || '').trim().toUpperCase();
+    if (!data.ok || !data.encontrado || tipoUltimo !== String(tipo || '').trim().toUpperCase()) return true;
 
     var nombresTipo = { RECEPCION: 'Recepción', DESPACHO: 'Despacho', DEVOLUCION: 'Devolución', FALSO_FLETE: 'Falso flete' };
     var fechaTxt = data.fecha ? new Date(data.fecha).toLocaleString('es-CL', { hour12: false }) : '';
