@@ -9722,7 +9722,7 @@ function _fechaAyerLocal() {
     String(d.getDate()).padStart(2,'0');
 }
 
-const URL_GAS = "https://script.google.com/macros/s/AKfycbzMGQ2GQXse-D5TX-I98D_gG7NllXB44ipdTH5NOn2RicrYgrCORUllrnqtIOPjj7XU/exec";
+const URL_GAS = "https://script.google.com/macros/s/AKfycby4SovIDh80JrQvgS7Prowues1QKSQ-RyzvQF4V1YV2JUiqd_d9qam8WRIX749nf9ol/exec";
 
 // ─── LICENCIA Y DISPOSITIVO ──────────────────────────────────────
 const APP_LICENCIA = "CBOX-2026-ARAUCO-PROD-001"; // Cambiar por tu clave única
@@ -12572,23 +12572,15 @@ function actualizarBloqueFotos(tipo, min, idBox) {
    VALIDAR FOTOS ANTES DE GUARDAR
 --------------------------------------------------------- */
 function validarFotos() {
-
+  // Solo valida que las fotos requeridas se hayan CAPTURADO (están en
+  // fotos[tipo], con base64 local). Ya NO exige que estén confirmadas
+  // en Drive: eso bloqueaba el cierre del contenedor cada vez que una
+  // subida se demoraba o fallaba, obligando a borrar y re-tomar fotos
+  // que ya se habían sacado. La subida a Drive queda en manos de
+  // enviarJobAlServidor()/procesarColaEnvio(), que reintenta en segundo
+  // plano (cada 15s y al volver la conexión) hasta que todas suban,
+  // sin bloquear al usuario ni arriesgar perder lo que ya capturó.
   const contar = (tipo) => fotos[tipo].length;
-
-  // Contar fotos que REALMENTE están subidas (tienen URL de Drive)
-  const contarSubidas = function(tipo) {
-    return fotos[tipo].filter(function(f) {
-      if (typeof f === 'string') return f.startsWith('http');
-      return f && f.url && f.url.startsWith('http');
-    }).length;
-  };
-
-  // Contar fotos que están subiendo todavía
-  const contarSubiendo = function(tipo) {
-    return fotos[tipo].filter(function(f) {
-      return f && typeof f === 'object' && f.subiendo;
-    }).length;
-  };
 
   if (contar("vacio") < 1) {
     alert("Debes subir al menos 1 foto del contenedor vacío.");
@@ -12605,25 +12597,6 @@ function validarFotos() {
   if (contar("sello") < 2) {
     alert("Debes subir al menos 2 fotos del contenedor sellado.");
     return false;
-  }
-
-  // Verificar que TODAS las fotos estén realmente subidas a Drive
-  var tipos = ['vacio', 'carga', 'completo', 'sello'];
-  for (var t = 0; t < tipos.length; t++) {
-    var tipo = tipos[t];
-    var subiendo = contarSubiendo(tipo);
-    var subidas = contarSubidas(tipo);
-    var total = contar(tipo);
-
-    if (subiendo > 0) {
-      alert("⏳ Hay " + subiendo + " foto(s) de '" + tipo + "' aún subiendo a Drive.\nEspera unos segundos e intenta de nuevo.");
-      return false;
-    }
-    if (subidas < total) {
-      var faltantes = total - subidas;
-      alert("⚠️ " + faltantes + " foto(s) de '" + tipo + "' NO se subieron a Drive.\nElimínalas y vuelve a tomarlas, o revisa tu conexión.");
-      return false;
-    }
   }
 
   if (!sello_linea.value.trim()) {
@@ -18304,7 +18277,8 @@ async function gc_verificarDuplicado(contenedor, tipo) {
       accion: 'gateControlUltimoMovimiento', contenedor: contenedor
     }) });
     var data = await res.json();
-    if (!data.ok || !data.encontrado || data.tipo !== tipo) return true;
+    var tipoUltimo = String(data.tipo || '').trim().toUpperCase();
+    if (!data.ok || !data.encontrado || tipoUltimo !== String(tipo || '').trim().toUpperCase()) return true;
 
     var nombresTipo = { RECEPCION: 'Recepción', DESPACHO: 'Despacho', DEVOLUCION: 'Devolución', FALSO_FLETE: 'Falso flete' };
     var fechaTxt = data.fecha ? new Date(data.fecha).toLocaleString('es-CL', { hour12: false }) : '';
