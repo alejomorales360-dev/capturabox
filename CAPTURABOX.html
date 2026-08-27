@@ -18514,6 +18514,7 @@ function gc_abrirInforme() {
 }
 
 var gc_inf_ultimo = null;
+var gc_inf_todos  = null; // set completo sin filtrar, para poblar los selects y "Todos"
 
 async function gc_inf_generar() {
   var desde = (document.getElementById('gc_inf_desde') || {}).value;
@@ -18587,23 +18588,37 @@ function gc_verFotos(i) {
   mostrarAlerta('📷 Fotos del documento', html);
 }
 
-function gc_inf_mostrar(data) {
-  var prev = document.getElementById('gcInfModal');
-  if (prev) prev.remove();
-  gc_inf_esPantallaCompleta = false;
-
-  // El backend entrega los movimientos en orden de ingreso a la hoja,
-  // pero la fecha del movimiento puede corregirse a mano en el
-  // formulario (ej. algo que pasó ayer y se carga hoy). El informe
-  // debe ordenarse siempre por esa fecha, no por cuándo se guardó.
-  var movs = (data.movimientos || []).slice();
-  movs.sort(function (a, b) {
-    var fa = new Date(gc_campoCI(a, 'fecha') || 0).getTime();
-    var fb = new Date(gc_campoCI(b, 'fecha') || 0).getTime();
-    if (isNaN(fa)) fa = 0;
-    if (isNaN(fb)) fb = 0;
-    return fb - fa; // más reciente primero
+/* Construye las opciones (valores únicos, ya ordenados) de un campo
+   de los movimientos cargados, para poblar los selects de filtro. */
+function gc_inf_opciones_(movs, campo) {
+  var vistos = {};
+  var out = [];
+  movs.forEach(function (m) {
+    var v = String(gc_campoCI(m, campo) || '').trim();
+    if (v && !vistos[v]) { vistos[v] = true; out.push(v); }
   });
+  out.sort(function (a, b) { return a.localeCompare(b, 'es'); });
+  return out;
+}
+
+function gc_inf_selectFiltro_(id, etiqueta, valores, etiquetaFn) {
+  return '<div style="flex:1;min-width:120px;">' +
+    '<label style="font-size:9px;font-weight:700;color:#7a8b95;letter-spacing:.04em;text-transform:uppercase;">' + etiqueta + '</label>' +
+    '<select id="' + id + '" onchange="gc_inf_aplicarFiltros()" ' +
+      'style="width:100%;margin-top:2px;padding:6px 8px;border:1.5px solid #cfd8dc;border-radius:8px;font-size:12px;box-sizing:border-box;">' +
+      '<option value="">Todos</option>' +
+      valores.map(function (v) {
+        var txt = etiquetaFn ? etiquetaFn(v) : v;
+        return '<option value="' + v.replace(/"/g, '&quot;') + '">' + txt + '</option>';
+      }).join('') +
+    '</select></div>';
+}
+
+/* Reconstruye los KPIs y la tabla a partir de un set de movimientos
+   (ya sea el completo o uno filtrado) y los deja en el DOM. También
+   actualiza gc_inf_ultimo, que es lo que usan exportar/editar/borrar
+   — así esas acciones siempre trabajan sobre lo que se ve en pantalla. */
+function gc_inf_renderizar_(movs) {
   gc_inf_ultimo = movs;
 
   var nombres = { RECEPCION: 'Recepción', DESPACHO: 'Despacho', DEVOLUCION: 'Devolución', FALSO_FLETE: 'Falso flete' };
@@ -18667,8 +18682,62 @@ function gc_inf_mostrar(data) {
           '</tr>';
       }).join('') + '</tbody></table></div>';
   } else {
-    filasHtml = '<div style="text-align:center;color:#7a8b95;padding:20px;">No hay movimientos para el período seleccionado.</div>';
+    filasHtml = '<div style="text-align:center;color:#7a8b95;padding:20px;">No hay movimientos para el período o los filtros seleccionados.</div>';
   }
+
+  var elKpis  = document.getElementById('gcInfKpis');
+  var elTabla = document.getElementById('gcInfTabla');
+  if (elKpis)  elKpis.innerHTML  = kpisHtml;
+  if (elTabla) elTabla.innerHTML = filasHtml;
+}
+
+/* Vuelve a filtrar gc_inf_todos según lo elegido en los 4 selects
+   (Transportista, Cliente, Destino, Estado) y re-renderiza — sin
+   volver a pedirle datos al backend, ya que el fetch original ya
+   trae todo el rango de fechas/tipo elegido. */
+function gc_inf_aplicarFiltros() {
+  var t = (document.getElementById('gcInfFtransportista') || {}).value || '';
+  var c = (document.getElementById('gcInfFcliente')        || {}).value || '';
+  var d = (document.getElementById('gcInfFdestino')        || {}).value || '';
+  var e = (document.getElementById('gcInfFestado')         || {}).value || '';
+
+  var filtrados = (gc_inf_todos || []).filter(function (m) {
+    if (t && String(gc_campoCI(m, 'transportista') || '').trim() !== t) return false;
+    if (c && String(gc_campoCI(m, 'cliente')       || '').trim() !== c) return false;
+    if (d && String(gc_campoCI(m, 'destino')       || '').trim() !== d) return false;
+    if (e && String(gc_campoCI(m, 'estado')        || '').trim() !== e) return false;
+    return true;
+  });
+
+  gc_inf_renderizar_(filtrados);
+}
+
+function gc_inf_mostrar(data) {
+  var prev = document.getElementById('gcInfModal');
+  if (prev) prev.remove();
+  gc_inf_esPantallaCompleta = false;
+
+  // El backend entrega los movimientos en orden de ingreso a la hoja,
+  // pero la fecha del movimiento puede corregirse a mano en el
+  // formulario (ej. algo que pasó ayer y se carga hoy). El informe
+  // debe ordenarse siempre por esa fecha, no por cuándo se guardó.
+  var movs = (data.movimientos || []).slice();
+  movs.sort(function (a, b) {
+    var fa = new Date(gc_campoCI(a, 'fecha') || 0).getTime();
+    var fb = new Date(gc_campoCI(b, 'fecha') || 0).getTime();
+    if (isNaN(fa)) fa = 0;
+    if (isNaN(fb)) fb = 0;
+    return fb - fa; // más reciente primero
+  });
+  gc_inf_todos  = movs;
+  gc_inf_ultimo = movs;
+
+  var filtrosHtml = '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">' +
+    gc_inf_selectFiltro_('gcInfFtransportista', 'Transportista', gc_inf_opciones_(movs, 'transportista')) +
+    gc_inf_selectFiltro_('gcInfFcliente', 'Cliente', gc_inf_opciones_(movs, 'cliente')) +
+    gc_inf_selectFiltro_('gcInfFdestino', 'Destino', gc_inf_opciones_(movs, 'destino')) +
+    gc_inf_selectFiltro_('gcInfFestado', 'Estado', gc_inf_opciones_(movs, 'estado'), function (v) { return v === 'LLENO' ? 'Full' : 'Empty'; }) +
+  '</div>';
 
   var el = document.createElement('div');
   el.id = 'gcInfModal';
@@ -18691,7 +18760,9 @@ function gc_inf_mostrar(data) {
         '</div>' +
       '</div>' +
       '<div id="gcInfCuerpo" style="padding:14px 16px;max-height:70vh;overflow-y:auto;">' +
-        kpisHtml + filasHtml +
+        filtrosHtml +
+        '<div id="gcInfKpis"></div>' +
+        '<div id="gcInfTabla"></div>' +
       '</div>' +
       '<div style="padding:0 16px 14px;display:flex;gap:10px;flex-wrap:wrap;">' +
         '<button onclick="gc_inf_exportar()" ' +
@@ -18707,6 +18778,7 @@ function gc_inf_mostrar(data) {
     '</div>';
 
   document.body.appendChild(el);
+  gc_inf_renderizar_(movs);
 }
 
 var gc_inf_esPantallaCompleta = false;
