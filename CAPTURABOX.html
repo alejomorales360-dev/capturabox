@@ -22206,14 +22206,13 @@ async function cb_verSinCruce() {
 
   try {
     var r = await fetch(URL_GAS, { method: 'POST',
-      body: JSON.stringify({ accion: 'listarLotesSinCruce', limite: 300, diasMin: 3 }) });
+      body: JSON.stringify({ accion: 'listarLotesSinCruce', limite: 2000, diasMin: 0 }) });
     var d = await r.json();
     ocultarCargando();
 
     if (!d.ok || !d.data || !d.data.length) {
       mostrarAlerta('✅ Sin lotes sin cruce',
-        'No hay lotes de bodega esperando más de ' + (d.diasMin || 3) +
-        ' días sin aparecer en el stock del cliente.');
+        'No hay lotes de bodega sin aparecer en el stock del cliente.');
       return;
     }
 
@@ -22245,7 +22244,8 @@ async function cb_verSinCruce() {
             '<div style="font-size:16px;font-weight:800;">🔎 Lotes sin cruce</div>' +
             '<div style="font-size:12px;opacity:.9;">' + d.data.length +
               ' lote' + (d.data.length === 1 ? '' : 's') + ' recepcionado' + (d.data.length === 1 ? '' : 's') +
-              ' en bodega, hace más de ' + (d.diasMin || 3) + ' días sin aparecer en el stock del cliente</div>' +
+              ' en bodega, sin aparecer en el stock del cliente a la fecha' +
+              (d.diasMin ? ' (más de ' + d.diasMin + ' día' + (d.diasMin === 1 ? '' : 's') + ')' : '') + '</div>' +
           '</div>' +
           '<button onclick="document.getElementById(\'cbSinCruceModal\').remove()" ' +
             'style="background:rgba(255,255,255,.2);color:#fff;border:none;width:30px;height:30px;' +
