@@ -4739,6 +4739,11 @@ button:active {
                      padding:12px;font-size:13px;font-weight:800;cursor:pointer;margin-bottom:8px;">
         ⚠️ Ver lotes sin registro
       </button>
+      <button onclick="cb_verSinCruce()"
+              style="width:100%;background:#8e24aa;color:#fff;border:none;border-radius:11px;
+                     padding:12px;font-size:13px;font-weight:800;cursor:pointer;margin-bottom:8px;">
+        🔎 Ver lotes sin cruce
+      </button>
       <button onclick="cb_verPendientesRecepcion()"
               style="width:100%;background:#e65100;color:#fff;border:none;border-radius:11px;
                      padding:12px;font-size:13px;font-weight:800;cursor:pointer;margin-bottom:8px;">
@@ -9759,7 +9764,7 @@ function _fechaAyerLocal() {
     String(d.getDate()).padStart(2,'0');
 }
 
-const URL_GAS = "https://script.google.com/macros/s/AKfycbzTTY1MjvzLncZK3XDIfqsSlO8DxRzb_Nn9lpNmYs8gQQdS2BHaViuawaB3LhZFDpA6/exec";
+const URL_GAS = "https://script.google.com/macros/s/AKfycbzoGbqnV9Y2kkLYPGtscWz2eNQ1QBHiFr_-r1J65rwrD1cjnECst4n_I0g_hiqNasoD/exec";
 
 // ─── LICENCIA Y DISPOSITIVO ──────────────────────────────────────
 const APP_LICENCIA = "CBOX-2026-ARAUCO-PROD-001"; // Cambiar por tu clave única
@@ -22114,6 +22119,94 @@ async function cb_verDescuadres() {
   } catch (e) {
     ocultarCargando();
     mostrarAlerta('\u274c Error', e.message || String(e));
+  }
+}
+
+/* Lotes recepcionados en bodega (Origen=BODEGA) que llevan varios
+   días sin aparecer en ningún archivo de stock del cliente. No caen
+   en "Ver lotes sin registro" porque ese reporte excluye a propósito
+   el origen BODEGA (para no marcar como salido un lote recién
+   recepcionado, antes de que el cliente alcance a actualizar su
+   archivo) — pero si pasan varios días y nunca aparecen, suele ser
+   un lote mal ingresado (typo) que quedó huérfano en el stock. */
+async function cb_verSinCruce() {
+  mostrarCargando('Buscando lotes sin cruce...');
+
+  try {
+    var r = await fetch(URL_GAS, { method: 'POST',
+      body: JSON.stringify({ accion: 'listarLotesSinCruce', limite: 300, diasMin: 3 }) });
+    var d = await r.json();
+    ocultarCargando();
+
+    if (!d.ok || !d.data || !d.data.length) {
+      mostrarAlerta('✅ Sin lotes sin cruce',
+        'No hay lotes de bodega esperando más de ' + (d.diasMin || 3) +
+        ' días sin aparecer en el stock del cliente.');
+      return;
+    }
+
+    var filas = d.data.map(function(x, i) {
+      var fecha = x.fechaUbicacion ? new Date(x.fechaUbicacion).toLocaleDateString('es-CL') : '—';
+      return '<tr style="background:' + (i % 2 ? '#f7f9fb' : '#fff') + ';">' +
+        '<td style="padding:6px 8px;border:1px solid #e6ebee;font-weight:700;">' + (x.lote || '—') + '</td>' +
+        '<td style="padding:6px 8px;border:1px solid #e6ebee;">' + (x.cliente || '—') + '</td>' +
+        '<td style="padding:6px 8px;border:1px solid #e6ebee;">' + (x.producto || '—') + '</td>' +
+        '<td style="padding:6px 8px;border:1px solid #e6ebee;">' + (x.ubicacion || '—') + '</td>' +
+        '<td style="padding:6px 8px;border:1px solid #e6ebee;">' + fecha + '</td>' +
+      '</tr>';
+    }).join('');
+
+    var prev = document.getElementById('cbSinCruceModal');
+    if (prev) prev.remove();
+
+    var el = document.createElement('div');
+    el.id = 'cbSinCruceModal';
+    el.style.cssText = 'position:fixed;inset:0;width:100vw;height:100vh;overflow-y:auto;' +
+      'background:rgba(0,0,0,.55);display:flex;align-items:flex-start;justify-content:center;' +
+      'z-index:1000000;padding:16px;box-sizing:border-box;';
+
+    el.innerHTML =
+      '<div style="background:#fff;border-radius:16px;width:100%;max-width:720px;margin-top:8px;">' +
+        '<div style="background:#8e24aa;color:#fff;padding:14px 16px;border-radius:16px 16px 0 0;' +
+             'display:flex;justify-content:space-between;align-items:center;">' +
+          '<div>' +
+            '<div style="font-size:16px;font-weight:800;">🔎 Lotes sin cruce</div>' +
+            '<div style="font-size:12px;opacity:.9;">' + d.data.length +
+              ' lote' + (d.data.length === 1 ? '' : 's') + ' recepcionado' + (d.data.length === 1 ? '' : 's') +
+              ' en bodega, hace más de ' + (d.diasMin || 3) + ' días sin aparecer en el stock del cliente</div>' +
+          '</div>' +
+          '<button onclick="document.getElementById(\'cbSinCruceModal\').remove()" ' +
+            'style="background:rgba(255,255,255,.2);color:#fff;border:none;width:30px;height:30px;' +
+            'border-radius:8px;font-size:18px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;">&times;</button>' +
+        '</div>' +
+        '<div style="padding:14px 16px;">' +
+          '<div style="font-size:12px;color:#7a8b95;margin-bottom:10px;">' +
+            'Revisa si son lotes mal ingresados (typo en el código) — conviene corregirlos desde ' +
+            'Editar en el detalle de la recepción, o si son lotes reales, avisar al cliente ' +
+            'para que los agregue a su archivo.' +
+          '</div>' +
+          '<div style="max-height:60vh;overflow:auto;">' +
+            '<table style="width:100%;border-collapse:collapse;font-size:12px;">' +
+              '<thead><tr style="background:#0b3c5d;color:#fff;font-size:10px;">' +
+                '<th style="padding:7px 8px;text-align:left;">LOTE</th>' +
+                '<th style="padding:7px 8px;text-align:left;">CLIENTE</th>' +
+                '<th style="padding:7px 8px;text-align:left;">PRODUCTO</th>' +
+                '<th style="padding:7px 8px;text-align:left;">UBICACIÓN</th>' +
+                '<th style="padding:7px 8px;text-align:left;">FECHA RECEPCIÓN</th>' +
+              '</tr></thead><tbody>' + filas + '</tbody>' +
+            '</table>' +
+          '</div>' +
+          '<button onclick="document.getElementById(\'cbSinCruceModal\').remove()" ' +
+            'style="width:100%;margin-top:14px;background:#eef2f5;color:#444;border:none;' +
+            'border-radius:11px;padding:12px;font-weight:800;cursor:pointer;">Cerrar</button>' +
+        '</div>' +
+      '</div>';
+
+    document.body.appendChild(el);
+
+  } catch (e) {
+    ocultarCargando();
+    mostrarAlerta('❌ Error', e.message || String(e));
   }
 }
 
