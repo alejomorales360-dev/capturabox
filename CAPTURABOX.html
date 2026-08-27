@@ -19746,8 +19746,8 @@ function infoCons_exportarExcel() {
 
   XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(data.detalle.map(function (d) {
     return {
-      Contenedor: d.contenedor, Fecha: d.fecha, Cliente: d.cliente, Nave: d.nave, Naviera: d.linea,
-      'Puerto Destino': d.puertoDestino, Producto: d.producto, Trineo: d.trineo, Patines: d.patines, 'm³': d.m3
+      Contenedor: d.contenedor, Entrega: d.entrega || '', Fecha: d.fecha, Cliente: d.cliente, Nave: d.nave, Naviera: d.linea,
+      'Puerto Destino': d.puertoDestino, Producto: d.producto, Trineo: d.trineo, 'm³': d.m3
     };
   })), 'Detalle');
 
@@ -19907,11 +19907,11 @@ function infoCons_exportarPDFDetallado() {
   if (!w) { mostrarAlerta('Bloqueado', 'El navegador bloqueó la ventana. Habilita ventanas emergentes.'); return; }
 
   var filas = data.detalle.map(function (d) {
-    return '<tr><td class="nowrap">' + d.contenedor + '</td><td class="nowrap">' + d.fecha + '</td><td>' + d.cliente + '</td>' +
+    return '<tr><td class="nowrap">' + d.contenedor + '</td><td class="nowrap">' + (d.entrega || '—') + '</td>' +
+      '<td class="nowrap">' + d.fecha + '</td><td>' + d.cliente + '</td>' +
       '<td>' + d.nave + '</td><td>' + d.linea + '</td><td>' + (d.puertoDestino || '—') + '</td>' +
       '<td class="nowrap">' + (d.producto || '—') + '</td>' +
       '<td style="text-align:center;">' + (d.trineo === 'SI' ? 'Sí' : 'No') + '</td>' +
-      '<td style="text-align:right;">' + d.patines + '</td>' +
       '<td style="text-align:right;">' + d.m3.toFixed(3) + '</td></tr>';
   }).join('');
 
@@ -19927,8 +19927,8 @@ function infoCons_exportarPDFDetallado() {
     '<button class="btnImprimir" onclick="window.print()">Imprimir</button>' +
     '<h2>Detalle de Consolidado — unidad por unidad</h2>' +
     '<p class="sub">Generado el ' + fecha + ' &middot; ' + data.detalle.length + ' contenedores &middot; ' + data.totalM3.toFixed(2) + ' m³</p>' +
-    '<table><tr><th>Contenedor</th><th>Fecha</th><th>Cliente</th><th>Nave</th><th>Naviera</th><th>Puerto Destino</th>' +
-    '<th>Producto</th><th>Trineo</th><th>Patines</th><th>m³</th></tr>' +
+    '<table><tr><th>Contenedor</th><th>Entrega</th><th>Fecha</th><th>Cliente</th><th>Nave</th><th>Naviera</th><th>Puerto Destino</th>' +
+    '<th>Producto</th><th>Trineo</th><th>m³</th></tr>' +
     filas + '</table>' +
     '</bod' + 'y></htm' + 'l>';
 
