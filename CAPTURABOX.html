@@ -3924,6 +3924,12 @@ button:active {
     </div>
   </div>
 
+  <!-- ERROR AL TRAER DATOS DE LA NUBE -->
+  <div id="rcErrorNube" style="display:none; margin:12px 16px 0; background:#fff0f0;
+       border:1.5px solid #e57373; border-radius:12px; padding:12px 14px;
+       font-size:13px; font-weight:700; color:#c0392b; text-align:center;">
+  </div>
+
   <!-- TOTALES RÁPIDOS -->
   <div id="rcTotalesBar" style="display:none; margin:12px 16px 0;
        background:#fff; border:1px solid #e6ebee; border-radius:14px; padding:12px 16px;">
@@ -5954,6 +5960,7 @@ async function cargarRecepcionesSheet() {
   await rc_renderResumenLocal();
 
   // 2) Luego traer de la nube y fusionar
+  const elErrorNube = document.getElementById("rcErrorNube");
   try {
     const desdeRaw = document.getElementById("rc_fechaDesde")?.value || _fechaHoyLocal();
     const hastaRaw = document.getElementById("rc_fechaHasta")?.value || desdeRaw;
@@ -5965,8 +5972,15 @@ async function cargarRecepcionesSheet() {
     const res  = await fetch(URL_GAS, { method:"POST", body:JSON.stringify(payload) });
     const data = await res.json();
 
-    if (!data.ok || !Array.isArray(data.data)) return;
+    if (!data.ok || !Array.isArray(data.data)) {
+      if (elErrorNube) {
+        elErrorNube.style.display = "block";
+        elErrorNube.textContent = "⚠️ El servidor respondió, pero sin datos válidos. Se muestra solo lo guardado en este equipo.";
+      }
+      return;
+    }
 
+    if (elErrorNube) elErrorNube.style.display = "none";
     rc_cacheRecepciones = data.data;
     rc_jobsCache_ = data.data;
     // Fusionar nube + locales en cacheUnificada_: los locales VERDE ya están en nube, quitarlos
@@ -6002,6 +6016,12 @@ async function cargarRecepcionesSheet() {
     }
   } catch(e) {
     console.error("cargarRecepcionesSheet:", e);
+    if (elErrorNube) {
+      elErrorNube.style.display = "block";
+      elErrorNube.textContent = "⚠️ No se pudo conectar con el servidor para traer el detalle completo (" +
+        (e && e.message ? e.message : "sin conexión") +
+        "). Se muestra solo lo guardado en este equipo — el detalle completo (lotes, duración) puede faltar hasta que vuelva la conexión.";
+    }
   }
 }
 
