@@ -8490,12 +8490,7 @@ function abrirDetalleRecepcionDesdeResumenNube(keyOrIdx) {
     modal.className = "modalResumen";
     modal.innerHTML = `
   <div class="modalContenido" style="max-width:980px;">
-    <div style="display:flex; gap:10px; margin-bottom:10px;">
-      <button class="no-print" onclick="imprimirModalRecepcion()" style="flex:1;">🖨️ Imprimir PDF</button>
-      <button class="no-print" onclick="exportarRecepcionXLSX()" style="flex:1;background:#1b7a3a;">📗 XLSX</button>
-      ${rc_puedeEditar() ? '<button class="no-print" onclick="rc_editarRecepcionEnviada()" style="flex:1;background:#e05c2b;">✏️ Editar</button>' : ''}
-      <button class="no-print" onclick="cerrarDetalleRecepcion()" style="flex:1;background:#444;">← Cerrar</button>
-    </div>
+    <div id="rc_detalleBotones" style="display:flex; gap:10px; margin-bottom:10px;"></div>
     <div style="font-size:16px; font-weight:800; color:#0b3c5d; padding:0 0 10px; border-bottom:2px solid #eef2f5; margin-bottom:12px;">Detalle Recepción</div>
 
     <div id="rc_detalleHead" style="margin-bottom:10px;"></div>
@@ -8508,6 +8503,16 @@ function abrirDetalleRecepcionDesdeResumenNube(keyOrIdx) {
       if (e.target === modal) cerrarDetalleRecepcion();
     });
   }
+
+  // La fila de botones se recalcula en cada apertura (no solo al crear el
+  // modal) porque el permiso de edición puede cambiar entre una apertura y
+  // otra dentro de la misma sesión.
+  document.getElementById("rc_detalleBotones").innerHTML = `
+    <button class="no-print" onclick="imprimirModalRecepcion()" style="flex:1;">🖨️ Imprimir PDF</button>
+    <button class="no-print" onclick="exportarRecepcionXLSX()" style="flex:1;background:#1b7a3a;">📗 XLSX</button>
+    ${rc_puedeEditar() ? '<button class="no-print" onclick="rc_editarRecepcionEnviada()" style="flex:1;background:#e05c2b;">✏️ Editar</button>' : ''}
+    <button class="no-print" onclick="cerrarDetalleRecepcion()" style="flex:1;background:#444;">← Cerrar</button>
+  `;
 
   document.getElementById("rc_detalleHead").innerHTML = _rc_headerDetalle(c);
 
