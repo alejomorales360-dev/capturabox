@@ -1,4 +1,4 @@
-const CACHE_NAME = "capturabox-shell-v3";
+const CACHE_NAME = "capturabox-shell-v4";
 const APP_SHELL = [
   "./CAPTURABOX.html",
   "./manifest.json",
@@ -30,6 +30,16 @@ self.addEventListener("fetch", (event) => {
   // Solo se maneja la carcasa de la app (mismo origen, GET).
   // Las llamadas al backend (Google Apps Script) van siempre directo a la red.
   if (request.method !== "GET" || new URL(request.url).origin !== self.location.origin) {
+    return;
+  }
+
+  // Chequeo de versión (ver CAPTURABOX.html, _verificarVersionApp): va
+  // siempre directo a la red, sin leer ni escribir caché — si no, un
+  // dispositivo que quedó pegado en una versión vieja nunca se entera
+  // de que hay una nueva, porque hasta este mismo chequeo le llegaría
+  // cacheado.
+  if (new URL(request.url).searchParams.has("__chk")) {
+    event.respondWith(fetch(request));
     return;
   }
 
