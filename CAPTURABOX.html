@@ -8448,6 +8448,17 @@ function abrirDetalleRecepcionDesdeResumenNube(keyOrIdx) {
     return;
   }
 
+  // Respaldo: si el objeto resuelto se ve incompleto (sin detalle de
+  // lotes — pasa cuando la tarjeta se pintó desde el local antes de que
+  // llegara la respuesta de la nube), se busca la versión completa en
+  // la última carga de la nube por N° de operación, y se prefiere esa
+  // si existe. Evita mostrar un detalle sin tabla ni Duración cuando la
+  // versión completa ya está disponible en memoria bajo otra llave.
+  if (c && (!Array.isArray(c.detalle) || !c.detalle.length) && c.operacion) {
+    const rico = (rc_cacheRecepciones || []).find(j => j.operacion === c.operacion);
+    if (rico) c = rico;
+  }
+
   // Guardar el detalle activo para poder exportarlo a XLSX
   window._rc_detalleActual = c;
 
