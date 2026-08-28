@@ -2404,7 +2404,7 @@ button:active {
         </label>
 
         <span style="flex:1;"></span>
-        <button onclick="dashEj_cargar()" style="width:auto; margin-top:0; background:#1c2b36; color:#fff; border:none; border-radius:7px;
+        <button onclick="dashEj_cargar()" id="dashEj_btnActualizar" style="width:auto; margin-top:0; background:#1c2b36; color:#fff; border:none; border-radius:7px;
                 padding:9px 18px; font-size:13px; font-weight:700; cursor:pointer;">Actualizar</button>
         <button onclick="window.print()" style="width:auto; margin-top:0; background:#fff; color:#1c2b36; border:1px solid #1c2b36; border-radius:7px;
                 padding:9px 18px; font-size:13px; font-weight:700; cursor:pointer;">Imprimir / PDF</button>
@@ -16721,7 +16721,17 @@ function dashEj_llenarSelect(id, opciones, valorActual) {
   el.value = actual || '';
 }
 
+var dashEj_cargando = false; // evita pedidos superpuestos (clicks repetidos mientras ya está cargando)
+
 async function dashEj_cargar() {
+  // Si ya hay un pedido en curso, no se dispara otro: eso era lo que
+  // hacía que la pantalla pareciera "reiniciarse" varias veces cuando
+  // el usuario, ante la demora, volvía a tocar Dashboard/Actualizar —
+  // cada click armaba un fetch nuevo que pisaba al anterior a mitad
+  // de camino.
+  if (dashEj_cargando) return;
+  dashEj_cargando = true;
+
   var elDesde = document.getElementById('dashEj_desde');
   var elHasta = document.getElementById('dashEj_hasta');
 
@@ -16734,7 +16744,15 @@ async function dashEj_cargar() {
   }
 
   var cont = document.getElementById('dashEj_contenido');
-  cont.innerHTML = '<div style="text-align:center; color:#7a8b95; padding:40px 16px;">Cargando información…</div>';
+  var btn  = document.getElementById('dashEj_btnActualizar');
+  cont.innerHTML = '<div style="text-align:center; color:#7a8b95; padding:60px 16px;">' +
+    '<div style="width:34px; height:34px; margin:0 auto 14px; border:3px solid #d5dde5; border-top-color:#1c2b36; ' +
+    'border-radius:50%; animation:dashEjGirar .8s linear infinite;"></div>' +
+    'Cargando información…' +
+    '<div style="font-size:11px; color:#94a3ad; margin-top:6px;">Rangos de fechas muy amplios pueden tardar más — evita volver a tocar Actualizar mientras carga.</div>' +
+  '</div>' +
+  '<style>@keyframes dashEjGirar { to { transform: rotate(360deg); } }</style>';
+  if (btn) { btn.disabled = true; btn.style.opacity = '.6'; btn.style.cursor = 'wait'; btn.textContent = 'Cargando…'; }
 
   var filtros = {
     cliente: document.getElementById('dashEj_cliente').value,
@@ -16761,20 +16779,23 @@ async function dashEj_cargar() {
     document.getElementById('dashEj_subtitulo').textContent =
       'Período ' + elDesde.value + ' al ' + elHasta.value;
 
-    // Las opciones de Cliente/Naviera se completan solo la primera vez
-    // (o cuando vienen vacías), para no perder la selección del usuario.
-    // Defensivo: si el backend todavía no manda "opciones" (versión vieja
-    // de dashboardEjecutivo sin este campo), no se rompe todo el dashboard.
+    // Las opciones de Cliente/Naviera se refrescan en CADA carga (no
+    // solo la primera vez): si el primer ingreso a la pantalla usó un
+    // rango corto (ej. "últimos 6 días"), el filtro quedaba pegado con
+    // solo los clientes con movimiento en esos días y nunca se
+    // actualizaba al ampliar el rango. dashEj_llenarSelect ya conserva
+    // la selección actual, así que refrescar siempre es seguro.
     var opciones = data.opciones || { clientes: [], navieras: [] };
-    if (document.getElementById('dashEj_cliente').options.length <= 1) {
-      dashEj_llenarSelect('dashEj_cliente', opciones.clientes || []);
-      dashEj_llenarSelect('dashEj_naviera', opciones.navieras || []);
-    }
+    dashEj_llenarSelect('dashEj_cliente', opciones.clientes || []);
+    dashEj_llenarSelect('dashEj_naviera', opciones.navieras || []);
 
     dashEj_render(data);
 
   } catch (e) {
     cont.innerHTML = '<p style="text-align:center; color:#c0392b;">Error al cargar el dashboard: ' + (e && e.message ? e.message : e) + '</p>';
+  } finally {
+    dashEj_cargando = false;
+    if (btn) { btn.disabled = false; btn.style.opacity = ''; btn.style.cursor = 'pointer'; btn.textContent = 'Actualizar'; }
   }
 }
 
