@@ -9764,7 +9764,7 @@ function _fechaAyerLocal() {
     String(d.getDate()).padStart(2,'0');
 }
 
-const URL_GAS = "https://script.google.com/macros/s/AKfycbylH7RzLBXBo4s2OkN36V9B0l-7-MWVucR-wHhFOKXE6iyzZDX119zBrrcrYymccIYF/exec";
+const URL_GAS = "https://script.google.com/macros/s/AKfycbyngOL6ms3vwWl-DdX25oK2lkOWbe4UIqbQ0NXKQxZoC7lU4EZPP616cGXOSWVHog5O/exec";
 
 // ─── LICENCIA Y DISPOSITIVO ──────────────────────────────────────
 const APP_LICENCIA = "CBOX-2026-ARAUCO-PROD-001"; // Cambiar por tu clave única
@@ -16527,6 +16527,76 @@ function dashEj_cambiarGranularidad(g) {
   if (dashEj_ultimoData) dashEj_render(dashEj_ultimoData);
 }
 
+var dashEj_modoConsCliente = 'contenedores'; // contenedores | m3 — para "Consolidado por cliente"
+var dashEj_modoRecCliente  = 'm3';           // camiones | m3 — para "Recepción de carga por cliente"
+
+function dashEj_cambiarModoConsCliente(modo) {
+  dashEj_modoConsCliente = modo;
+  if (dashEj_ultimoData) dashEj_render(dashEj_ultimoData);
+}
+
+function dashEj_cambiarModoRecCliente(modo) {
+  dashEj_modoRecCliente = modo;
+  if (dashEj_ultimoData) dashEj_render(dashEj_ultimoData);
+}
+
+/* Botones tipo "chip" para alternar la métrica de un gráfico (ej.
+   Contenedores vs m³), mismo estilo que el selector de granularidad. */
+function dashEj_tituloConToggle(titulo, modos, modoActual, fnCambio) {
+  return '<span style="display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:wrap;">' +
+    '<span>' + titulo + '</span>' +
+    '<span style="display:flex; gap:4px;">' +
+      modos.map(function (m) {
+        var activo = modoActual === m.val;
+        return '<button onclick="event.stopPropagation(); ' + fnCambio + '(\'' + m.val + '\')" ' +
+          'style="width:auto; margin-top:0; font-size:11px; font-weight:700; padding:3px 9px; border-radius:20px; cursor:pointer; ' +
+          'border:1px solid ' + (activo ? '#1c2b36' : '#d5dde5') + '; background:' + (activo ? '#1c2b36' : '#f4f7f9') + '; ' +
+          'color:' + (activo ? '#fff' : '#5a6b77') + ';">' + m.label + '</button>';
+      }).join('') +
+    '</span>' +
+  '</span>';
+}
+
+/* Tooltip de Chart.js que agrega el % del total junto al valor, para
+   cualquier gráfico de torta/barra de una sola serie. */
+function dashEj_tooltipConPorcentaje(sufijo) {
+  return {
+    callbacks: {
+      label: function (ctx) {
+        var val = ctx.parsed;
+        if (val && typeof val === 'object') val = (val.y !== undefined ? val.y : val.x);
+        val = Number(val) || 0;
+        var arr = (ctx.dataset && ctx.dataset.data) || [];
+        var total = arr.reduce(function (a, b) { return a + (Number(b) || 0); }, 0);
+        var pct = total ? (val / total * 100).toFixed(1) : '0.0';
+        var etiqueta = ctx.label || (ctx.dataset && ctx.dataset.label) || '';
+        return (etiqueta ? etiqueta + ': ' : '') + val.toLocaleString('es-CL') + (sufijo || '') + ' (' + pct + '%)';
+      }
+    }
+  };
+}
+
+/* Click en un gráfico "por cliente" (torta o barra) filtra el
+   dashboard completo por ese cliente — un segundo click sobre el
+   mismo cliente quita el filtro. Así los gráficos funcionan como
+   segmentadores, igual que en Power BI. */
+function dashEj_filtrarPorClienteDesdeGrafico(nombreCliente) {
+  if (!nombreCliente || nombreCliente === '(sin cliente)') return;
+  var sel = document.getElementById('dashEj_cliente');
+  if (!sel) return;
+  sel.value = (sel.value === nombreCliente) ? '' : nombreCliente;
+  dashEj_cargar();
+}
+
+/* onClick reutilizable para los gráficos "por cliente": toma la
+   etiqueta del punto clickeado y filtra por ese cliente. */
+function dashEj_onClickCliente(evt, elements, chart) {
+  if (!elements || !elements.length) return;
+  var idx = elements[0].index;
+  var label = chart.data.labels[idx];
+  dashEj_filtrarPorClienteDesdeGrafico(label);
+}
+
 /* Agrupa el arreglo diario {fecha:"yyyy-MM-dd", total} en semanas, meses
    o años, sumando los totales. "dia" devuelve el arreglo tal cual. */
 function dashEj_agregarPorGranularidad(porDia, granularidad) {
@@ -16759,8 +16829,20 @@ function dashEj_render(data) {
     html += '</div>';
   }
   html += '<div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(280px,1fr)); gap:14px;">';
-  html += dashEj_panel('Consolidado por cliente', '<div class="dashEj_chartBox"><canvas id="dashEj_cvsConsCliente"></canvas></div>');
-  html += dashEj_panel('Recepción de carga por cliente (m³)', '<div class="dashEj_chartBox"><canvas id="dashEj_cvsRecCliente"></canvas></div>');
+  html += dashEj_panel(
+    dashEj_tituloConToggle('Consolidado por cliente',
+      [{ val: 'contenedores', label: 'Contenedores' }, { val: 'm3', label: 'm³' }],
+      dashEj_modoConsCliente, 'dashEj_cambiarModoConsCliente'),
+    '<div class="dashEj_chartBox"><canvas id="dashEj_cvsConsCliente"></canvas></div>' +
+    '<div style="text-align:center; margin-top:6px; font-size:11px; color:#94a3ad;">Toca un cliente para filtrar el dashboard</div>'
+  );
+  html += dashEj_panel(
+    dashEj_tituloConToggle('Recepción de carga por cliente',
+      [{ val: 'camiones', label: 'Camiones' }, { val: 'm3', label: 'm³' }],
+      dashEj_modoRecCliente, 'dashEj_cambiarModoRecCliente'),
+    '<div class="dashEj_chartBox"><canvas id="dashEj_cvsRecCliente"></canvas></div>' +
+    '<div style="text-align:center; margin-top:6px; font-size:11px; color:#94a3ad;">Toca un cliente para filtrar el dashboard</div>'
+  );
   html += '</div>';
 
   /* ---- Contenedores por día (con selector de granularidad) + Participación de stock ---- */
@@ -16781,7 +16863,10 @@ function dashEj_render(data) {
   '</span>';
   html += dashEj_panel(tituloContDia, '<div class="dashEj_chartBox"><canvas id="dashEj_cvsContDia"></canvas></div>');
 
-  html += dashEj_panel('Participación de stock vigente por cliente', '<div class="dashEj_chartBox"><canvas id="dashEj_cvsStockCliente"></canvas></div>');
+  html += dashEj_panel('Participación de stock vigente por cliente',
+    '<div class="dashEj_chartBox"><canvas id="dashEj_cvsStockCliente"></canvas></div>' +
+    '<div style="text-align:center; margin-top:6px; font-size:11px; color:#94a3ad;">Toca un cliente para filtrar el dashboard</div>'
+  );
   html += '</div>';
 
   /* ---- Ranking líneas navieras + Nivel de uso ---- */
@@ -16803,7 +16888,10 @@ function dashEj_render(data) {
 
   /* ---- Top clientes + Protecciones en recepción ---- */
   html += '<div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(280px,1fr)); gap:14px;">';
-  html += dashEj_panel('Top clientes por volumen total', '<div class="dashEj_chartBox"><canvas id="dashEj_cvsTopClientes"></canvas></div>');
+  html += dashEj_panel('Top clientes por volumen total',
+    '<div class="dashEj_chartBox"><canvas id="dashEj_cvsTopClientes"></canvas></div>' +
+    '<div style="text-align:center; margin-top:6px; font-size:11px; color:#94a3ad;">Toca un cliente para filtrar el dashboard</div>'
+  );
   html += dashEj_panel('Protecciones en recepción', '<div class="dashEj_chartBox"><canvas id="dashEj_cvsProtecciones"></canvas></div>');
   html += '</div>';
 
@@ -16822,35 +16910,51 @@ function dashEj_render(data) {
    'dashEj_cvsTopClientes','dashEj_cvsProtecciones','dashEj_cvsFlujo'].forEach(dashEj_destruirGrafico);
 
   // Consolidado por cliente (donut) — mismo color que la leyenda maestra
+  var consClienteValor = function (c) { return dashEj_modoConsCliente === 'm3' ? Math.round(c.m3 * 100) / 100 : c.contenedores; };
+  var consClienteTotal = data.consolidadoPorCliente.reduce(function (s, c) { return s + consClienteValor(c); }, 0);
   dashEj_charts['dashEj_cvsConsCliente'] = new Chart(document.getElementById('dashEj_cvsConsCliente'), {
     type: 'doughnut',
     data: {
       labels: data.consolidadoPorCliente.map(function (c) { return c.cliente || '(sin cliente)'; }),
       datasets: [{
-        data: data.consolidadoPorCliente.map(function (c) { return c.contenedores; }),
+        data: data.consolidadoPorCliente.map(consClienteValor),
         backgroundColor: data.consolidadoPorCliente.map(function (c) { return dashEj_colorCliente(c.cliente); }),
         borderColor: '#fff', borderWidth: 2
       }]
     },
-    options: { maintainAspectRatio: false, cutout: '65%', plugins: {
-      legend: { position: 'bottom', labels: { boxWidth: 10, padding: 12 } },
-      dashEjCenterText: { text: String(data.kpis.boxConsolidados), subtext: 'contenedores' }
-    } }
+    options: { maintainAspectRatio: false, cutout: '65%',
+      onClick: function (evt, elements, chart) { dashEj_onClickCliente(evt, elements, chart); },
+      onHover: function (evt, elements) { evt.native.target.style.cursor = elements.length ? 'pointer' : 'default'; },
+      plugins: {
+        legend: { position: 'bottom', labels: { boxWidth: 10, padding: 12 } },
+        tooltip: dashEj_tooltipConPorcentaje(dashEj_modoConsCliente === 'm3' ? ' m³' : ''),
+        dashEjCenterText: {
+          text: dashEj_modoConsCliente === 'm3' ? Math.round(consClienteTotal).toLocaleString('es-CL') : String(consClienteTotal),
+          subtext: dashEj_modoConsCliente === 'm3' ? 'm³' : 'contenedores'
+        }
+      } }
   });
 
   // Recepción por cliente (barras) — mismo color que la leyenda maestra
+  var recClienteValor = function (c) { return dashEj_modoRecCliente === 'camiones' ? c.camiones : Math.round(c.m3 * 100) / 100; };
   dashEj_charts['dashEj_cvsRecCliente'] = new Chart(document.getElementById('dashEj_cvsRecCliente'), {
     type: 'bar',
     data: {
       labels: data.recepcionPorCliente.map(function (c) { return c.cliente || '(sin cliente)'; }),
       datasets: [{
-        label: 'm³',
-        data: data.recepcionPorCliente.map(function (c) { return Math.round(c.m3 * 100) / 100; }),
+        label: dashEj_modoRecCliente === 'camiones' ? 'Camiones' : 'm³',
+        data: data.recepcionPorCliente.map(recClienteValor),
         backgroundColor: data.recepcionPorCliente.map(function (c) { return dashEj_colorCliente(c.cliente); }),
         borderRadius: 6, maxBarThickness: 46
       }]
     },
-    options: { maintainAspectRatio: false, plugins: { legend: { display: false } },
+    options: { maintainAspectRatio: false,
+      onClick: function (evt, elements, chart) { dashEj_onClickCliente(evt, elements, chart); },
+      onHover: function (evt, elements) { evt.native.target.style.cursor = elements.length ? 'pointer' : 'default'; },
+      plugins: {
+        legend: { display: false },
+        tooltip: dashEj_tooltipConPorcentaje(dashEj_modoRecCliente === 'camiones' ? '' : ' m³')
+      },
       scales: { y: { beginAtZero: true, grid: gridSuave }, x: { grid: { display: false } } } }
   });
 
@@ -16875,7 +16979,8 @@ function dashEj_render(data) {
       datasets: [{ label: 'Contenedores', data: data.rankingLineas.map(function (l) { return l.contenedores; }),
         backgroundColor: '#0e7c7b', borderRadius: 5, maxBarThickness: 22 }]
     },
-    options: { maintainAspectRatio: false, indexAxis: 'y', plugins: { legend: { display: false } },
+    options: { maintainAspectRatio: false, indexAxis: 'y',
+      plugins: { legend: { display: false }, tooltip: dashEj_tooltipConPorcentaje('') },
       scales: { x: { beginAtZero: true, ticks: { precision: 0 }, grid: gridSuave }, y: { grid: { display: false } } } }
   });
 
@@ -16914,10 +17019,14 @@ function dashEj_render(data) {
         borderColor: '#fff', borderWidth: 2
       }]
     },
-    options: { maintainAspectRatio: false, cutout: '65%', plugins: {
-      legend: { position: 'bottom', labels: { boxWidth: 10, padding: 12 } },
-      dashEjCenterText: { text: Math.round(data.stock.totalVolumen).toLocaleString('es-CL'), subtext: 'm³ vigente' }
-    } }
+    options: { maintainAspectRatio: false, cutout: '65%',
+      onClick: function (evt, elements, chart) { dashEj_onClickCliente(evt, elements, chart); },
+      onHover: function (evt, elements) { evt.native.target.style.cursor = elements.length ? 'pointer' : 'default'; },
+      plugins: {
+        legend: { position: 'bottom', labels: { boxWidth: 10, padding: 12 } },
+        tooltip: dashEj_tooltipConPorcentaje(' m³'),
+        dashEjCenterText: { text: Math.round(data.stock.totalVolumen).toLocaleString('es-CL'), subtext: 'm³ vigente' }
+      } }
   });
 
   // Top clientes por volumen total (consolidado + recepción + reexpedición)
@@ -16935,7 +17044,10 @@ function dashEj_render(data) {
         borderRadius: 6, maxBarThickness: 30
       }]
     },
-    options: { maintainAspectRatio: false, indexAxis: 'y', plugins: { legend: { display: false } },
+    options: { maintainAspectRatio: false, indexAxis: 'y',
+      onClick: function (evt, elements, chart) { dashEj_onClickCliente(evt, elements, chart); },
+      onHover: function (evt, elements) { evt.native.target.style.cursor = elements.length ? 'pointer' : 'default'; },
+      plugins: { legend: { display: false }, tooltip: dashEj_tooltipConPorcentaje(' m³') },
       scales: { x: { beginAtZero: true, grid: gridSuave }, y: { grid: { display: false } } } }
   });
 
@@ -16956,6 +17068,7 @@ function dashEj_render(data) {
     },
     options: { maintainAspectRatio: false, cutout: '60%', plugins: {
       legend: { position: 'bottom', labels: { boxWidth: 10, padding: 12 } },
+      tooltip: dashEj_tooltipConPorcentaje(''),
       dashEjCenterText: { text: String(totCintas + totCarpas + totCortinas), subtext: 'camiones' }
     } }
   });
