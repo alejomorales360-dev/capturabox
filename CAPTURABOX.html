@@ -16564,10 +16564,19 @@ function dashEj_tooltipConPorcentaje(sufijo) {
     callbacks: {
       label: function (ctx) {
         var val = ctx.parsed;
-        if (val && typeof val === 'object') val = (val.y !== undefined ? val.y : val.x);
+        if (val && typeof val === 'object') {
+          // En barras horizontales (indexAxis:'y') el valor real queda en
+          // .x y .y pasa a ser el índice de la categoría — al revés que
+          // en barras verticales. Sin este chequeo, las horizontales
+          // mostraban el índice (0, 1, 2…) en vez del valor.
+          val = (ctx.chart.options.indexAxis === 'y') ? val.x : val.y;
+        }
         val = Number(val) || 0;
         var arr = (ctx.dataset && ctx.dataset.data) || [];
-        var total = arr.reduce(function (a, b) { return a + (Number(b) || 0); }, 0);
+        var total = arr.reduce(function (a, b) {
+          var n = (b && typeof b === 'object') ? (ctx.chart.options.indexAxis === 'y' ? b.x : b.y) : b;
+          return a + (Number(n) || 0);
+        }, 0);
         var pct = total ? (val / total * 100).toFixed(1) : '0.0';
         var etiqueta = ctx.label || (ctx.dataset && ctx.dataset.label) || '';
         return (etiqueta ? etiqueta + ': ' : '') + val.toLocaleString('es-CL') + (sufijo || '') + ' (' + pct + '%)';
@@ -16854,6 +16863,7 @@ function dashEj_render(data) {
     dashEj_tituloConToggle('Consolidado por cliente',
       [{ val: 'contenedores', label: 'Contenedores' }, { val: 'm3', label: 'm³' }],
       dashEj_modoConsCliente, 'dashEj_cambiarModoConsCliente'),
+    '<div id="dashEj_consClienteResumen" style="text-align:center; font-size:20px; font-weight:800; color:#1c2b36; margin-bottom:4px;"></div>' +
     '<div class="dashEj_chartBox"><canvas id="dashEj_cvsConsCliente"></canvas></div>' +
     '<div style="text-align:center; margin-top:6px; font-size:11px; color:#94a3ad;">Toca un cliente para filtrar el dashboard</div>'
   );
@@ -16885,6 +16895,7 @@ function dashEj_render(data) {
   html += dashEj_panel(tituloContDia, '<div class="dashEj_chartBox"><canvas id="dashEj_cvsContDia"></canvas></div>');
 
   html += dashEj_panel('Participación de stock vigente por cliente',
+    '<div id="dashEj_stockClienteResumen" style="text-align:center; font-size:20px; font-weight:800; color:#1c2b36; margin-bottom:4px;"></div>' +
     '<div class="dashEj_chartBox"><canvas id="dashEj_cvsStockCliente"></canvas></div>' +
     '<div style="text-align:center; margin-top:6px; font-size:11px; color:#94a3ad;">Toca un cliente para filtrar el dashboard</div>'
   );
@@ -16913,7 +16924,10 @@ function dashEj_render(data) {
     '<div class="dashEj_chartBox"><canvas id="dashEj_cvsTopClientes"></canvas></div>' +
     '<div style="text-align:center; margin-top:6px; font-size:11px; color:#94a3ad;">Toca un cliente para filtrar el dashboard</div>'
   );
-  html += dashEj_panel('Protecciones en recepción', '<div class="dashEj_chartBox"><canvas id="dashEj_cvsProtecciones"></canvas></div>');
+  html += dashEj_panel('Protecciones en recepción',
+    '<div id="dashEj_proteccionesResumen" style="text-align:center; font-size:20px; font-weight:800; color:#1c2b36; margin-bottom:4px;"></div>' +
+    '<div class="dashEj_chartBox"><canvas id="dashEj_cvsProtecciones"></canvas></div>'
+  );
   html += '</div>';
 
   /* ---- Flujo de m³ (al final, ancho completo) ---- */
@@ -16933,6 +16947,12 @@ function dashEj_render(data) {
   // Consolidado por cliente (donut) — mismo color que la leyenda maestra
   var consClienteValor = function (c) { return dashEj_modoConsCliente === 'm3' ? Math.round(c.m3 * 100) / 100 : c.contenedores; };
   var consClienteTotal = data.consolidadoPorCliente.reduce(function (s, c) { return s + consClienteValor(c); }, 0);
+  var elResumenCons = document.getElementById('dashEj_consClienteResumen');
+  if (elResumenCons) {
+    elResumenCons.innerHTML =
+      (dashEj_modoConsCliente === 'm3' ? Math.round(consClienteTotal).toLocaleString('es-CL') : String(consClienteTotal)) +
+      ' <span style="font-size:12px; font-weight:600; color:#7a8b95;">' + (dashEj_modoConsCliente === 'm3' ? 'm³' : 'contenedores') + '</span>';
+  }
   dashEj_charts['dashEj_cvsConsCliente'] = new Chart(document.getElementById('dashEj_cvsConsCliente'), {
     type: 'doughnut',
     data: {
@@ -16948,11 +16968,7 @@ function dashEj_render(data) {
       onHover: function (evt, elements) { evt.native.target.style.cursor = elements.length ? 'pointer' : 'default'; },
       plugins: {
         legend: { position: 'bottom', labels: { boxWidth: 10, padding: 12 } },
-        tooltip: dashEj_tooltipConPorcentaje(dashEj_modoConsCliente === 'm3' ? ' m³' : ''),
-        dashEjCenterText: {
-          text: dashEj_modoConsCliente === 'm3' ? Math.round(consClienteTotal).toLocaleString('es-CL') : String(consClienteTotal),
-          subtext: dashEj_modoConsCliente === 'm3' ? 'm³' : 'contenedores'
-        }
+        tooltip: dashEj_tooltipConPorcentaje(dashEj_modoConsCliente === 'm3' ? ' m³' : '')
       } }
   });
 
@@ -17030,6 +17046,11 @@ function dashEj_render(data) {
   });
 
   // Participación de stock por cliente (donut) — mismo color que la leyenda maestra
+  var elResumenStock = document.getElementById('dashEj_stockClienteResumen');
+  if (elResumenStock) {
+    elResumenStock.innerHTML = Math.round(data.stock.totalVolumen).toLocaleString('es-CL') +
+      ' <span style="font-size:12px; font-weight:600; color:#7a8b95;">m³ vigente</span>';
+  }
   dashEj_charts['dashEj_cvsStockCliente'] = new Chart(document.getElementById('dashEj_cvsStockCliente'), {
     type: 'doughnut',
     data: {
@@ -17045,8 +17066,7 @@ function dashEj_render(data) {
       onHover: function (evt, elements) { evt.native.target.style.cursor = elements.length ? 'pointer' : 'default'; },
       plugins: {
         legend: { position: 'bottom', labels: { boxWidth: 10, padding: 12 } },
-        tooltip: dashEj_tooltipConPorcentaje(' m³'),
-        dashEjCenterText: { text: Math.round(data.stock.totalVolumen).toLocaleString('es-CL'), subtext: 'm³ vigente' }
+        tooltip: dashEj_tooltipConPorcentaje(' m³')
       } }
   });
 
@@ -17077,6 +17097,11 @@ function dashEj_render(data) {
   data.recepcionPorCliente.forEach(function (c) {
     totCintas += c.cintas || 0; totCarpas += c.carpas || 0; totCortinas += c.cortinas || 0;
   });
+  var elResumenProt = document.getElementById('dashEj_proteccionesResumen');
+  if (elResumenProt) {
+    elResumenProt.innerHTML = String(totCintas + totCarpas + totCortinas) +
+      ' <span style="font-size:12px; font-weight:600; color:#7a8b95;">camiones</span>';
+  }
   dashEj_charts['dashEj_cvsProtecciones'] = new Chart(document.getElementById('dashEj_cvsProtecciones'), {
     type: 'doughnut',
     data: {
@@ -17089,8 +17114,7 @@ function dashEj_render(data) {
     },
     options: { maintainAspectRatio: false, cutout: '60%', plugins: {
       legend: { position: 'bottom', labels: { boxWidth: 10, padding: 12 } },
-      tooltip: dashEj_tooltipConPorcentaje(''),
-      dashEjCenterText: { text: String(totCintas + totCarpas + totCortinas), subtext: 'camiones' }
+      tooltip: dashEj_tooltipConPorcentaje('')
     } }
   });
 
