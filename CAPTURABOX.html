@@ -3148,19 +3148,6 @@ button:active {
 <!-- SELLO -->
 <h3>🔐 Sellos</h3>
 
-<button onclick="guardarYLiberarConsolidado()"
-  style="display:block; margin:0 0 6px auto; padding:6px 12px; background:transparent;
-         color:#0d6efd; border:1px solid #b6d4fe; border-radius:7px;
-         font-size:12px; font-weight:700; cursor:pointer;">
-  ☁️ Guardar y liberar
-</button>
-<button onclick="forzarSyncDesdeNube()"
-  style="display:block; margin:0 0 10px auto; padding:5px 10px; background:transparent;
-         color:#7a8b95; border:1px solid #dde3e8; border-radius:7px;
-         font-size:11px; font-weight:700; cursor:pointer;">
-  🔄 Traer sellos/VGM de otro equipo
-</button>
-
 <div class="selloBox">
     <label><b>Sello Línea (obligatorio)</b></label>
     <input id="sello_linea"
@@ -9444,9 +9431,11 @@ div.innerHTML = `
         ${p.supervisor ? 'Último usuario: ' + p.supervisor : ''}
       </small>
       <br>
-      <button onclick="retomarDesdeNube('${(p.contenedor || '').replace(/'/g, "\\'")}')">
-        ☁️ Retomar aquí
-      </button>
+      <div style="display:inline-block; margin-top:6px; padding:5px 10px;
+                  background:#eceff1; color:#455a64; border-radius:7px;
+                  font-size:11px; font-weight:700;">
+        🔒 En proceso en ese dispositivo — no se puede retomar aquí
+      </div>
     `;
     contDiv.appendChild(div);
   });
@@ -10586,11 +10575,11 @@ async function autoGuardarConsolidado() {
   };
   if (existente && existente.id != null) job.id = existente.id;
   await guardarEnIndexedDB(job, datosCont.contenedor);
-  _syncLastActualizado = fecha; // evitar que el polling sobreescriba nuestros propios cambios
-  // El guardado LOCAL (arriba) es siempre instantáneo — es la copia de
-  // verdad de este dispositivo. El envío a la nube va con freno (ver
-  // syncParcialANubeConFreno): solo sirve para que otros dispositivos vean
-  // "esto está en proceso" y puedan retomarlo si hace falta, no hay que
+  // El guardado LOCAL (arriba) es siempre instantáneo — es la única copia
+  // de verdad de este dispositivo. El envío a la nube va con freno (ver
+  // syncParcialANubeConFreno): es solo un aviso liviano de "esto está en
+  // proceso" para que se vea en el panel de parciales — no se puede
+  // retomar ni fusionar desde otro dispositivo, así que no hace falta
   // mandarlo en cada cambio.
   syncParcialANubeConFreno(job);
 }
@@ -10621,31 +10610,6 @@ function syncParcialANubeConFreno(job) {
         syncParcialANube(j2);
       }
     }, _FRENO_NUBE_MS - transcurrido);
-  }
-}
-
-/* Envío inmediato a la nube, sin esperar el freno — para el botón
-   "Guardar y liberar" (traspaso deliberado a otro dispositivo). */
-async function guardarYLiberarConsolidado() {
-  if (!datosCont || !datosCont.contenedor) return;
-  mostrarCargando('Guardando en la nube...');
-  try {
-    await autoGuardarConsolidado();
-    if (_frenoNubeTimer) { clearTimeout(_frenoNubeTimer); _frenoNubeTimer = null; }
-    var jobs = await obtenerJobsPendientes();
-    var job = jobs.find(function (j) {
-      return j.datosCont && j.datosCont.contenedor === datosCont.contenedor;
-    });
-    _frenoNubeJobPendiente = null;
-    _frenoNubeUltimoEnvio = Date.now();
-    if (job) await syncParcialANube(job);
-    ocultarCargando();
-    mostrarAlerta('☁️ Guardado en la nube',
-      'Este contenedor quedó disponible en la nube con todo lo cargado hasta ahora.' +
-      '<br><br>Otro equipo ya puede retomarlo si hace falta.');
-  } catch (e) {
-    ocultarCargando();
-    mostrarAlerta('❌ Error', 'No se pudo guardar en la nube: ' + e.message);
   }
 }
 
@@ -10685,6 +10649,13 @@ function _olvidarContenedorSincronizado(contenedor) {
   } catch (e) {}
 }
 
+/* Envía a la nube solo un "estado" liviano del contenedor en curso —
+   contenedor, cliente, cuántos lotes lleva, cuándo se actualizó por
+   última vez. NUNCA envía lotes ni fotos: este dispositivo es la única
+   fuente de verdad de sus propios datos hasta el cierre final. El único
+   propósito de este envío es que el panel "Consolidados parciales" (y
+   otro operador) pueda VER que este contenedor está en proceso — no se
+   puede retomar ni fusionar desde otro dispositivo. */
 async function syncParcialANube(job) {
   if (!navigator.onLine) return;
   if (_cbNube_lock) {
@@ -10694,39 +10665,9 @@ async function syncParcialANube(job) {
   _cbNube_lock = true;
   _cbNube_pendiente = false;
   try {
-    // CRÍTICO: leer fotos del estado GLOBAL actual, no del job (que puede estar desactualizado)
-    // Así si una foto terminó de subir entre el momento del job y ahora, su URL se incluye
-    var fotosUrls = {};
-    var fotosActuales = (typeof fotos !== 'undefined') ? fotos : (job.fotos || {});
-    ['vacio', 'carga', 'completo', 'sello'].forEach(function(tipo) {
-      var arr = fotosActuales[tipo] || [];
-      fotosUrls[tipo] = arr
-        .map(function(f) {
-          if (typeof f === 'string' && f.startsWith('http')) return f;
-          if (f && f.url) return f.url;
-          return '';
-        })
-        .filter(function(u) { return u.length > 0; });
-    });
-
-    // También leer registros actuales (no del snapshot)
     var registrosActuales = (typeof registros !== 'undefined') ? registros : (job.registros || []);
     var totalLotesActual = registrosActuales.reduce(function(a,r){ return a+(Number(r.cantidad)||1); },0);
 
-    // FIX v351: diagnóstico — ver exactamente qué sellos/VGM salen del dispositivo
-    var _slEnvio  = (document.getElementById('sello_linea')||{}).value || job.datosCont.selloLinea || '';
-    var _ssEnvio  = (document.getElementById('sello_sag')||{}).value || job.datosCont.selloSAG || '';
-    var _vgmEnvio = (document.getElementById('vgm_cierre_input')||{}).value || job.datosCont.vgmIngresoCierre || '';
-    console.log('[SYNC→NUBE] contenedor=' + job.datosCont.contenedor +
-                ' | selloLinea="' + _slEnvio + '"' + (String(_slEnvio).trim() ? '' : ' (OMITIDO)') +
-                ' | selloSAG="' + _ssEnvio + '"' + (String(_ssEnvio).trim() ? '' : ' (OMITIDO)') +
-                ' | vgm="' + _vgmEnvio + '"' + (String(_vgmEnvio).trim() ? '' : ' (OMITIDO)'));
-
-    // FIX v356: NO enviar sellos/VGM vacíos.
-    // Un dispositivo que abre el contenedor antes de recibir el sello desde
-    // la nube tenía el input vacío y lo mandaba, BORRANDO el sello que otro
-    // dispositivo ya había guardado. Si el campo está vacío simplemente se
-    // omite del payload y el backend preserva el valor existente.
     var _payload = {
       accion:       'guardarConsolidadoParcial',
       operacion:    job.datosCont.operacion || '',
@@ -10742,17 +10683,8 @@ async function syncParcialANube(job) {
       totalLotes:   totalLotesActual,
       totalPeso:    job.totalPeso,
       totalVolumen: job.totalVolumen,
-      lotes:        registrosActuales,
-      fotosUrls:    fotosUrls,
-      fotosEliminadas: _fotosEliminadas || [],
       actualizado:  job.actualizado
     };
-
-    // Solo se agregan si tienen valor. Si van vacíos, se omiten y el
-    // backend conserva lo que ya estaba guardado.
-    if (String(_slEnvio).trim())  _payload.selloLinea = String(_slEnvio).trim();
-    if (String(_ssEnvio).trim())  _payload.selloSAG   = String(_ssEnvio).trim();
-    if (String(_vgmEnvio).trim()) _payload.vgm        = String(_vgmEnvio).trim();
 
     var _respSync = await fetch(URL_GAS, {
       method: 'POST',
@@ -10850,119 +10782,6 @@ function mostrarConfirm(titulo, mensaje, txtSi, txtNo) {
 }
 
 /* ---------------------------------------------------------
-   RETOMAR CONSOLIDADO PARCIAL DESDE LA NUBE
---------------------------------------------------------- */
-function _cargarParcialNube(parcialNube) {
-  // Restaurar datos del contenedor
-  datosCont.cliente   = parcialNube.datos.cliente || datosCont.cliente;
-  datosCont.linea     = parcialNube.datos.linea || datosCont.linea;
-  datosCont.tara      = Number(parcialNube.datos.tara) || datosCont.tara;
-  datosCont.maxgross  = Number(parcialNube.datos.maxgross) || datosCont.maxgross;
-  datosCont.tipo      = parcialNube.datos.tipo || datosCont.tipo;
-  datosCont.operacion = parcialNube.datos.operacion || datosCont.operacion;
-
-  // Restaurar lotes
-  registros = Array.isArray(parcialNube.lotes) ? parcialNube.lotes.slice() : [];
-
-  // Restaurar sellos
-  var _elSL = document.getElementById('sello_linea');
-  var _elSS = document.getElementById('sello_sag');
-  if (_elSL) _elSL.value = parcialNube.datos.selloLinea || '';
-  if (_elSS) _elSS.value = parcialNube.datos.selloSAG || '';
-
-  // Restaurar VGM
-  var _elVGM = document.getElementById('vgm_cierre_input');
-  if (_elVGM && parcialNube.datos.vgm) _elVGM.value = parcialNube.datos.vgm;
-
-  // Restaurar fotos desde URLs guardadas en la nube
-  fotos = { vacio: [], carga: [], completo: [], sello: [] };
-  if (parcialNube.fotos) {
-    ['vacio', 'carga', 'completo', 'sello'].forEach(function(tipo) {
-      if (Array.isArray(parcialNube.fotos[tipo])) {
-        fotos[tipo] = parcialNube.fotos[tipo].map(function(url) {
-          return { base64: '', url: url, subiendo: false, intentos: 0 };
-        });
-      }
-    });
-  }
-
-  // Pintar resumen superior
-  rc_cliente.textContent    = datosCont.cliente || "";
-  rc_contenedor.textContent = datosCont.contenedor || "";
-  rc_tara.textContent       = datosCont.tara || "";
-  rc_gross.textContent      = datosCont.maxgross || "No informado";
-  rc_tipo.textContent       = datosCont.tipo || "";
-  var _elSLr = document.getElementById('rc_selloLinea');
-  var _elSSr = document.getElementById('rc_selloSAG');
-  if (_elSLr) _elSLr.textContent = String(parcialNube.datos.selloLinea || '').trim() || 'No informado';
-  if (_elSSr) _elSSr.textContent = String(parcialNube.datos.selloSAG || '').trim() || 'No informado';
-
-  // Totales
-  actualizarTotales();
-
-  // Previews de fotos + contadores + semáforo
-  actualizarPreviews("vacio");
-  actualizarPreviews("carga");
-  actualizarPreviews("completo");
-  actualizarPreviews("sello");
-  actualizarContadoresFotos();
-  actualizarEstadoFotos();
-
-  // Guardar también en IndexedDB local
-  autoGuardarConsolidado();
-
-  // Ir a la pantalla de captura
-  mostrarDatosContenedor();
-  ir("pantallaCapturaLotes");
-  scl_aplicarModo();
-  iniciarSyncPolling();
-}
-
-async function retomarDesdeNube(contenedor) {
-  mostrarCargando("Recuperando datos del contenedor...");
-  try {
-    const parcialNube = await Promise.race([
-      fetch(URL_GAS, {
-        method: "POST",
-        body: JSON.stringify({ accion: "buscarConsolidadoParcial", contenedor: contenedor })
-      }).then(r => r.json()),
-      new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 10000))
-    ]);
-
-    if (!parcialNube || !parcialNube.existe) {
-      ocultarCargando();
-      mostrarAlerta('❌ Error', 'No se encontró el consolidado parcial en la nube.');
-      return;
-    }
-
-    // Preparar datosCont con los datos del parcial
-    datosCont = {
-      cliente:    parcialNube.datos.cliente || '',
-      linea:      parcialNube.datos.linea || '',
-      contenedor: parcialNube.datos.contenedor || contenedor,
-      tara:       Number(parcialNube.datos.tara) || 0,
-      maxgross:   Number(parcialNube.datos.maxgross) || 0,
-      tipo:       parcialNube.datos.tipo || '',
-      operacion:  parcialNube.datos.operacion || '',
-      modo:       'codigo'
-    };
-    registros = [];
-    fotos = { vacio: [], carga: [], completo: [], sello: [] };
-
-    // Precargar caches
-    _lotesCache = null;
-    precargarLotesCache(datosCont.cliente);
-    precargarLotesConsolidados();
-
-    _cargarParcialNube(parcialNube);
-    ocultarCargando();
-  } catch (e) {
-    ocultarCargando();
-    mostrarAlerta('❌ Error', 'No se pudo recuperar el consolidado: ' + e.message);
-  }
-}
-
-/* ---------------------------------------------------------
    DATOS DEL CONTENEDOR
 --------------------------------------------------------- */
 
@@ -11047,10 +10866,6 @@ async function continuarCaptura() {
   // Arrastraba URLs del contenedor anterior al parcial del nuevo
   _fotosEliminadas = [];
 
-  // --- FIX v348: resetear marcas de edición de campos escalares ---
-  _editLocalSelloLinea = 0;
-  _editLocalSelloSAG   = 0;
-  _editLocalVGM        = 0;
   scl_resetNaveReservaEntregas();
   if (typeof scl_resetProductoDestino === 'function') scl_resetProductoDestino();
   if (typeof resetToggleTrineo === 'function') resetToggleTrineo();
@@ -11067,8 +10882,10 @@ async function continuarCaptura() {
     }
   }
 
-  // 3b) Si no hay datos locales, revisar si hay un parcial en la nube
-  // (retomando desde OTRO dispositivo)
+  // 3b) Si no hay datos locales, revisar si YA está en proceso en otro
+  // dispositivo. Se BLOQUEA aquí en vez de ofrecer retomarlo — cada
+  // contenedor se trabaja de principio a fin en un solo dispositivo,
+  // para no cruzar ni perder lotes/fotos. Solo sirve para AVISAR.
   if (!local) {
     try {
       const parcialNube = await Promise.race([
@@ -11080,10 +10897,15 @@ async function continuarCaptura() {
       ]);
 
       if (parcialNube && parcialNube.existe) {
-        if (confirm("⚠️ Este contenedor tiene datos pendientes en otro dispositivo.\n¿Desea reanudarlo aquí?")) {
-          _cargarParcialNube(parcialNube);
-          return;
-        }
+        var d = parcialNube.datos || {};
+        mostrarAlerta('🔒 Contenedor en proceso en otro dispositivo',
+          'El contenedor <b>' + cont + '</b> ya está siendo trabajado en otro equipo' +
+          (d.supervisor ? ' por <b>' + d.supervisor + '</b>' : '') + '.<br><br>' +
+          'Lotes cargados hasta ahora: <b>' + (d.totalLotes || 0) + '</b><br>' +
+          'Última actualización: <b>' + _formatearFechaParcial(d.actualizado) + '</b><br><br>' +
+          'No se puede continuar aquí para evitar cruzar o perder información. ' +
+          'Espera a que ese equipo lo cierre, o contáctalo directamente.');
+        return;
       }
     } catch (e) {
       console.warn('No se pudo revisar consolidado parcial en la nube:', e.message);
@@ -11105,7 +10927,6 @@ actualizarEstadoFotos();
 
   ir("pantallaCapturaLotes");
   scl_aplicarModo();
-  iniciarSyncPolling();
 }
 
 function toNumber(v, def = 0) {
@@ -11163,30 +10984,15 @@ function normalizarConsolidado(raw) {
 
 
 /* ---------------------------------------------------------
-   SYNC MULTI-DISPOSITIVO: polling cada 30s
-   Revisa si la nube tiene una versión más reciente del parcial
-   y actualiza lotes + fotos sin interrumpir al usuario.
+   Guardado local de sellos/VGM al editar (con debounce).
+   Ya no hay sincronización multi-dispositivo: cada contenedor se
+   trabaja de principio a fin en UN solo dispositivo, así que no hace
+   falta rastrear "quién editó último" ni adoptar valores de la nube.
 --------------------------------------------------------- */
-var _syncPollTimer = null;
-var _syncLastActualizado = '';
-
-/* FIX v348: marcas de última edición LOCAL de campos escalares.
-   Permiten "último que escribe gana" sin pisar al usuario mientras tipea.
-   Se usan milisegundos del reloj local en ambos lados de la resta,
-   así no hay problema de desfase con la hora del servidor. */
-var _editLocalSelloLinea = 0;
-var _editLocalSelloSAG   = 0;
-var _editLocalVGM        = 0;
-var VENTANA_EDICION_MS   = 45000; // 45s de gracia tras editar localmente
-
 function _marcarEdicion(campo) {
-  var ahora = Date.now();
-  if (campo === 'selloLinea') _editLocalSelloLinea = ahora;
-  else if (campo === 'selloSAG') _editLocalSelloSAG = ahora;
-  else if (campo === 'vgm') _editLocalVGM = ahora;
   // FIX v351: no depender solo de onblur. En Android el blur puede no
   // dispararse (scanner Zebra, tocar un botón directo) y el sello nunca
-  // llegaba a la nube. Guardamos 1.5s después de dejar de escribir.
+  // se guardaba. Guardamos 1.5s después de dejar de escribir.
   _programarGuardadoEscalar();
 }
 
@@ -11201,134 +11007,6 @@ function _programarGuardadoEscalar() {
     }
   }, 1500);
 }
-
-/* Decide si un campo escalar debe adoptar el valor de la nube.
-   Adopta si: la nube trae valor, es distinto al local, el campo no está
-   enfocado, y el usuario no lo editó en los últimos 45 segundos. */
-function _debeAdoptarNube(el, valorNube, ultimaEdicionLocal) {
-  if (!el || !valorNube) return false;
-  if (String(el.value).trim() === String(valorNube).trim()) return false;
-  if (document.activeElement === el) return false;
-  if (Date.now() - ultimaEdicionLocal < VENTANA_EDICION_MS) return false;
-  return true;
-}
-var _syncConfirmadoEnNube = false; // true solo cuando el polling YA encontró el parcial en la nube al menos una vez
-var _syncUltimoProcesado = '';     // FIX v349: último 'actualizado' YA mergeado (comparación de string, sin relojes)
-/* FIX v363: la variable se usaba en 4 lugares pero NUNCA se declaraba, así que
-   la guarda no protegía nada y el aviso de "contenedor cerrado" se repetía. */
-var _syncCerradoAvisado = false;
-
-function iniciarSyncPolling() {
-  detenerSyncPolling();
-  _syncLastActualizado = new Date().toISOString();
-  _syncUltimoProcesado = '';
-  _syncCerradoAvisado = false; // FIX v363: nuevo contenedor, aviso disponible otra vez
-  _syncConfirmadoEnNube = false;
-  // Antes: cada 12s, más una consulta inmediata al abrir/reanudar, más otra
-  // consulta cada vez que la app volvía a foco o pantalla. Esa cadencia tan
-  // agresiva (varias consultas en simultáneo apiladas) era la superficie
-  // donde ocurrían las pérdidas de datos. Ahora: solo cada 90s, y nada más
-  // que sume/detecte cierre en otro dispositivo — nunca sobrescribe ni
-  // reemplaza el trabajo local (ver REGLA SAGRADA más abajo).
-  _syncPollTimer = setInterval(_syncPollCheck, 90000);
-  console.log('[SYNC] Polling iniciado (cada 90s, solo aditivo)');
-}
-
-/* FIX v357: forzar sincronización manual desde la nube.
-   Reinicia el marcador de "ya procesado" para que el merge corra sí o sí. */
-async function forzarSyncDesdeNube() {
-  if (!datosCont || !datosCont.contenedor) {
-    mostrarAlerta('Sin contenedor', 'No hay un contenedor abierto.');
-    return;
-  }
-  _syncUltimoProcesado = '';
-  _editLocalSelloLinea = 0;
-  _editLocalSelloSAG   = 0;
-  _editLocalVGM        = 0;
-  console.log('[SYNC] Sincronización manual forzada');
-
-  // FIX v358: consulta directa para mostrar EN PANTALLA lo que responde la nube.
-  // En el teléfono no hay consola, así que el diagnóstico tiene que ser visible.
-  var diag = '';
-  try {
-    var r = await fetch(URL_GAS, {
-      method: "POST",
-      body: JSON.stringify({ accion: "buscarConsolidadoParcial", contenedor: datosCont.contenedor })
-    });
-    var j = await r.json();
-    if (!j || !j.existe) {
-      diag = '⚠️ La nube NO tiene este contenedor.<br>Contenedor buscado: <b>' + datosCont.contenedor + '</b>';
-    } else {
-      var d = j.datos || {};
-      _aplicarEscalaresDesdeNube(d);
-      var lineas = [];
-      if (d.selloLinea) lineas.push('• Sello Línea: <b>' + d.selloLinea + '</b>');
-      if (d.selloSAG)   lineas.push('• Sello SAG: <b>' + d.selloSAG + '</b>');
-      if (d.vgm)        lineas.push('• VGM: <b>' + d.vgm + '</b>');
-      diag = lineas.length
-        ? 'Datos traídos desde la nube:<br>' + lineas.join('<br>')
-        : 'Sin sellos ni VGM guardados aún en la nube para este contenedor.';
-    }
-  } catch (e) {
-    diag = '❌ Error consultando la nube: ' + e.message;
-  }
-
-  await _syncPollCheck();
-  mostrarAlerta('🔄 Sincronizado', diag);
-}
-
-// Antes había una resincronización inmediata cada vez que la app volvía a
-// primer plano (cambiar de app, apagar pantalla, etc.). Eso apilaba varias
-// consultas casi simultáneas — retirado: el intervalo de 90s ya alcanza
-// para "saber qué está en proceso" sin generar esa presión de red.
-
-/* FIX v359: sellos y VGM se aplican SIEMPRE, en cada consulta.
-   Antes vivían dentro del bloque protegido por `actualizado`; si esa
-   columna venía vacía, el bloque completo se saltaba y los sellos
-   llegaban en la respuesta pero nunca se escribían en los campos. */
-function _aplicarEscalaresDesdeNube(datosNube) {
-  if (!datosNube) return false;
-
-  var _elSL = document.getElementById('sello_linea');
-  var _elSS = document.getElementById('sello_sag');
-  var _elVGM = document.getElementById('vgm_cierre_input');
-
-  var _slNube  = String(datosNube.selloLinea || '').trim();
-  var _ssNube  = String(datosNube.selloSAG   || '').trim();
-  var _vgmNube = String(datosNube.vgm        || '').trim();
-  var cambio = false;
-
-  if (_debeAdoptarNube(_elSL, _slNube, _editLocalSelloLinea)) {
-    _elSL.value = _slNube;
-    datosCont.selloLinea = _slNube;
-    cambio = true;
-    console.log('[SYNC] Sello Línea aplicado desde la nube:', _slNube);
-  }
-  if (_debeAdoptarNube(_elSS, _ssNube, _editLocalSelloSAG)) {
-    _elSS.value = _ssNube;
-    datosCont.selloSAG = _ssNube;
-    cambio = true;
-    console.log('[SYNC] Sello SAG aplicado desde la nube:', _ssNube);
-  }
-  if (_debeAdoptarNube(_elVGM, _vgmNube, _editLocalVGM)) {
-    _elVGM.value = _vgmNube;
-    datosCont.vgmIngresoCierre = _vgmNube;
-    cambio = true;
-    if (typeof vgm_cierre_calcularPreview === 'function') {
-      try { vgm_cierre_calcularPreview(); } catch(e) {}
-    }
-    console.log('[SYNC] VGM aplicado desde la nube:', _vgmNube);
-  }
-
-  // Refrescar siempre el encabezado
-  var _hSL = document.getElementById('rc_selloLinea');
-  if (_hSL && _elSL) _hSL.textContent = (_elSL.value || '').trim() || 'No informado';
-  var _hSS = document.getElementById('rc_selloSAG');
-  if (_hSS && _elSS) _hSS.textContent = (_elSS.value || '').trim() || 'No informado';
-
-  return cambio;
-}
-
 /* FIX v363: elimina la copia local de un parcial SIN pedir credenciales.
    Se usa solo cuando la nube confirma que el contenedor ya fue eliminado
    o cerrado en otro dispositivo — la autorización ya ocurrió allá.
@@ -11355,196 +11033,6 @@ async function _eliminarParcialLocalSilencioso(contenedor) {
   });
 }
 
-function detenerSyncPolling() {
-  if (_syncPollTimer) {
-    clearInterval(_syncPollTimer);
-    _syncPollTimer = null;
-    console.log('[SYNC] Polling detenido');
-  }
-}
-
-async function _syncPollCheck() {
-  if (!datosCont || !datosCont.contenedor || !navigator.onLine) return;
-  try {
-    var parcialNube = await Promise.race([
-      fetch(URL_GAS, {
-        method: "POST",
-        body: JSON.stringify({ accion: "buscarConsolidadoParcial", contenedor: datosCont.contenedor })
-      }).then(function(r) { return r.json(); }),
-      new Promise(function(_, rej) { setTimeout(function() { rej(new Error('timeout')); }, 8000); })
-    ]);
-
-    if (!parcialNube || !parcialNube.existe) {
-      if (_syncConfirmadoEnNube) {
-        // El parcial existía antes pero ya no → fue cerrado o eliminado por otro dispositivo
-        console.warn('[SYNC] Parcial ya no existe en la nube — cerrado o eliminado en otro dispositivo');
-        detenerSyncPolling();
-
-        // FIX v363: avisar UNA sola vez. Antes los disparadores de foco y
-        // visibilidad revivían la consulta y el mensaje se repetía sin parar.
-        if (_syncCerradoAvisado) return;
-        _syncCerradoAvisado = true;
-
-        // FIX v363: propagar la eliminación a este dispositivo.
-        // Es seguro: _syncConfirmadoEnNube prueba que este parcial SÍ estuvo
-        // en la nube, así que su ausencia es una eliminación real y no un
-        // parcial creado offline que todavía no sube.
-        var _contCerrado = datosCont.contenedor;
-        try {
-          await _eliminarParcialLocalSilencioso(_contCerrado);
-          _olvidarContenedorSincronizado(_contCerrado);
-          console.log('[SYNC] Copia local eliminada:', _contCerrado);
-        } catch (e) {
-          console.warn('[SYNC] No se pudo eliminar la copia local:', e.message);
-        }
-
-        mostrarAlerta('📦 Contenedor cerrado',
-          'El contenedor <b>' + _contCerrado + '</b> fue cerrado o eliminado desde otro dispositivo.' +
-          '<br><br>Se quitó de este dispositivo. Volviendo al menú...');
-        setTimeout(function() {
-          if (typeof volverAlMenu === 'function') volverAlMenu();
-          else if (typeof irAMenu === 'function') irAMenu();
-        }, 1800);
-      } else {
-        console.log('[SYNC] Parcial no encontrado en la nube — aún no sincronizado');
-      }
-      return;
-    }
-
-    // Marcar que el parcial SÍ existe en la nube
-    _syncConfirmadoEnNube = true;
-
-    // Los sellos y el VGM YA NO se aplican solos en segundo plano — solo
-    // con el botón manual "Sincronizar" (forzarSyncDesdeNube), para que un
-    // valor escrito en este dispositivo no se pise en silencio con el de
-    // otro. El polling en segundo plano solo suma fotos/lotes nuevos
-    // (aditivo, nunca reemplaza) y detecta si el contenedor se cerró en
-    // otro dispositivo.
-
-    // FIX v349: NO comparar relojes entre dispositivos.
-    // Antes se hacía `new Date(nubeActualizado) > new Date(_syncLastActualizado)`,
-    // pero `actualizado` viene del reloj del dispositivo que guardó y
-    // `_syncLastActualizado` del reloj local. Con relojes desfasados el
-    // dispositivo con reloj adelantado IGNORABA para siempre los cambios del otro.
-    // Ahora solo se compara el string contra el último ya procesado.
-    // El merge es idempotente y no destructivo, así que reprocesar no daña nada.
-    var nubeActualizado = parcialNube.datos.actualizado || '';
-    if (nubeActualizado && nubeActualizado !== _syncUltimoProcesado) {
-      {
-        console.log('[SYNC] Cambio detectado en la nube, actualizando...');
-        _syncUltimoProcesado = nubeActualizado;
-        _syncLastActualizado = nubeActualizado;
-
-        // ========== REGLA SAGRADA ==========
-        // El polling NUNCA reduce datos locales.
-        // Solo AGREGA lo que la nube tiene y lo local no.
-        // Solo se borra si un usuario lo borra explícitamente.
-        // ====================================
-
-        // --- LOTES: fusionar por código de lote, NUNCA reemplazar el arreglo
-        // completo. (Antes: si la nube tenía más lotes que el local, se
-        // reemplazaba TODO el arreglo local por el de la nube — eso borraba
-        // lotes agregados localmente después del último envío a la nube que
-        // aún no habían subido. Causa real de "perdemos contenedores".) ---
-        var lotesNube = Array.isArray(parcialNube.lotes) ? parcialNube.lotes : [];
-        if (lotesNube.length > 0) {
-          var lotesLocalesSet = {};
-          registros.forEach(function(r) { if (r && r.lote) lotesLocalesSet[r.lote] = true; });
-          lotesNube.forEach(function(r) {
-            if (r && r.lote && !lotesLocalesSet[r.lote]) {
-              registros.push(r);
-              console.log('[SYNC] Lote nuevo de otro dispositivo:', r.lote);
-            }
-          });
-        }
-
-        // --- FOTOS: MERGE por URL — agregar las de la nube que no existan localmente ---
-        // NUNCA borrar fotos locales, solo agregar nuevas de otros dispositivos
-        // Cargar lista negra de fotos eliminadas desde la nube
-        var eliminadasNube = Array.isArray(parcialNube.fotosEliminadas) ? parcialNube.fotosEliminadas : [];
-        if (eliminadasNube.length > 0) {
-          // Fusionar con la lista negra local
-          eliminadasNube.forEach(function(url) {
-            if (_fotosEliminadas.indexOf(url) === -1) _fotosEliminadas.push(url);
-          });
-          // Eliminar de fotos locales cualquier foto que esté en la lista negra
-          var huboBorrado = false;
-          ['vacio', 'carga', 'completo', 'sello'].forEach(function(tipo) {
-            var antes = fotos[tipo].length;
-            fotos[tipo] = fotos[tipo].filter(function(f) {
-              return !(f && f.url && _fotosEliminadas.indexOf(f.url) !== -1);
-            });
-            if (fotos[tipo].length < antes) huboBorrado = true;
-          });
-          if (huboBorrado) {
-            actualizarPreviews("vacio");
-            actualizarPreviews("carga");
-            actualizarPreviews("completo");
-            actualizarPreviews("sello");
-            actualizarContadoresFotos();
-            actualizarEstadoFotos();
-          }
-        }
-
-        if (parcialNube.fotos) {
-          var huboNuevaFoto = false;
-          ['vacio', 'carga', 'completo', 'sello'].forEach(function(tipo) {
-            var urlsNube = Array.isArray(parcialNube.fotos[tipo]) ? parcialNube.fotos[tipo] : [];
-            if (!urlsNube.length) return;
-            var locales = fotos[tipo] || [];
-            var urlsLocalesSet = {};
-            locales.forEach(function(f) { if (f && f.url) urlsLocalesSet[f.url] = true; });
-            urlsNube.forEach(function(url) {
-              // No agregar si está en la lista negra
-              if (url && !urlsLocalesSet[url] && _fotosEliminadas.indexOf(url) === -1) {
-                fotos[tipo].push({ base64: '', url: url, subiendo: false, intentos: 0 });
-                huboNuevaFoto = true;
-                console.log('[SYNC] Foto nueva de otro dispositivo:', tipo);
-              }
-            });
-          });
-          if (huboNuevaFoto) {
-            actualizarPreviews("vacio");
-            actualizarPreviews("carga");
-            actualizarPreviews("completo");
-            actualizarPreviews("sello");
-            actualizarContadoresFotos();
-            actualizarEstadoFotos();
-          }
-        }
-
-        // datosCont: solo llenar campos vacíos, nunca sobreescribir
-        if (!datosCont.tara && parcialNube.datos.tara) datosCont.tara = Number(parcialNube.datos.tara);
-        if (!datosCont.maxgross && parcialNube.datos.maxgross) datosCont.maxgross = Number(parcialNube.datos.maxgross);
-        if (!datosCont.tipo && parcialNube.datos.tipo) datosCont.tipo = parcialNube.datos.tipo;
-        if (!datosCont.linea && parcialNube.datos.linea) datosCont.linea = parcialNube.datos.linea;
-
-
-        // --- Repintar (sin re-sincronizar a la nube) ---
-        actualizarTotales();
-        actualizarPreviews("vacio");
-        actualizarPreviews("carga");
-        actualizarPreviews("completo");
-        actualizarPreviews("sello");
-        actualizarContadoresFotos();
-        actualizarEstadoFotos();
-
-        // Resumen superior
-        var _elSLr = document.getElementById('rc_selloLinea');
-        var _elSSr = document.getElementById('rc_selloSAG');
-        var _elSLin = document.getElementById('sello_linea');
-        var _elSSin = document.getElementById('sello_sag');
-        if (_elSLr) _elSLr.textContent = (_elSLin ? _elSLin.value : '') || 'No informado';
-        if (_elSSr) _elSSr.textContent = (_elSSin ? _elSSin.value : '') || 'No informado';
-        rc_tara.textContent = datosCont.tara || '';
-        rc_gross.textContent = datosCont.maxgross || 'No informado';
-        rc_tipo.textContent = datosCont.tipo || '';
-      }
-    }
-  } catch (e) {
-    console.warn('[SYNC] Poll falló:', e.message);
-  }
-}
 
 function mostrarDatosContenedor() {
 
@@ -11663,7 +11151,6 @@ async function cargarContenedorExistente(contenedor) {
   actualizarContadoresFotos();
   ir("pantallaCapturaLotes");
   scl_aplicarModo();
-  iniciarSyncPolling();
 }
 
 function agregarPreviewFotoExistente(url, nombre) {
@@ -12858,7 +12345,6 @@ function recargarCaches() {
 function limpiarFormularioDespuesDeGuardar() {
 
   console.log("🧹 Limpiando formulario y reiniciando app...");
-  detenerSyncPolling();
 
   // 1. Resetear datos del contenedor
   datosCont = {};
@@ -13413,13 +12899,6 @@ function cargarDatosLocal(job) {
     }
   }
 
-  // FIX v355: reiniciar marcas de edición local. Sin esto, una edición
-  // reciente en OTRO contenedor bloqueaba durante 45s la llegada de
-  // sellos/VGM desde la nube en el contenedor recién reanudado.
-  _editLocalSelloLinea = 0;
-  _editLocalSelloSAG   = 0;
-  _editLocalVGM        = 0;
-
   // 4b) Nave / Reserva / Entregas: leer del primer registro que tenga datos
   // (los jobs nuevos ya los guardan; jobs anteriores los tienen en blanco)
   // Recalcular NRE desde registros del job (pueden no tener nave si son antiguos)
@@ -13446,13 +12925,11 @@ function cargarDatosLocal(job) {
   // 7) Ir a la pantalla correcta (reanudar)
   ir("pantallaCapturaLotes");
   scl_aplicarModo();
-  iniciarSyncPolling();
 }
 
 
 
 function resetearTodo() {
-  detenerSyncPolling();
   // Vaciar datos del contenedor
   datosCont = {};
 
