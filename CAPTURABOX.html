@@ -12141,20 +12141,94 @@ function validarFotos() {
 /* ---------------------------------------------------------
    SUBIR FOTOS AL GAS
 --------------------------------------------------------- */
+/* Reduce el peso de una foto ANTES de subirla: las fotos de cámara de
+ * celular actuales pueden pesar varios MB (y crecen ~33% más al pasar
+ * a base64), lo que hace la subida lenta y propensa a timeouts/errores
+ * con la señal de una bodega. Se redimensiona el lado mayor a un máximo
+ * razonable para verificar sellos/daños/documentos en pantalla, y se
+ * recodifica como JPEG a calidad alta — el peso baja drásticamente
+ * (típicamente de varios MB a algunos cientos de KB) sin pérdida de
+ * calidad perceptible para este uso.
+ * Si algo falla (formato raro, navegador sin soporte de canvas), se
+ * sube el archivo original tal cual: nunca bloquea la captura de foto.
+ */
+var FOTO_LADO_MAX = 1600;
+var FOTO_CALIDAD_JPEG = 0.82;
+
+async function comprimirImagen(file) {
+  try {
+    if (!file || !file.type || file.type.indexOf('image/') !== 0) return file;
+
+    var bitmap;
+    if (typeof createImageBitmap === 'function') {
+      // 'from-image' respeta la orientación EXIF (fotos verticales de
+      // celular no salen rotadas al pasar por el canvas)
+      try {
+        bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' });
+      } catch (e) {
+        bitmap = await createImageBitmap(file);
+      }
+    } else {
+      bitmap = await new Promise(function (resolve, reject) {
+        var img = new Image();
+        img.onload = function () { resolve(img); };
+        img.onerror = reject;
+        img.src = URL.createObjectURL(file);
+      });
+    }
+
+    var w = bitmap.width, h = bitmap.height;
+    if (!w || !h) return file;
+
+    var lado = Math.max(w, h);
+    if (lado > FOTO_LADO_MAX) {
+      var escala = FOTO_LADO_MAX / lado;
+      w = Math.round(w * escala);
+      h = Math.round(h * escala);
+    }
+
+    var canvas = document.createElement('canvas');
+    canvas.width = w;
+    canvas.height = h;
+    var ctx = canvas.getContext('2d');
+    ctx.drawImage(bitmap, 0, 0, w, h);
+    if (bitmap.close) bitmap.close();
+
+    var blob = await new Promise(function (resolve) {
+      canvas.toBlob(resolve, 'image/jpeg', FOTO_CALIDAD_JPEG);
+    });
+
+    // Si la "compresión" salió igual o más pesada que el original
+    // (fotos ya muy comprimidas, o más chicas que el máximo), se usa
+    // el archivo original tal cual.
+    if (!blob || blob.size >= file.size) return file;
+
+    console.log('[FOTO] Comprimida: ' + (file.size / 1024).toFixed(0) + 'KB → ' +
+                (blob.size / 1024).toFixed(0) + 'KB');
+    return blob;
+  } catch (e) {
+    console.warn('[FOTO] No se pudo comprimir, se sube el original:', e.message);
+    return file;
+  }
+}
+
 function fileToBase64(fileOrString) {
-  return new Promise(resolve => {
+  return new Promise((resolve, reject) => {
     // Si ya viene en base64 (string), la devolvemos tal cual
     if (typeof fileOrString === "string") {
       return resolve(fileOrString);
     }
 
-    // Si es un File / Blob, lo convertimos
-    const reader = new FileReader();
-    reader.onload = () => {
-      const base64 = reader.result.split(",")[1];
-      resolve(base64);
-    };
-    reader.readAsDataURL(fileOrString);
+    // Si es un File / Blob, se comprime primero y luego se convierte
+    comprimirImagen(fileOrString).then(function (archivo) {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const base64 = reader.result.split(",")[1];
+        resolve(base64);
+      };
+      reader.onerror = () => reject(reader.error);
+      reader.readAsDataURL(archivo);
+    });
   });
 }
 
