@@ -5837,7 +5837,7 @@ async function guardarRecepcionManual() {
     ub_guardarUltimoProducto('rcManual');
 
     // ✅ guardar job local inmediatamente
-    await rc_syncJobDesdeMemoria();
+    await rc_syncJobActualDesdeMemoria();
 
     // limpiar operativo
     document.getElementById("cantidadManual").value = "";
@@ -8076,7 +8076,7 @@ async function rc_syncJobActualDesdeMemoria() {
   const job = await rc_getJob(rc_jobActualId);
   if (!job) return;
 
-  job.detalle = Array.isArray(window.registrosRecepcion) ? window.registrosRecepcion : [];
+  job.detalle = Array.isArray(registrosRecepcion) ? registrosRecepcion : [];
   job.updatedAt = Date.now();
 
   // mientras no esté subido, siempre ROJO
