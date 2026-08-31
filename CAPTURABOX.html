@@ -3284,6 +3284,12 @@ button:active {
                    cursor:pointer; white-space:nowrap; flex-shrink:0;">
       🖨️ PDF
     </button>
+    <button onclick="imprimirFotosConsolidado()"
+            style="width:auto; margin:0 0 0 6px; background:rgba(255,255,255,.15); border:none; color:#fff;
+                   border-radius:10px; padding:9px 12px; font-weight:700; font-size:13px;
+                   cursor:pointer; white-space:nowrap; flex-shrink:0;">
+      🖼️ Fotos
+    </button>
   </div>
 
   <div style="padding:14px 16px;">
@@ -14884,6 +14890,129 @@ async function imprimirDetalle() {
   }
 
   window.print();
+}
+
+/* Convierte cualquier formato de foto (string base64 puro, string URL,
+ * u objeto {base64, url}) al src que necesita un <img> — misma lógica
+ * que ya usa actualizarPreviews() en pantalla, para que la hoja impresa
+ * muestre exactamente lo mismo que se ve en la app. */
+function _fotoASrc(fotoItem) {
+  if (typeof fotoItem === 'string') {
+    return fotoItem.startsWith('http') ? driveUrlToEmbed(fotoItem) : 'data:image/jpeg;base64,' + fotoItem;
+  }
+  if (fotoItem && fotoItem.base64 && fotoItem.base64.length > 100) {
+    return 'data:image/jpeg;base64,' + fotoItem.base64;
+  }
+  if (fotoItem && fotoItem.url) {
+    return driveUrlToEmbed(fotoItem.url);
+  }
+  return '';
+}
+
+/* Aplana las fotos del consolidado (local o ya en Drive) a una lista
+ * [{ etiqueta, src }], en orden Vacío → Carga → Completo → Sello, para
+ * armar la hoja de fotos impresa. */
+function _extraerFotosParaImprimir(raw) {
+  var ETIQUETAS = { vacio: 'VACÍO', carga: 'CARGA', completo: 'COMPLETO', sello: 'SELLO' };
+  var out = [];
+  if (!raw || !raw.fotos) return out;
+
+  if (!Array.isArray(raw.fotos)) {
+    // Local (aún no cerrado): { vacio:[], carga:[], completo:[], sello:[] }
+    ['vacio', 'carga', 'completo', 'sello'].forEach(function (tipo) {
+      (raw.fotos[tipo] || []).forEach(function (f, i) {
+        var src = _fotoASrc(f);
+        if (src) out.push({ etiqueta: ETIQUETAS[tipo] + ' ' + (i + 1), src: src });
+      });
+    });
+  } else {
+    // Ya en Drive: [{ nombre, url }] — nombre trae el tipo (VACIO_FOTO_1, etc.)
+    var contador = { vacio: 0, carga: 0, completo: 0, sello: 0 };
+    raw.fotos.forEach(function (f) {
+      var nombre = (f.nombre || '').toUpperCase();
+      var src = _fotoASrc(f.url || '');
+      if (!src) return;
+      var tipo = nombre.indexOf('VACIO') !== -1 ? 'vacio'
+        : nombre.indexOf('CARGA') !== -1 ? 'carga'
+        : nombre.indexOf('COMPLETO') !== -1 ? 'completo'
+        : nombre.indexOf('SELLO') !== -1 ? 'sello'
+        : 'carga';
+      contador[tipo]++;
+      out.push({ etiqueta: ETIQUETAS[tipo] + ' ' + contador[tipo], src: src });
+    });
+  }
+  return out;
+}
+
+/* Genera una hoja imprimible con TODAS las fotos del contenedor, 4 por
+ * página (2x2), además de estar ya disponibles en Drive — para tener
+ * un respaldo físico/PDF junto con el resto de la documentación del
+ * contenedor. Reusa el mismo patrón de ventana nueva + window.print()
+ * que el resto de los informes de la app. */
+function imprimirFotosConsolidado() {
+  var raw = JSON.parse(sessionStorage.getItem("detalleConsolidado") || "null");
+  if (!raw) {
+    mostrarAlerta('⚠️ Sin datos', 'No hay un contenedor cargado.');
+    return;
+  }
+
+  var esLocal = raw.fotos && !Array.isArray(raw.fotos);
+  var datos = esLocal ? raw.datosCont : raw;
+  var fotos = _extraerFotosParaImprimir(raw);
+
+  if (!fotos.length) {
+    mostrarAlerta('📷 Sin fotos', 'Este contenedor no tiene fotos para imprimir.');
+    return;
+  }
+
+  var w = window.open('', '_blank');
+  if (!w) { mostrarAlerta('Bloqueado', 'El navegador bloqueó la ventana. Habilita ventanas emergentes.'); return; }
+
+  var fecha = new Date().toLocaleDateString('es-CL');
+  var encabezado = (datos.contenedor || '—') +
+    ' &middot; ' + (datos.cliente || '—') +
+    (datos.operacion ? ' &middot; OP ' + datos.operacion : '');
+
+  // Agrupar de a 4 (una hoja por grupo)
+  var hojas = [];
+  for (var i = 0; i < fotos.length; i += 4) hojas.push(fotos.slice(i, i + 4));
+
+  var htmlHojas = hojas.map(function (grupo, idxHoja) {
+    var celdas = grupo.map(function (f) {
+      return '<div class="celda">' +
+        '<img src="' + f.src + '" alt="' + f.etiqueta + '">' +
+        '<div class="etiqueta">' + f.etiqueta + '</div>' +
+        '</div>';
+    }).join('');
+    return '<div class="hoja' + (idxHoja < hojas.length - 1 ? ' salto' : '') + '">' +
+      '<div class="hojaTop"><b>' + encabezado + '</b><span>Hoja ' + (idxHoja + 1) + ' de ' + hojas.length + '</span></div>' +
+      '<div class="grid">' + celdas + '</div>' +
+      '</div>';
+  }).join('');
+
+  var html = '<!DOCTYPE html><htm' + 'l><hea' + 'd><meta charset="utf-8">' +
+    '<title>Fotos ' + (datos.contenedor || '') + '</title>' +
+    '<sty' + 'le>*{box-sizing:border-box;-webkit-print-color-adjust:exact;print-color-adjust:exact;color-adjust:exact;}' +
+    'body{font-family:Arial,sans-serif;margin:0;color:#1a2a3a;}' +
+    '@page{size:A4 portrait;margin:12mm;}' +
+    '.hoja{display:flex;flex-direction:column;height:265mm;}' +
+    '.hoja.salto{page-break-after:always;}' +
+    '.hojaTop{display:flex;justify-content:space-between;align-items:baseline;' +
+    'font-size:12px;color:#0b3c5d;border-bottom:2px solid #0b3c5d;padding-bottom:6px;margin-bottom:10px;}' +
+    '.hojaTop span{font-size:11px;color:#7a8b95;}' +
+    '.grid{flex:1;display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;gap:10px;min-height:0;}' +
+    '.celda{border:1px solid #dde3e8;border-radius:8px;padding:6px;display:flex;flex-direction:column;min-height:0;}' +
+    '.celda img{flex:1;width:100%;height:100%;object-fit:contain;min-height:0;}' +
+    '.etiqueta{text-align:center;font-size:11px;font-weight:800;color:#0b3c5d;letter-spacing:.5px;padding-top:4px;}' +
+    '.btnImprimir{position:fixed;top:14px;right:14px;background:#0b3c5d;color:#fff;border:none;' +
+    'border-radius:10px;padding:11px 18px;font-size:14px;font-weight:800;cursor:pointer;box-shadow:0 3px 10px rgba(0,0,0,.2);}' +
+    '@media print{.btnImprimir{display:none}}</sty' + 'le></hea' + 'd><bod' + 'y>' +
+    '<button class="btnImprimir" onclick="window.print()">🖨️ Imprimir / Guardar como PDF</button>' +
+    htmlHojas +
+    '</bod' + 'y></htm' + 'l>';
+
+  w.document.open(); w.document.write(html); w.document.close();
+  setTimeout(function () { w.print(); }, 700);
 }
 
 async function reintentarEnvioJob(id) {
