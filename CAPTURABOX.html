@@ -8873,7 +8873,19 @@ async function rc_editarRecepcionEnviada() {
     fechaISO: c.fechaISO || _fechaHoyLocal(),
     proteccion: c.proteccion || '',
     volumenTotal: Number(c.volumenTotal || c.totalVolumen || 0) || 0,
-    detalle: JSON.parse(JSON.stringify(Array.isArray(c.detalle) ? c.detalle : [])),
+    // OJO: el detalle que llega del resumen trae los links de fotos ya
+    // subidas en el campo `linkFotos` (string, con varios links unidos
+    // por " | "), no en `fotosDanio` (array). Si no se convierte acá,
+    // el modal de fotos de daño no las muestra y, peor, al guardar se
+    // pierden (se sobrescriben con solo las fotos nuevas que se agreguen).
+    detalle: (Array.isArray(c.detalle) ? c.detalle : []).map(function (r0) {
+      var r = JSON.parse(JSON.stringify(r0));
+      if (!Array.isArray(r.fotosDanio)) {
+        var linkPrevio = String(r.linkFotos || r.linkFotosDanio || '').trim();
+        r.fotosDanio = linkPrevio ? linkPrevio.split('|').map(function (s) { return s.trim(); }).filter(Boolean) : [];
+      }
+      return r;
+    }),
     errorMsg: '',
     createdAt: c.createdAt || Date.now(),
     updatedAt: Date.now()
