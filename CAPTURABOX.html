@@ -8215,7 +8215,7 @@ async function renderTablaLotesRecepcion() {
         '<td style="padding:8px 6px; color:#5a6b77; font-size:11px;">' + (producto || '&mdash;') + '</td>' +
         '<td style="padding:8px 4px; text-align:right; color:#3a4a57;">' + peso + '</td>' +
         '<td style="padding:8px 6px; font-size:11px; color:#5a6b77;">' + (ubicacion ? bodega + ' ' + ubicacion : (bodega || '&mdash;')) + '</td>' +
-        '<td style="padding:8px 4px; text-align:center;">' + (tieneDanio ? '<span style="color:#c62828; font-size:13px;">&#9888;</span>' : '') + '</td>' +
+        '<td style="padding:8px 4px; text-align:center;">' + (tieneDanio ? '<span onclick="rc_abrirFotosDanioLote(' + i + ')" title="Ver / agregar fotos de daño" style="color:#c62828; font-size:13px; cursor:pointer;">&#9888;</span>' : '') + '</td>' +
         '<td style="padding:8px 4px; text-align:center;">' +
           '<span onclick="eliminarLoteDesdePantalla(' + i + ')" ' +
           'style="cursor:pointer; color:#e53935; font-size:17px; font-weight:900; display:inline-flex; width:26px; height:26px; align-items:center; justify-content:center; line-height:1;">&times;</span>' +
@@ -8290,6 +8290,150 @@ async function eliminarLoteDesdePantalla(index) {
 
   if (typeof actualizarTotalesRecepcion === "function") actualizarTotalesRecepcion();
   await renderTablaLotesRecepcion();
+}
+
+/* =========================================================
+   FOTOS DE DAÑO DE UN LOTE YA INGRESADO
+   Permite agregar/quitar fotos de un lote con daño que ya está en
+   la lista, sin tener que borrarlo y volver a escanearlo (eso hacía
+   perder las fotos que ya estaban guardadas).
+========================================================= */
+var rc_fotosDanioModalIndex = null;
+
+/** Devuelve { arr, job, fuente } con la fuente de datos VIGENTE
+ *  (misma lógica que usa eliminarLoteDesdePantalla), para leer/editar
+ *  siempre el registro real, no una copia vieja. */
+async function rc_obtenerLotesEditable_() {
+  var ctx = window.__rc_lotes_ctx || {};
+  var fuente = ctx.fuente || "mem";
+  if (fuente === "job" && ctx.jobId && typeof rc_getJob === "function") {
+    var job = await rc_getJob(ctx.jobId);
+    var arrJob = Array.isArray(job && job.detalle) ? job.detalle : [];
+    return { arr: arrJob, job: job, jobId: ctx.jobId, fuente: fuente };
+  }
+  var arr = [];
+  if (fuente === "codigo" && Array.isArray(window.registrosRecepcionCodigo)) arr = window.registrosRecepcionCodigo;
+  else if (fuente === "manual" && Array.isArray(window.registrosRecepcionManual)) arr = window.registrosRecepcionManual;
+  else if (typeof registrosRecepcion !== "undefined" && Array.isArray(registrosRecepcion)) arr = registrosRecepcion;
+  return { arr: arr, job: null, jobId: ctx.jobId || null, fuente: fuente };
+}
+
+/** Persiste el cambio hecho in-place sobre info.arr[index] (mismo
+ *  patrón que eliminarLoteDesdePantalla: job -> IndexedDB, si no,
+ *  re-sincroniza el job desde memoria). */
+async function rc_guardarLotesEditable_(info) {
+  if (info.fuente === "job" && info.job && typeof rc_putJob === "function") {
+    info.job.detalle = info.arr;
+    info.job.updatedAt = Date.now();
+    if (info.job.estado !== "VERDE" && info.job.estado !== "AMARILLO") info.job.estado = "ROJO";
+    await rc_putJob(info.job);
+    if (Array.isArray(window.registrosRecepcionCodigo)) {
+      window.registrosRecepcionCodigo.splice(0, window.registrosRecepcionCodigo.length, ...info.arr);
+    }
+    if (typeof registrosRecepcion !== "undefined" && Array.isArray(registrosRecepcion)) {
+      registrosRecepcion.splice(0, registrosRecepcion.length, ...info.arr);
+    }
+  } else if (info.jobId && typeof rc_syncJobActualDesdeMemoria === "function") {
+    await rc_syncJobActualDesdeMemoria();
+  }
+}
+
+async function rc_abrirFotosDanioLote(index) {
+  rc_fotosDanioModalIndex = index;
+  await rc_pintarFotosDanioModal();
+}
+
+async function rc_pintarFotosDanioModal() {
+  var index = rc_fotosDanioModalIndex;
+  var info = await rc_obtenerLotesEditable_();
+  var r = info.arr[index];
+
+  var prev = document.getElementById('rcFotosDanioModal');
+  if (prev) prev.remove();
+  if (!r) return;
+
+  var fotos = Array.isArray(r.fotosDanio) ? r.fotosDanio : [];
+
+  var fotosHtml = fotos.map(function (f, i) {
+    var src = (typeof f === 'string' && (f.indexOf('http') === 0 || f.indexOf('data:') === 0))
+      ? f : 'data:image/jpeg;base64,' + f;
+    return '<div style="position:relative;display:inline-block;margin:4px;">' +
+      '<img src="' + src + '" style="width:78px;height:78px;object-fit:cover;border-radius:8px;border:1px solid #dde3e8;">' +
+      '<span onclick="rc_quitarFotoDanioLote(' + i + ')" title="Quitar foto" style="position:absolute;top:-6px;right:-6px;' +
+      'width:22px;height:22px;border-radius:50%;background:#e53935;color:#fff;font-weight:900;font-size:14px;' +
+      'display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 1px 4px rgba(0,0,0,.3);">&times;</span>' +
+      '</div>';
+  }).join('') || '<div style="color:#9aa7b0;font-size:13px;">Sin fotos de daño todavía.</div>';
+
+  var el = document.createElement('div');
+  el.id = 'rcFotosDanioModal';
+  el.style.cssText = 'position:fixed;inset:0;width:100vw;height:100vh;overflow-y:auto;' +
+    'background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;' +
+    'z-index:1000000;padding:20px;box-sizing:border-box;';
+
+  el.innerHTML =
+    '<div style="background:#fff;border-radius:16px;width:100%;max-width:420px;box-shadow:0 8px 28px rgba(0,0,0,.28);">' +
+      '<div style="background:#0b3c5d;color:#fff;padding:16px 18px;border-radius:16px 16px 0 0;' +
+           'display:flex;align-items:center;justify-content:space-between;">' +
+        '<div style="font-size:16px;font-weight:800;">📷 Fotos de daño &mdash; Lote ' + (r.lote || '') + '</div>' +
+        '<button onclick="document.getElementById(\'rcFotosDanioModal\').remove()" ' +
+          'style="background:rgba(255,255,255,.15);color:#fff;border:none;width:30px;height:30px;' +
+          'border-radius:8px;font-size:18px;font-weight:800;cursor:pointer;line-height:1;display:flex;align-items:center;justify-content:center;">&times;</button>' +
+      '</div>' +
+      '<div style="padding:18px;">' +
+        '<div id="rcFotosDanioLista">' + fotosHtml + '</div>' +
+        '<label style="display:block;margin-top:14px;background:#0b3c5d;color:#fff;text-align:center;' +
+          'padding:12px;border-radius:12px;font-weight:800;font-size:14px;cursor:pointer;">' +
+          '+ Agregar foto' +
+          '<input type="file" accept="image/*" capture="environment" style="display:none;" onchange="rc_agregarFotoDanioLote(this)">' +
+        '</label>' +
+      '</div>' +
+    '</div>';
+
+  document.body.appendChild(el);
+}
+
+async function rc_agregarFotoDanioLote(inputEl) {
+  var file = inputEl.files && inputEl.files[0];
+  inputEl.value = '';
+  if (!file) return;
+
+  var index = rc_fotosDanioModalIndex;
+  var info = await rc_obtenerLotesEditable_();
+  var r = info.arr[index];
+  if (!r) return;
+  if (!Array.isArray(r.fotosDanio)) r.fotosDanio = [];
+
+  try {
+    // Mismo formato que rc_agregarFotoDanio (data URL completa, sin
+    // comprimir): así el backend recibe siempre la misma forma sin
+    // importar si la foto se agregó al ingresar el lote o después.
+    var dataUrl = await new Promise(function (resolve, reject) {
+      var reader = new FileReader();
+      reader.onload = function (e) { resolve(e.target.result); };
+      reader.onerror = function () { reject(reader.error); };
+      reader.readAsDataURL(file);
+    });
+    r.fotosDanio.push(dataUrl);
+    await rc_guardarLotesEditable_(info);
+    await rc_pintarFotosDanioModal();
+  } catch (e) {
+    mostrarAlerta('❌ Error', 'No se pudo agregar la foto: ' + (e.message || e));
+  }
+}
+
+async function rc_quitarFotoDanioLote(fotoIndex) {
+  var ok = await mostrarConfirm('⚠️ Quitar foto', '¿Quitar esta foto de daño del lote?', 'Sí, quitar', 'Cancelar');
+  if (!ok) return;
+
+  var index = rc_fotosDanioModalIndex;
+  var info = await rc_obtenerLotesEditable_();
+  var r = info.arr[index];
+  if (!r || !Array.isArray(r.fotosDanio)) return;
+
+  r.fotosDanio.splice(fotoIndex, 1);
+  await rc_guardarLotesEditable_(info);
+  await rc_pintarFotosDanioModal();
 }
 
 async function volverDesdeLotesRecepcion() {
