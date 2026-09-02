@@ -3642,8 +3642,12 @@ button:active {
 
       <div class="rcFormGroup" style="margin-bottom:10px;">
         <label class="rcFormLbl">Observaciones</label>
-        <textarea id="rc_danio_obs" class="rcDanioTextarea"
-                  placeholder="Describe el daño con detalle…"></textarea>
+        <select id="rc_danio_obs" class="rcFormSelect">
+          <option value="">Seleccione…</option>
+          <option value="DAÑO DE ORIGEN">Daño de Origen</option>
+          <option value="DAÑO EN RECEPCIÓN">Daño en Recepción</option>
+          <option value="DAÑO DESDE PLANTA">Daño desde Planta</option>
+        </select>
       </div>
 
       <div class="rcFormGroup">
