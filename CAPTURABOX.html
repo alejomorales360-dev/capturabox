@@ -4675,6 +4675,24 @@ button:active {
         <div style="margin-top:8px;font-size:12px;">
           <b>Cliente:</b> ARAUCO <span style="color:#5a8bb0;">(automático — el ZOOPP siempre es de Arauco)</span>
         </div>
+
+        <div style="margin-top:10px;padding-top:10px;border-top:1px dashed #90caf9;">
+          <div style="font-weight:800;">📦 Archivo opcional — Programa de Entregas (Reserva)</div>
+          <div style="margin-top:4px;">
+            Solo si este ZOOPP <b>no trae la Reserva</b>: sube además el Programa de
+            Entregas y se completa la Reserva de cada lote cruzando por
+            <b>Entrega</b> (columna en común). No es obligatorio — si el ZOOPP ya
+            trae Reserva, ignóralo.
+          </div>
+          <div id="cb_dropzoneReserva" onclick="document.getElementById('cb_fileReserva').click()"
+               style="margin-top:8px;border:1.5px dashed #64b5f6;border-radius:9px;padding:10px;
+                      text-align:center;background:#fff;cursor:pointer;font-size:11px;color:#0d47a1;">
+            📄 Arrastra o toca para elegir el Programa de Entregas (.xlsx/.xls/.csv)
+          </div>
+          <input type="file" id="cb_fileReserva" accept=".xlsx,.xls,.csv" style="display:none;"
+                 onchange="cb_archivoReservaSeleccionado(this)">
+          <div id="cb_estadoReservaExterna" style="margin-top:6px;"></div>
+        </div>
       </div>
 
       <div id="cb_avisoJCE" style="display:none;background:#fff8e1;border:1px solid #ffe0a3;
@@ -21570,6 +21588,15 @@ var cb_filas = [];         // filas parseadas del archivo o del pegado
 var cb_archivo = "";       // nombre del archivo cargado
 var cb_validacion = null;  // resultado de la validación
 
+// Solo para el formato ZOOPP: archivo adicional OPCIONAL (ej. Programa
+// de Entregas) del que se extrae la Reserva por Entrega, para cuando
+// el ZOOPP no la trae. cb_reservaExterna = { mapa, hoja, archivo,
+// total, conReserva }. cb_ultimoResZoopp guarda el último resultado de
+// cb_parsearZoopp para poder reaplicar la Reserva externa y repintar
+// la cabecera sin importar en qué orden se suban los dos archivos.
+var cb_reservaExterna = null;
+var cb_ultimoResZoopp = null;
+
 /* Qué formatos de plantilla tiene sentido ofrecer según el destino
    elegido. ESTANDAR (columnas exactas) siempre está disponible: es
    genérico y aplica a cualquier destino y cualquier cliente. */
@@ -21637,13 +21664,17 @@ function cb_limpiar() {
   cb_filas = [];
   cb_archivo = "";
   cb_validacion = null;
+  cb_reservaExterna = null;
+  cb_ultimoResZoopp = null;
   var ids = ['cb_formato','cb_infoDatos','cb_preview','cb_historial'];
   ids.forEach(function(id){ var e = document.getElementById(id); if (e) e.innerHTML = ''; });
   var t = document.getElementById('cb_pegar'); if (t) t.value = '';
   var f = document.getElementById('cb_file'); if (f) f.value = '';
+  var fr = document.getElementById('cb_fileReserva'); if (fr) fr.value = '';
   var nv = document.getElementById('cb_naveArchivo'); if (nv) nv.value = '';
   var p2 = document.getElementById('cb_paso2'); if (p2) p2.style.display = 'none';
   var b = document.getElementById('cb_btnValidar'); if (b) b.style.display = 'none';
+  cb_pintarEstadoReservaExterna_();
 }
 
 function cb_destinoActual() {
@@ -21658,6 +21689,8 @@ function cb_cambiarDestino() {
   var p2  = document.getElementById('cb_paso2');
 
   cb_filas = [];
+  cb_reservaExterna = null;
+  cb_ultimoResZoopp = null;
   document.getElementById('cb_preview').innerHTML = '';
   document.getElementById('cb_infoDatos').innerHTML = '';
   document.getElementById('cb_btnValidar').style.display = 'none';
@@ -21778,10 +21811,13 @@ function cb_leerArchivo(file) {
       // ---- Consolidado ZOOPP ----
       if (formato === 'ZOOPP') {
         var resZ = cb_parsearZoopp(wb);
+        cb_ultimoResZoopp = resZ;
+        cb_aplicarReservaExterna_(resZ); // por si el archivo de Reserva ya se había subido antes
         cb_filas = resZ.filas;
         document.getElementById('cb_pegar').value = '';
         document.getElementById('cb_preview').innerHTML = '';
         cb_mostrarCabeceraZoopp(resZ);
+        cb_pintarEstadoReservaExterna_();
         return;
       }
 
@@ -21852,6 +21888,80 @@ function cb_leerArchivo(file) {
   };
 
   reader.readAsArrayBuffer(file);
+}
+
+/* ---- ZOOPP: archivo OPCIONAL de Reserva por Entrega ----
+   Se puede subir antes o despu\u00e9s del ZOOPP: si el ZOOPP ya est\u00e1
+   parseado (cb_ultimoResZoopp), se reaplica y se repinta la
+   cabecera al toque; si no, solo se guarda el mapa para cuando
+   llegue el ZOOPP. */
+function cb_archivoReservaSeleccionado(input) {
+  var file = input.files && input.files[0];
+  if (!file) return;
+  cb_leerArchivoReserva_(file);
+}
+
+function cb_leerArchivoReserva_(file) {
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      var wb = XLSX.read(e.target.result, { type: 'array' });
+      cb_reservaExterna = cb_parsearReservaPorEntrega(wb);
+      cb_reservaExterna.archivo = file.name;
+
+      if (cb_ultimoResZoopp) {
+        cb_aplicarReservaExterna_(cb_ultimoResZoopp);
+        cb_filas = cb_ultimoResZoopp.filas;
+        cb_mostrarCabeceraZoopp(cb_ultimoResZoopp);
+      }
+      cb_pintarEstadoReservaExterna_();
+    } catch (err) {
+      cb_reservaExterna = null;
+      cb_pintarEstadoReservaExterna_();
+      mostrarAlerta('\u274c No se pudo leer el Programa de Entregas',
+        (err.message || err));
+    }
+  };
+  reader.onerror = function() {
+    mostrarAlerta('\u274c Error', 'No se pudo abrir el archivo.');
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function cb_pintarEstadoReservaExterna_() {
+  var box = document.getElementById('cb_estadoReservaExterna');
+  if (!box) return;
+  if (!cb_reservaExterna) { box.innerHTML = ''; return; }
+
+  var r = cb_reservaExterna;
+  box.innerHTML =
+    '<div style="background:#e8f5e9;border-radius:8px;padding:7px 9px;font-size:11px;color:#1b5e20;">' +
+      '\u2705 <b>' + r.archivo + '</b> \u2014 ' + r.conReserva + ' de ' + r.total +
+      ' entregas con Reserva (hoja: ' + r.hoja + ')' +
+      (cb_ultimoResZoopp && cb_ultimoResZoopp.reservasCompletadas
+        ? '<br>' + cb_ultimoResZoopp.reservasCompletadas + ' lotes del ZOOPP completados con esta Reserva.'
+        : '') +
+      ' <span onclick="cb_quitarReservaExterna_()" style="cursor:pointer;color:#c62828;font-weight:800;">\u2715 quitar</span>' +
+    '</div>';
+}
+
+function cb_quitarReservaExterna_() {
+  cb_reservaExterna = null;
+  var fr = document.getElementById('cb_fileReserva'); if (fr) fr.value = '';
+  // Si el ZOOPP ya estaba parseado con Reserva completada desde este
+  // archivo, se vuelve a parsear el mismo resultado sin la Reserva
+  // externa (las que ya ven\u00edan del propio ZOOPP se conservan).
+  if (cb_ultimoResZoopp) {
+    cb_ultimoResZoopp.filas.forEach(function(f, i) {
+      if (cb_ultimoResZoopp._reservaOriginal && cb_ultimoResZoopp._reservaOriginal[i] !== undefined) {
+        f.Reserva = cb_ultimoResZoopp._reservaOriginal[i];
+      }
+    });
+    cb_ultimoResZoopp.reservasCompletadas = 0;
+    cb_filas = cb_ultimoResZoopp.filas;
+    cb_mostrarCabeceraZoopp(cb_ultimoResZoopp);
+  }
+  cb_pintarEstadoReservaExterna_();
 }
 
 function cb_mostrarInfoDatos() {
@@ -22501,6 +22611,28 @@ document.addEventListener('DOMContentLoaded', function() {
     var f = e.dataTransfer.files && e.dataTransfer.files[0];
     if (f) cb_leerArchivo(f);
   });
+
+  var dzR = document.getElementById('cb_dropzoneReserva');
+  if (!dzR) return;
+
+  ['dragenter','dragover'].forEach(function(ev) {
+    dzR.addEventListener(ev, function(e) {
+      e.preventDefault(); e.stopPropagation();
+      dzR.style.background = '#bbdefb';
+    });
+  });
+
+  ['dragleave','drop'].forEach(function(ev) {
+    dzR.addEventListener(ev, function(e) {
+      e.preventDefault(); e.stopPropagation();
+      dzR.style.background = '#fff';
+    });
+  });
+
+  dzR.addEventListener('drop', function(e) {
+    var f = e.dataTransfer.files && e.dataTransfer.files[0];
+    if (f) cb_leerArchivoReserva_(f);
+  });
 });
 
 
@@ -22591,10 +22723,14 @@ function cb_cambiarFormato() {
   }
 
   cb_filas = [];
+  cb_reservaExterna = null;
+  cb_ultimoResZoopp = null;
   document.getElementById('cb_infoDatos').innerHTML = '';
   document.getElementById('cb_preview').innerHTML = '';
   document.getElementById('cb_btnValidar').style.display = 'none';
   var t = document.getElementById('cb_pegar'); if (t) t.value = '';
+  var fr = document.getElementById('cb_fileReserva'); if (fr) fr.value = '';
+  cb_pintarEstadoReservaExterna_();
 }
 
 /* ---------------------------------------------------------
@@ -23397,6 +23533,96 @@ function cb_parsearZoopp(wb) {
   };
 }
 
+/* ---------------------------------------------------------
+   ZOOPP: archivo OPCIONAL de Programa de Entregas, del que se
+   extrae la Reserva por Entrega cuando el ZOOPP no la trae.
+
+   El archivo real (ej. C_EMISION_PROGRAMA) trae varias hojas y no
+   siempre la misma es la que tiene los datos, así que se busca en
+   TODAS la primera fila (de las primeras 6) que tenga columnas
+   "Entrega" y "Reserva" a la vez, y se usa la que tenga más filas
+   de datos si hay más de una candidata.
+--------------------------------------------------------- */
+function cb_hojaReservaPorEntrega_(wb) {
+  var norm = function(x) {
+    return String(x || '').replace(/[^A-Za-z0-9_]/g, '').toLowerCase();
+  };
+  var mejor = null;
+
+  for (var i = 0; i < wb.SheetNames.length; i++) {
+    var nombre = wb.SheetNames[i];
+    var m = XLSX.utils.sheet_to_json(wb.Sheets[nombre], { header: 1, raw: true, defval: '' });
+    if (!m.length) continue;
+
+    for (var f = 0; f < Math.min(6, m.length); f++) {
+      var enc = (m[f] || []).map(norm);
+      var iEnt = enc.indexOf('entrega');
+      var iRes = enc.indexOf('reserva');
+      if (iEnt === -1 || iRes === -1) continue;
+
+      var filasDatos = m.length - f - 1;
+      if (!mejor || filasDatos > mejor.filasDatos) {
+        mejor = { nombre: nombre, matriz: m, filaEnc: f, iEnt: iEnt, iRes: iRes, filasDatos: filasDatos };
+      }
+      break;
+    }
+  }
+
+  return mejor;
+}
+
+function cb_parsearReservaPorEntrega(wb) {
+  var hoja = cb_hojaReservaPorEntrega_(wb);
+  if (!hoja) {
+    throw new Error('No se encontraron columnas "Entrega" y "Reserva" juntas en ninguna hoja del archivo.');
+  }
+
+  var mapa = {};
+  var total = 0, conReserva = 0;
+
+  for (var k = hoja.filaEnc + 1; k < hoja.matriz.length; k++) {
+    var r = hoja.matriz[k] || [];
+    var entrega = String(r[hoja.iEnt] === undefined ? '' : r[hoja.iEnt]).trim();
+    if (!entrega) continue;
+    // Mismo criterio que en el ZOOPP: la Entrega puede traer ceros a la izquierda.
+    entrega = entrega.replace(/^0+/, '') || entrega;
+    total++;
+
+    var reserva = String(r[hoja.iRes] === undefined ? '' : r[hoja.iRes]).trim();
+    if (!reserva) continue;
+    if (!mapa[entrega]) { mapa[entrega] = reserva; conReserva++; }
+  }
+
+  if (!total) throw new Error('No se encontraron filas de Entrega en el archivo.');
+
+  return { mapa: mapa, hoja: hoja.nombre, total: total, conReserva: conReserva };
+}
+
+/* Rellena la Reserva de los lotes del ZOOPP que vinieron sin ella,
+   cruzando por Entrega contra cb_reservaExterna.mapa. Nunca pisa una
+   Reserva que el ZOOPP ya traía. Guarda un snapshot de la Reserva
+   original (_reservaOriginal) la primera vez, para poder deshacerlo
+   si el usuario quita el archivo (cb_quitarReservaExterna_). */
+function cb_aplicarReservaExterna_(resZ) {
+  if (!resZ || !Array.isArray(resZ.filas)) return 0;
+
+  if (!resZ._reservaOriginal) {
+    resZ._reservaOriginal = resZ.filas.map(function(f) { return f.Reserva || ''; });
+  }
+
+  if (!cb_reservaExterna) { resZ.reservasCompletadas = 0; return 0; }
+
+  var aplicadas = 0;
+  resZ.filas.forEach(function(f) {
+    if (!f.Reserva && cb_reservaExterna.mapa[f.Entrega]) {
+      f.Reserva = cb_reservaExterna.mapa[f.Entrega];
+      aplicadas++;
+    }
+  });
+  resZ.reservasCompletadas = aplicadas;
+  return aplicadas;
+}
+
 function cb_mostrarCabeceraZoopp(res) {
   var faltan = [];
   Object.keys(res.columnas).forEach(function(k) {
@@ -23438,6 +23664,12 @@ function cb_mostrarCabeceraZoopp(res) {
       (faltan.length
         ? '<div style="background:#fff3e0;border-radius:7px;padding:7px 9px;margin-top:8px;' +
           'font-size:11px;color:#b04a10;"><b>\u26a0\ufe0f No se detectó:</b> ' + faltan.join(', ') + '</div>'
+        : '') +
+      (res.reservasCompletadas
+        ? '<div style="background:#e8f5e9;border-radius:7px;padding:7px 9px;margin-top:8px;' +
+          'font-size:11px;color:#1b5e20;"><b>\u2705 ' + res.reservasCompletadas + ' lotes</b> ' +
+          'completaron su Reserva desde el Programa de Entregas (' +
+          (cb_reservaExterna ? cb_reservaExterna.archivo : '') + ').</div>'
         : '') +
     '</div>';
 
