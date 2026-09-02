@@ -4651,6 +4651,25 @@ button:active {
         <div style="margin-top:6px;">Nave, Puerto y EtaNave quedan vacíos — ese archivo no los trae.</div>
       </div>
 
+      <div id="cb_avisoFotoJCE" style="display:none;background:#ede7f6;border:1px solid #b39ddb;
+           border-radius:10px;padding:10px 12px;margin-bottom:12px;font-size:12px;color:#4a148c;">
+        <b>📷 Foto de guía JCE:</b> saca una foto (o sube la que ya tengas) de la
+        <b>Nota de Venta Interna / Packing List</b> — la tabla con una fila por
+        <b>Etiqueta</b>. Una IA la lee y arma la tabla de abajo:
+        <div style="margin-top:6px;line-height:1.7;">
+          <b>Etiqueta</b> → Lote &nbsp;·&nbsp; <b>Marca</b> → Entrega<br>
+          <b>Esc.Fact + Pzas</b> → Marca (combinado, igual que en Stock JCE)<br>
+          <b>Vol</b> → Volumen &nbsp;·&nbsp; <b>Producto</b> → Producto
+        </div>
+        <div style="margin-top:6px;">
+          <b>Nada se carga automáticamente:</b> después de leer la foto vas a poder
+          revisar y corregir cada fila antes de continuar. Si en la misma foto sale
+          también la Guía de Despacho (la de totales por tipo de moldura), no pasa
+          nada — esa se ignora sola porque no trae Etiqueta por fila.
+        </div>
+        <div style="margin-top:6px;">Cliente queda como <b>JCE</b> (automático). Nave, Puerto y EtaNave quedan vacíos.</div>
+      </div>
+
       <div id="cb_avisoVol8" style="display:none;background:#ede7f6;border:1px solid #b39ddb;
            border-radius:10px;padding:10px 12px;margin-bottom:12px;font-size:12px;color:#4a148c;">
         <b>Volumen VIII Arauco:</b> arrastra el archivo tal como lo bajas. Se busca la hoja
@@ -4713,28 +4732,54 @@ button:active {
         </div>
       </div>
 
-      <div id="cb_dropzone"
-           style="border:2px dashed #00897b;border-radius:12px;padding:22px 14px;text-align:center;
-                  background:#e0f2f1;cursor:pointer;margin-bottom:10px;"
-           onclick="document.getElementById('cb_file').click()">
-        <div style="font-size:26px;">📄</div>
-        <div style="font-size:14px;font-weight:800;color:#00695c;margin-top:4px;">
-          Arrastra el archivo aquí
+      <div id="cb_bloqueArchivoNormal">
+        <div id="cb_dropzone"
+             style="border:2px dashed #00897b;border-radius:12px;padding:22px 14px;text-align:center;
+                    background:#e0f2f1;cursor:pointer;margin-bottom:10px;"
+             onclick="document.getElementById('cb_file').click()">
+          <div style="font-size:26px;">📄</div>
+          <div style="font-size:14px;font-weight:800;color:#00695c;margin-top:4px;">
+            Arrastra el archivo aquí
+          </div>
+          <div style="font-size:12px;color:#5a8b85;margin-top:2px;">
+            .xlsx · .xls · .csv &nbsp;—&nbsp; o toca para buscarlo
+          </div>
         </div>
-        <div style="font-size:12px;color:#5a8b85;margin-top:2px;">
-          .xlsx · .xls · .csv &nbsp;—&nbsp; o toca para buscarlo
-        </div>
+        <input type="file" id="cb_file" accept=".xlsx,.xls,.csv" style="display:none;"
+               onchange="cb_archivoSeleccionado(this)">
+
+        <div style="text-align:center;font-size:11px;color:#9aa7b0;margin:8px 0;">— o pega desde Excel —</div>
+
+        <textarea id="cb_pegar" rows="5"
+                  placeholder="Copia las filas en Excel (sin encabezado) y pega aquí con Ctrl+V"
+                  oninput="cb_textoPegado()"
+                  style="width:100%;padding:10px 12px;border:1.5px solid #e6ebee;border-radius:10px;
+                         font-size:12px;font-family:monospace;box-sizing:border-box;resize:vertical;"></textarea>
       </div>
-      <input type="file" id="cb_file" accept=".xlsx,.xls,.csv" style="display:none;"
-             onchange="cb_archivoSeleccionado(this)">
 
-      <div style="text-align:center;font-size:11px;color:#9aa7b0;margin:8px 0;">— o pega desde Excel —</div>
-
-      <textarea id="cb_pegar" rows="5"
-                placeholder="Copia las filas en Excel (sin encabezado) y pega aquí con Ctrl+V"
-                oninput="cb_textoPegado()"
-                style="width:100%;padding:10px 12px;border:1.5px solid #e6ebee;border-radius:10px;
-                       font-size:12px;font-family:monospace;box-sizing:border-box;resize:vertical;"></textarea>
+      <div id="cb_bloqueFotoJCE" style="display:none;">
+        <div id="cb_dropzoneFotoJCE"
+             style="border:2px dashed #7e57c2;border-radius:12px;padding:22px 14px;text-align:center;
+                    background:#ede7f6;cursor:pointer;margin-bottom:10px;"
+             onclick="document.getElementById('cb_fileFotoJCE').click()">
+          <div style="font-size:26px;">📷</div>
+          <div style="font-size:14px;font-weight:800;color:#4a148c;margin-top:4px;">
+            Toca para sacar/elegir la foto del Packing List
+          </div>
+          <div style="font-size:12px;color:#6a4a95;margin-top:2px;">
+            Puedes elegir más de una foto si son varias páginas
+          </div>
+        </div>
+        <input type="file" id="cb_fileFotoJCE" accept="image/*" capture="environment" multiple
+               style="display:none;" onchange="cb_archivoFotoJCESeleccionado(this)">
+        <div id="cb_fotosJCEMiniaturas" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;"></div>
+        <button onclick="cb_leerFotosJCEConIA_()" id="cb_btnLeerFotoIA"
+                class="rcBtnGuardarNuevo" style="display:none;background:#7e57c2;">
+          🤖 Leer con IA
+        </button>
+        <div id="cb_estadoFotoIA" style="margin-top:8px;"></div>
+        <div id="cb_previewFotoIA" style="margin-top:8px;"></div>
+      </div>
 
       <div id="cb_infoDatos" style="font-size:12px;color:#5a6a75;margin-top:8px;"></div>
 
@@ -21601,6 +21646,14 @@ var cb_validacion = null;  // resultado de la validación
 var cb_reservaExterna = null;
 var cb_ultimoResZoopp = null;
 
+// Solo para el formato JCE_FOTO (STOCK_CLIENTE): fotos elegidas por el
+// usuario (aún sin leer) y filas crudas que devolvió la IA una vez
+// leídas, ANTES de confirmarlas. cb_filas solo se llena con la versión
+// ya revisada/corregida por el usuario (cb_confirmarFotoIA_).
+var cb_fotosJCE = [];        // [{ nombre, mimeType, base64 }]
+var cb_filasCrudasIA = null; // [{ _id, etiqueta, marca, escFact, pzas, vol, producto }] o null si aún no se leyó
+var cb_filasIACorrelativo = 0; // siguiente _id disponible para filas de la tabla editable
+
 /* Qué formatos de plantilla tiene sentido ofrecer según el destino
    elegido. ESTANDAR (columnas exactas) siempre está disponible: es
    genérico y aplica a cualquier destino y cualquier cliente. */
@@ -21613,7 +21666,8 @@ var CB_FORMATOS_POR_DESTINO = {
   STOCK_CLIENTE: [
     { value: 'ESTANDAR', label: 'Estándar — columnas exactas' },
     { value: 'ARAUCO', label: 'Stock Arauco (ZQUSTOCKHOY) — archivo .XLS/.DBF' },
-    { value: 'JCE_STOCK', label: 'Stock JCE — planilla de stock (hoja STOCK)' }
+    { value: 'JCE_STOCK', label: 'Stock JCE — planilla de stock (hoja STOCK)' },
+    { value: 'JCE_FOTO', label: '📷 Foto de guía JCE — leer con IA' }
   ],
   LOTESREEX: [
     { value: 'ESTANDAR', label: 'Estándar — columnas exactas' },
@@ -21679,6 +21733,7 @@ function cb_limpiar() {
   var p2 = document.getElementById('cb_paso2'); if (p2) p2.style.display = 'none';
   var b = document.getElementById('cb_btnValidar'); if (b) b.style.display = 'none';
   cb_pintarEstadoReservaExterna_();
+  cb_limpiarFotosJCE_();
 }
 
 function cb_destinoActual() {
@@ -21698,6 +21753,7 @@ function cb_cambiarDestino() {
   document.getElementById('cb_preview').innerHTML = '';
   document.getElementById('cb_infoDatos').innerHTML = '';
   document.getElementById('cb_btnValidar').style.display = 'none';
+  cb_limpiarFotosJCE_();
 
   if (!def) { box.innerHTML = ''; p2.style.display = 'none'; return; }
 
@@ -21992,6 +22048,271 @@ function cb_mostrarInfoDatos() {
     '</div>';
 
   btn.style.display = 'block';
+}
+
+/* =========================================================
+   FOTO DE GUÍA JCE — LEÍDA CON IA (destino STOCK_CLIENTE,
+   formato JCE_FOTO)
+
+   Flujo: el usuario sube 1+ fotos del Packing List → se mandan a
+   leerGuiaJCEConIA() en el backend (que llama a la API de Claude
+   con visión) → la IA devuelve filas CRUDAS (una por Etiqueta) →
+   se muestran en una tabla EDITABLE para que el usuario revise y
+   corrija antes de nada → recién al tocar "Usar estos datos" se
+   arma cb_filas con el mismo formato que ya usa Stock JCE
+   (cb_parsearStockJCE), y sigue el flujo normal (Validar → Cargar).
+
+   Nunca se guarda nada solo con leer la foto: cb_filas queda vacío
+   hasta que el usuario confirma la tabla revisada.
+========================================================= */
+
+function cb_limpiarFotosJCE_() {
+  cb_fotosJCE = [];
+  cb_filasCrudasIA = null;
+  cb_filasIACorrelativo = 0;
+  var mini = document.getElementById('cb_fotosJCEMiniaturas'); if (mini) mini.innerHTML = '';
+  var estado = document.getElementById('cb_estadoFotoIA'); if (estado) estado.innerHTML = '';
+  var preview = document.getElementById('cb_previewFotoIA'); if (preview) preview.innerHTML = '';
+  var btnLeer = document.getElementById('cb_btnLeerFotoIA'); if (btnLeer) btnLeer.style.display = 'none';
+  var input = document.getElementById('cb_fileFotoJCE'); if (input) input.value = '';
+}
+
+async function cb_archivoFotoJCESeleccionado(input) {
+  var archivos = Array.from(input.files || []);
+  input.value = '';
+  if (!archivos.length) return;
+
+  for (var i = 0; i < archivos.length; i++) {
+    try {
+      var comprimido = await comprimirImagen(archivos[i]);
+      var dataUrl = await new Promise(function (resolve, reject) {
+        var reader = new FileReader();
+        reader.onload = function (e) { resolve(e.target.result); };
+        reader.onerror = function () { reject(reader.error); };
+        reader.readAsDataURL(comprimido);
+      });
+      var base64 = dataUrl.split(',')[1] || '';
+      var mimeType = (comprimido.type || 'image/jpeg');
+      cb_fotosJCE.push({ nombre: archivos[i].name, mimeType: mimeType, base64: base64, preview: dataUrl });
+    } catch (e) {
+      mostrarAlerta('❌ Error', 'No se pudo leer la foto "' + archivos[i].name + '": ' + (e.message || e));
+    }
+  }
+
+  cb_pintarMiniaturasFotoJCE_();
+  var btnLeer = document.getElementById('cb_btnLeerFotoIA');
+  if (btnLeer) btnLeer.style.display = cb_fotosJCE.length ? 'block' : 'none';
+}
+
+function cb_pintarMiniaturasFotoJCE_() {
+  var box = document.getElementById('cb_fotosJCEMiniaturas');
+  if (!box) return;
+  box.innerHTML = cb_fotosJCE.map(function (f, i) {
+    return '<div style="position:relative;">' +
+      '<img src="' + f.preview + '" style="width:70px;height:70px;object-fit:cover;border-radius:8px;border:1px solid #d1c4e9;">' +
+      '<span onclick="cb_quitarFotoJCE_(' + i + ')" title="Quitar foto" ' +
+      'style="position:absolute;top:-6px;right:-6px;width:20px;height:20px;border-radius:50%;' +
+      'background:#e53935;color:#fff;font-weight:900;font-size:13px;display:flex;align-items:center;' +
+      'justify-content:center;cursor:pointer;box-shadow:0 1px 4px rgba(0,0,0,.3);">&times;</span>' +
+      '</div>';
+  }).join('');
+}
+
+function cb_quitarFotoJCE_(idx) {
+  cb_fotosJCE.splice(idx, 1);
+  cb_pintarMiniaturasFotoJCE_();
+  var btnLeer = document.getElementById('cb_btnLeerFotoIA');
+  if (btnLeer) btnLeer.style.display = cb_fotosJCE.length ? 'block' : 'none';
+}
+
+async function cb_leerFotosJCEConIA_() {
+  if (!cb_fotosJCE.length) return;
+
+  if (cb_filasCrudasIA && cb_filasCrudasIA.length) {
+    var ok = await mostrarConfirm('⚠️ Volver a leer',
+      'Ya tienes una tabla armada (con tus correcciones incluidas). Volver a leer con IA la va a reemplazar por completo.<br><br>¿Continuar?',
+      'Sí, reemplazar', 'Cancelar');
+    if (!ok) return;
+  }
+
+  var estado = document.getElementById('cb_estadoFotoIA');
+  if (estado) estado.innerHTML =
+    '<div style="background:#ede7f6;border-radius:8px;padding:9px 11px;font-size:12px;color:#4a148c;">' +
+    '🤖 Leyendo ' + cb_fotosJCE.length + ' foto(s) con IA... esto puede tardar 10-20 segundos.</div>';
+  document.getElementById('cb_previewFotoIA').innerHTML = '';
+
+  try {
+    var r = await fetch(URL_GAS, {
+      method: 'POST',
+      body: JSON.stringify({
+        accion: 'leerGuiaJCEConIA',
+        rut: localStorage.getItem('usuario') || '',
+        imagenes: cb_fotosJCE.map(function (f) { return { base64: f.base64, mimeType: f.mimeType }; })
+      })
+    });
+    var d = await r.json();
+
+    if (!d.ok) {
+      estado.innerHTML =
+        '<div style="background:#ffebee;border-radius:8px;padding:9px 11px;font-size:12px;color:#b71c1c;">' +
+        '❌ ' + (d.msg || 'No se pudo leer la foto.') +
+        (d.crudo ? '<div style="margin-top:6px;font-family:monospace;white-space:pre-wrap;font-size:10px;">' +
+          String(d.crudo).slice(0, 500) + '</div>' : '') +
+        '</div>';
+      return;
+    }
+
+    var filas = Array.isArray(d.filas) ? d.filas : [];
+    if (!filas.length) {
+      estado.innerHTML =
+        '<div style="background:#fff3e0;border-radius:8px;padding:9px 11px;font-size:12px;color:#b04a10;">' +
+        '⚠️ La IA no encontró filas con Etiqueta en la(s) foto(s). Prueba con una foto más nítida o agrega filas a mano abajo.</div>';
+    } else {
+      estado.innerHTML =
+        '<div style="background:#e8f5e9;border-radius:8px;padding:9px 11px;font-size:12px;color:#1b5e20;">' +
+        '✅ La IA leyó <b>' + filas.length + ' filas</b>. Revísalas y corrígelas antes de continuar.</div>';
+    }
+
+    var contador = 0;
+    cb_filasCrudasIA = filas.map(function (f) {
+      contador++;
+      return {
+        _id: contador,
+        etiqueta: String(f.etiqueta || '').trim(),
+        marca:    String(f.marca    || '').trim(),
+        escFact:  String(f.escFact  || '').trim(),
+        pzas:     String(f.pzas     != null ? f.pzas : '').trim(),
+        vol:      String(f.vol      != null ? f.vol  : '').trim(),
+        producto: String(f.producto || '').trim()
+      };
+    });
+    cb_filasIACorrelativo = contador;
+    cb_pintarPreviewFotoIA_();
+
+  } catch (e) {
+    estado.innerHTML =
+      '<div style="background:#ffebee;border-radius:8px;padding:9px 11px;font-size:12px;color:#b71c1c;">' +
+      '❌ Error de conexión: ' + (e.message || e) + '</div>';
+  }
+}
+
+function cb_pintarPreviewFotoIA_() {
+  var box = document.getElementById('cb_previewFotoIA');
+  if (!box) return;
+  if (!cb_filasCrudasIA) { box.innerHTML = ''; return; }
+
+  var campos = [
+    { k: 'etiqueta', label: 'Etiqueta → Lote', w: '110px' },
+    { k: 'marca',    label: 'Marca → Entrega', w: '90px' },
+    { k: 'escFact',  label: 'Esc.Fact', w: '110px' },
+    { k: 'pzas',     label: 'Pzas', w: '60px' },
+    { k: 'vol',      label: 'Vol (m³)', w: '80px' },
+    { k: 'producto', label: 'Producto', w: '140px' }
+  ];
+
+  var filasHtml = cb_filasCrudasIA.map(function (f) {
+    var celdas = campos.map(function (c) {
+      return '<td style="padding:2px;"><input value="' +
+        String(f[c.k] || '').replace(/"/g, '&quot;') + '" style="width:' + c.w + ';' +
+        'padding:5px 6px;border:1px solid #d1c4e9;border-radius:5px;font-size:11px;box-sizing:border-box;" ' +
+        'oninput="cb_editarCeldaFotoIA_(' + f._id + ',\'' + c.k + '\',this.value)"></td>';
+    }).join('');
+    return '<tr>' + celdas +
+      '<td style="padding:2px;text-align:center;">' +
+      '<span onclick="cb_quitarFilaFotoIA_(' + f._id + ')" title="Quitar fila" ' +
+      'style="cursor:pointer;color:#e53935;font-weight:900;font-size:15px;">&times;</span></td>' +
+      '</tr>';
+  }).join('');
+
+  var encabezado = campos.map(function (c) {
+    return '<th style="padding:4px 2px;font-size:10px;color:#4a148c;text-align:left;">' + c.label + '</th>';
+  }).join('') + '<th></th>';
+
+  box.innerHTML =
+    '<div style="overflow-x:auto;border:1px solid #d1c4e9;border-radius:9px;">' +
+      '<table style="border-collapse:collapse;width:100%;">' +
+        '<thead><tr>' + encabezado + '</tr></thead>' +
+        '<tbody id="cb_filasFotoIABody">' + filasHtml + '</tbody>' +
+      '</table>' +
+    '</div>' +
+    '<div style="display:flex;gap:8px;margin-top:8px;">' +
+      '<button onclick="cb_agregarFilaManualFotoIA_()" type="button" ' +
+        'style="flex:1;padding:9px;border-radius:8px;border:1px solid #b39ddb;background:#fff;' +
+        'color:#4a148c;font-weight:700;font-size:12px;cursor:pointer;">+ Agregar fila a mano</button>' +
+    '</div>' +
+    '<button onclick="cb_confirmarFotoIA_()" id="cb_btnConfirmarFotoIA" class="rcBtnGuardarNuevo" ' +
+      'style="margin-top:8px;background:#1b7a3a;">' +
+      '✅ Usar estos datos (' + cb_filasCrudasIA.length + ' filas)' +
+    '</button>';
+}
+
+function cb_editarCeldaFotoIA_(id, campo, valor) {
+  if (!cb_filasCrudasIA) return;
+  var fila = cb_filasCrudasIA.find(function (f) { return f._id === id; });
+  if (fila) fila[campo] = valor;
+  // No se repinta la tabla completa en cada tecla (perdería el foco);
+  // el botón de abajo ya toma el conteo actual de cb_filasCrudasIA.
+}
+
+function cb_quitarFilaFotoIA_(id) {
+  if (!cb_filasCrudasIA) return;
+  cb_filasCrudasIA = cb_filasCrudasIA.filter(function (f) { return f._id !== id; });
+  cb_pintarPreviewFotoIA_();
+}
+
+function cb_agregarFilaManualFotoIA_() {
+  if (!cb_filasCrudasIA) cb_filasCrudasIA = [];
+  cb_filasIACorrelativo++;
+  cb_filasCrudasIA.push({
+    _id: cb_filasIACorrelativo, etiqueta: '', marca: '', escFact: '', pzas: '', vol: '', producto: ''
+  });
+  cb_pintarPreviewFotoIA_();
+}
+
+/* Arma cb_filas con el MISMO formato que cb_parsearStockJCE (la
+   Marca combinada "dims - N pzas", Cliente = JCE, Nave/Puerto/EtaNave
+   vacíos) a partir de la tabla ya revisada por el usuario. */
+function cb_confirmarFotoIA_() {
+  if (!cb_filasCrudasIA || !cb_filasCrudasIA.length) return;
+
+  var cliente = (document.getElementById('cb_clienteStock') || {}).value || 'JCE';
+  var sinEtiqueta = 0;
+
+  var filas = [];
+  cb_filasCrudasIA.forEach(function (f) {
+    var lote = String(f.etiqueta || '').trim();
+    if (!lote) { sinEtiqueta++; return; }
+
+    var marcaCombinada = String(f.escFact || '').trim();
+    var piezasTxt = cb_fmtNumJCE(f.pzas);
+    if (piezasTxt) marcaCombinada += (marcaCombinada ? ' - ' : '') + piezasTxt + ' pzas';
+
+    filas.push({
+      Lote:     lote,
+      Entrega:  String(f.marca || '').trim(),
+      Nave:     '',
+      Marca:    marcaCombinada,
+      Volumen:  cb_numeroCL(f.vol),
+      EtaNave:  '',
+      Puerto:   '',
+      Cliente:  cliente,
+      Producto: String(f.producto || '').trim()
+    });
+  });
+
+  if (!filas.length) {
+    mostrarAlerta('⚠️ Sin filas válidas', 'Todas las filas están sin Etiqueta — no hay nada que cargar.');
+    return;
+  }
+  if (sinEtiqueta) {
+    mostrarAlerta('⚠️ Filas descartadas',
+      sinEtiqueta + ' fila(s) sin Etiqueta se descartaron. Complétalas y confirma de nuevo si las necesitas.');
+  }
+
+  cb_filas = filas;
+  cb_archivo = 'Foto JCE (' + cb_fotosJCE.length + ' imagen(es))';
+  cb_mostrarInfoDatos();
+  document.getElementById('cb_infoDatos').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
 
 /* ---- Validación en el servidor (no escribe nada) ---- */
@@ -22653,16 +22974,25 @@ function cb_cambiarFormato() {
   // propios de un cliente único (Stock Arauco, Stock JCE), donde se
   // fija solo y se bloquea para que nadie lo pueda cambiar por error.
   var selCliReset = document.getElementById('cb_clienteStock');
-  if (selCliReset && f !== 'ARAUCO' && f !== 'JCE_STOCK') selCliReset.disabled = false;
+  if (selCliReset && f !== 'ARAUCO' && f !== 'JCE_STOCK' && f !== 'JCE_FOTO') selCliReset.disabled = false;
 
   var aviso = document.getElementById('cb_avisoJCE');
   var avArauco = document.getElementById('cb_avisoArauco');
   var avStockJCE = document.getElementById('cb_avisoStockJCE');
   var avVol8 = document.getElementById('cb_avisoVol8');
+  var avFotoJCE = document.getElementById('cb_avisoFotoJCE');
   if (aviso)    aviso.style.display    = (f === 'JCE')    ? 'block' : 'none';
   if (avArauco) avArauco.style.display = (f === 'ARAUCO') ? 'block' : 'none';
   if (avStockJCE) avStockJCE.style.display = (f === 'JCE_STOCK') ? 'block' : 'none';
   if (avVol8) avVol8.style.display = (f === 'VOL8') ? 'block' : 'none';
+  if (avFotoJCE) avFotoJCE.style.display = (f === 'JCE_FOTO') ? 'block' : 'none';
+
+  // Foto JCE usa un bloque de carga distinto (fotos en vez de
+  // archivo/pegado), así que se intercambian los bloques enteros.
+  var bloqueNormal = document.getElementById('cb_bloqueArchivoNormal');
+  var bloqueFoto    = document.getElementById('cb_bloqueFotoJCE');
+  if (bloqueNormal) bloqueNormal.style.display = (f === 'JCE_FOTO') ? 'none' : 'block';
+  if (bloqueFoto)    bloqueFoto.style.display    = (f === 'JCE_FOTO') ? 'block' : 'none';
 
   // El modo JCE solo alimenta LotesDB
   if (f === 'JCE') {
@@ -22715,6 +23045,19 @@ function cb_cambiarFormato() {
     if (selCliJS) { selCliJS.value = 'JCE'; selCliJS.disabled = true; }
   }
 
+  // Foto de guía JCE (leída con IA) también solo alimenta STOCK_CLIENTE
+  if (f === 'JCE_FOTO') {
+    var selJF = document.getElementById('cb_destino');
+    if (selJF && selJF.value !== 'STOCK_CLIENTE') {
+      selJF.value = 'STOCK_CLIENTE';
+      cb_cambiarDestino();
+      document.getElementById('cb_formatoArchivo').value = 'JCE_FOTO';
+      if (avFotoJCE) avFotoJCE.style.display = 'block';
+    }
+    var selCliJF = document.getElementById('cb_clienteStock');
+    if (selCliJF) { selCliJF.value = 'JCE'; selCliJF.disabled = true; }
+  }
+
   // Volumen VIII solo alimenta LotesReex
   if (f === 'VOL8') {
     var selV8 = document.getElementById('cb_destino');
@@ -22735,6 +23078,7 @@ function cb_cambiarFormato() {
   var t = document.getElementById('cb_pegar'); if (t) t.value = '';
   var fr = document.getElementById('cb_fileReserva'); if (fr) fr.value = '';
   cb_pintarEstadoReservaExterna_();
+  cb_limpiarFotosJCE_();
 }
 
 /* ---------------------------------------------------------
