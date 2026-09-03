@@ -4653,19 +4653,19 @@ button:active {
 
       <div id="cb_avisoFotoJCE" style="display:none;background:#ede7f6;border:1px solid #b39ddb;
            border-radius:10px;padding:10px 12px;margin-bottom:12px;font-size:12px;color:#4a148c;">
-        <b>📷 Foto de guía JCE:</b> saca una foto (o sube la que ya tengas) de la
-        <b>Nota de Venta Interna / Packing List</b> — la tabla con una fila por
-        <b>Etiqueta</b>. Una IA la lee y arma la tabla de abajo:
+        <b>📷📄 Foto o PDF de guía JCE:</b> saca una foto o sube el PDF (o los que ya
+        tengas) de la <b>Nota de Venta Interna / Packing List</b> — la tabla con una
+        fila por <b>Etiqueta</b>. Una IA la lee y arma la tabla de abajo:
         <div style="margin-top:6px;line-height:1.7;">
           <b>Etiqueta</b> → Lote &nbsp;·&nbsp; <b>Marca</b> → Entrega<br>
           <b>Esc.Fact + Pzas</b> → Marca (combinado, igual que en Stock JCE)<br>
           <b>Vol</b> → Volumen &nbsp;·&nbsp; <b>Producto</b> → Producto
         </div>
         <div style="margin-top:6px;">
-          <b>Nada se carga automáticamente:</b> después de leer la foto vas a poder
-          revisar y corregir cada fila antes de continuar. Si en la misma foto sale
-          también la Guía de Despacho (la de totales por tipo de moldura), no pasa
-          nada — esa se ignora sola porque no trae Etiqueta por fila.
+          <b>Nada se carga automáticamente:</b> después de leerlo vas a poder
+          revisar y corregir cada fila antes de continuar. Si en la misma foto o PDF
+          sale también la Guía de Despacho (la de totales por tipo de moldura), no
+          pasa nada — esa se ignora sola porque no trae Etiqueta por fila.
         </div>
         <div style="margin-top:6px;">Cliente queda como <b>JCE</b> (automático). Nave, Puerto y EtaNave quedan vacíos.</div>
       </div>
@@ -4762,15 +4762,15 @@ button:active {
              style="border:2px dashed #7e57c2;border-radius:12px;padding:22px 14px;text-align:center;
                     background:#ede7f6;cursor:pointer;margin-bottom:10px;"
              onclick="document.getElementById('cb_fileFotoJCE').click()">
-          <div style="font-size:26px;">📷</div>
+          <div style="font-size:26px;">📷📄</div>
           <div style="font-size:14px;font-weight:800;color:#4a148c;margin-top:4px;">
-            Toca para sacar/elegir la foto del Packing List
+            Toca para sacar/elegir la foto o el PDF del Packing List
           </div>
           <div style="font-size:12px;color:#6a4a95;margin-top:2px;">
-            Puedes elegir más de una foto si son varias páginas
+            Puedes elegir más de un archivo si son varias páginas — fotos y PDF se pueden mezclar
           </div>
         </div>
-        <input type="file" id="cb_fileFotoJCE" accept="image/*" capture="environment" multiple
+        <input type="file" id="cb_fileFotoJCE" accept="image/*,.pdf,application/pdf" capture="environment" multiple
                style="display:none;" onchange="cb_archivoFotoJCESeleccionado(this)">
         <div id="cb_fotosJCEMiniaturas" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;"></div>
         <button onclick="cb_leerFotosJCEConIA_()" id="cb_btnLeerFotoIA"
@@ -9982,7 +9982,7 @@ function _fechaAyerLocal() {
     String(d.getDate()).padStart(2,'0');
 }
 
-const URL_GAS = "https://script.google.com/macros/s/AKfycbxU3G2zo_sFLGa4FvN8x7UwRrYtkOcbp2QBqtGQ6auASrtsewPJGLP0W4rEAsXFox0P/exec";
+const URL_GAS = "https://script.google.com/macros/s/AKfycbwurThYI6C2eUIWC1ZbK0E18ncKZlOXZNM0mvbc-S4okLy15xAb05lY7E1RCRn6Dc8/exec";
 
 // ─── LICENCIA Y DISPOSITIVO ──────────────────────────────────────
 const APP_LICENCIA = "CBOX-2026-ARAUCO-PROD-001"; // Cambiar por tu clave única
@@ -21667,7 +21667,7 @@ var CB_FORMATOS_POR_DESTINO = {
     { value: 'ESTANDAR', label: 'Estándar — columnas exactas' },
     { value: 'ARAUCO', label: 'Stock Arauco (ZQUSTOCKHOY) — archivo .XLS/.DBF' },
     { value: 'JCE_STOCK', label: 'Stock JCE — planilla de stock (hoja STOCK)' },
-    { value: 'JCE_FOTO', label: '📷 Foto de guía JCE — leer con IA' }
+    { value: 'JCE_FOTO', label: '📷📄 Foto o PDF de guía JCE — leer con IA' }
   ],
   LOTESREEX: [
     { value: 'ESTANDAR', label: 'Estándar — columnas exactas' },
@@ -22084,6 +22084,12 @@ async function cb_archivoFotoJCESeleccionado(input) {
 
   for (var i = 0; i < archivos.length; i++) {
     try {
+      var esPDF = archivos[i].type === 'application/pdf' ||
+        archivos[i].name.toLowerCase().endsWith('.pdf');
+
+      // comprimirImagen ya deja pasar los archivos que no son imagen sin
+      // tocarlos (revisa file.type internamente), así que sirve igual
+      // para PDF: solo comprime cuando de verdad es una foto.
       var comprimido = await comprimirImagen(archivos[i]);
       var dataUrl = await new Promise(function (resolve, reject) {
         var reader = new FileReader();
@@ -22092,10 +22098,13 @@ async function cb_archivoFotoJCESeleccionado(input) {
         reader.readAsDataURL(comprimido);
       });
       var base64 = dataUrl.split(',')[1] || '';
-      var mimeType = (comprimido.type || 'image/jpeg');
-      cb_fotosJCE.push({ nombre: archivos[i].name, mimeType: mimeType, base64: base64, preview: dataUrl });
+      // Algunos navegadores/celulares no completan bien el .type de un
+      // PDF elegido desde el explorador de archivos, así que se usa la
+      // extensión como respaldo para no mandarlo como si fuera imagen.
+      var mimeType = comprimido.type || (esPDF ? 'application/pdf' : 'image/jpeg');
+      cb_fotosJCE.push({ nombre: archivos[i].name, mimeType: mimeType, esPDF: esPDF, base64: base64, preview: dataUrl });
     } catch (e) {
-      mostrarAlerta('❌ Error', 'No se pudo leer la foto "' + archivos[i].name + '": ' + (e.message || e));
+      mostrarAlerta('❌ Error', 'No se pudo leer "' + archivos[i].name + '": ' + (e.message || e));
     }
   }
 
@@ -22108,9 +22117,17 @@ function cb_pintarMiniaturasFotoJCE_() {
   var box = document.getElementById('cb_fotosJCEMiniaturas');
   if (!box) return;
   box.innerHTML = cb_fotosJCE.map(function (f, i) {
+    var miniatura = f.esPDF
+      ? '<div style="width:70px;height:70px;border-radius:8px;border:1px solid #d1c4e9;' +
+        'background:#f3f0fa;display:flex;flex-direction:column;align-items:center;justify-content:center;' +
+        'font-size:22px;color:#7e57c2;overflow:hidden;">📄' +
+        '<span style="font-size:8px;color:#4a148c;padding:0 3px;text-align:center;word-break:break-all;">' +
+          (f.nombre.length > 14 ? f.nombre.slice(0, 12) + '…' : f.nombre) +
+        '</span></div>'
+      : '<img src="' + f.preview + '" style="width:70px;height:70px;object-fit:cover;border-radius:8px;border:1px solid #d1c4e9;">';
     return '<div style="position:relative;">' +
-      '<img src="' + f.preview + '" style="width:70px;height:70px;object-fit:cover;border-radius:8px;border:1px solid #d1c4e9;">' +
-      '<span onclick="cb_quitarFotoJCE_(' + i + ')" title="Quitar foto" ' +
+      miniatura +
+      '<span onclick="cb_quitarFotoJCE_(' + i + ')" title="Quitar" ' +
       'style="position:absolute;top:-6px;right:-6px;width:20px;height:20px;border-radius:50%;' +
       'background:#e53935;color:#fff;font-weight:900;font-size:13px;display:flex;align-items:center;' +
       'justify-content:center;cursor:pointer;box-shadow:0 1px 4px rgba(0,0,0,.3);">&times;</span>' +
@@ -22138,7 +22155,7 @@ async function cb_leerFotosJCEConIA_() {
   var estado = document.getElementById('cb_estadoFotoIA');
   if (estado) estado.innerHTML =
     '<div style="background:#ede7f6;border-radius:8px;padding:9px 11px;font-size:12px;color:#4a148c;">' +
-    '🤖 Leyendo ' + cb_fotosJCE.length + ' foto(s) con IA... esto puede tardar 10-20 segundos.</div>';
+    '🤖 Leyendo ' + cb_fotosJCE.length + ' archivo(s) con IA... esto puede tardar 10-20 segundos.</div>';
   document.getElementById('cb_previewFotoIA').innerHTML = '';
 
   try {
@@ -22155,7 +22172,7 @@ async function cb_leerFotosJCEConIA_() {
     if (!d.ok) {
       estado.innerHTML =
         '<div style="background:#ffebee;border-radius:8px;padding:9px 11px;font-size:12px;color:#b71c1c;">' +
-        '❌ ' + (d.msg || 'No se pudo leer la foto.') +
+        '❌ ' + (d.msg || 'No se pudo leer el archivo.') +
         (d.crudo ? '<div style="margin-top:6px;font-family:monospace;white-space:pre-wrap;font-size:10px;">' +
           String(d.crudo).slice(0, 500) + '</div>' : '') +
         '</div>';
@@ -22166,7 +22183,7 @@ async function cb_leerFotosJCEConIA_() {
     if (!filas.length) {
       estado.innerHTML =
         '<div style="background:#fff3e0;border-radius:8px;padding:9px 11px;font-size:12px;color:#b04a10;">' +
-        '⚠️ La IA no encontró filas con Etiqueta en la(s) foto(s). Prueba con una foto más nítida o agrega filas a mano abajo.</div>';
+        '⚠️ La IA no encontró filas con Etiqueta en el/los archivo(s). Prueba con una foto/PDF más nítido o agrega filas a mano abajo.</div>';
     } else {
       estado.innerHTML =
         '<div style="background:#e8f5e9;border-radius:8px;padding:9px 11px;font-size:12px;color:#1b5e20;">' +
