@@ -10105,19 +10105,20 @@ var _dispositivoId = _generarDispositivoId();
       // (ej: problemas de red, CORS al abrir el HTML como archivo
       // local en vez de WebApp publicada), se aborta para que el
       // catch del código se ejecute y la UI no quede pegada.
-      // FIX: Apps Script permite hasta ~6 minutos por solicitud; con
-      // hojas grandes (informes de stock, cargar bases, etc.) una
-      // consulta real puede tardar más de los 120s que había antes,
-      // así que ampliamos el margen a 5 minutos.
+      // FIX: Apps Script tiene un tope duro de ~6 minutos por solicitud;
+      // con hojas grandes (informes de stock, cargar bases, etc.) una
+      // consulta real puede acercarse a ese límite, así que ampliamos
+      // el margen del cliente a 8 minutos para no cortar antes que el
+      // propio Apps Script.
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 300000);
+      const timeoutId = setTimeout(() => controller.abort(), 480000);
 
       const opts = Object.assign({}, options, { signal: controller.signal });
 
       promesa = _origFetch.call(this, url, opts)
         .catch(err => {
           if (err && err.name === 'AbortError') {
-            throw new Error('El servidor tardó más de 5 minutos en responder (tiempo de espera agotado). ' +
+            throw new Error('El servidor tardó más de 8 minutos en responder (tiempo de espera agotado). ' +
               'Si pasa seguido con este informe en particular, probablemente la hoja de cálculo ya tiene ' +
               'muchos datos y la consulta se está volviendo lenta — no es un problema de tu conexión. ' +
               'Verifica también que la app esté abierta como WebApp publicada (no como archivo local).');
