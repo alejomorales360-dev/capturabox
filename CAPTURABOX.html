@@ -17600,10 +17600,13 @@ async function trazar_buscar() {
   }
 }
 
-function trazar_mostrar(data) {
-  var prev = document.getElementById('trazarModal');
-  if (prev) prev.remove();
+var trazar_ultimoDato = null; // último resultado mostrado, para poder imprimirlo
 
+/* Arma los 3 bloques de contenido (datos maestros, estado en stock,
+   historial) a partir de la respuesta del servidor. Lo usan tanto el
+   modal en pantalla (trazar_mostrar) como la vista de impresión
+   (trazar_imprimir), para no duplicar la lógica en dos lugares. */
+function trazar_construirBloques_(data) {
   var m = data.maestro || {};
   var s = data.stock || {};
   var eventos = data.eventos || [];
@@ -17690,6 +17693,17 @@ function trazar_mostrar(data) {
     timelineHtml = '<div style="text-align:center;color:#7a8b95;padding:20px;">No se encontraron movimientos para este lote.</div>';
   }
 
+  return { maestroHtml: maestroHtml, stockHtml: stockHtml, timelineHtml: timelineHtml,
+           estadoTxt: estadoTxt, badgeColor: badgeColor };
+}
+
+function trazar_mostrar(data) {
+  var prev = document.getElementById('trazarModal');
+  if (prev) prev.remove();
+
+  trazar_ultimoDato = data;
+  var b = trazar_construirBloques_(data);
+
   // Modal
   var el = document.createElement('div');
   el.id = 'trazarModal';
@@ -17703,24 +17717,59 @@ function trazar_mostrar(data) {
            'display:flex;justify-content:space-between;align-items:center;">' +
         '<div>' +
           '<div style="font-size:18px;font-weight:800;">\ud83d\udd0d ' + data.lote + '</div>' +
-          '<div style="display:inline-block;background:' + badgeColor + ';color:#fff;padding:2px 10px;' +
-            'border-radius:99px;font-size:11px;font-weight:800;margin-top:4px;">' + estadoTxt + '</div>' +
+          '<div style="display:inline-block;background:' + b.badgeColor + ';color:#fff;padding:2px 10px;' +
+            'border-radius:99px;font-size:11px;font-weight:800;margin-top:4px;">' + b.estadoTxt + '</div>' +
         '</div>' +
         '<button onclick="document.getElementById(\'trazarModal\').remove()" ' +
           'style="background:rgba(255,255,255,.2);color:#fff;border:none;width:30px;height:30px;' +
           'border-radius:8px;font-size:18px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;">&times;</button>' +
       '</div>' +
       '<div style="padding:14px 16px;max-height:70vh;overflow-y:auto;">' +
-        maestroHtml + stockHtml + timelineHtml +
+        b.maestroHtml + b.stockHtml + b.timelineHtml +
       '</div>' +
-      '<div style="padding:0 16px 14px;">' +
+      '<div style="padding:0 16px 14px;display:flex;gap:8px;">' +
+        '<button onclick="trazar_imprimir()" ' +
+          'style="flex:1;background:#1b6ca8;color:#fff;border:none;border-radius:11px;' +
+          'padding:12px;font-weight:800;cursor:pointer;">\ud83d\uddb6\ufe0f Imprimir</button>' +
         '<button onclick="document.getElementById(\'trazarModal\').remove()" ' +
-          'style="width:100%;background:#eef2f5;color:#444;border:none;border-radius:11px;' +
+          'style="flex:1;background:#eef2f5;color:#444;border:none;border-radius:11px;' +
           'padding:12px;font-weight:800;cursor:pointer;">Cerrar</button>' +
       '</div>' +
     '</div>';
 
   document.body.appendChild(el);
+}
+
+/* Abre una ventana nueva con el mismo resultado de trazabilidad,
+   lista para imprimir o guardar como PDF (mismo patr\u00f3n que el resto
+   de los informes de la app: bot\u00f3n que se oculta solo al imprimir). */
+function trazar_imprimir() {
+  if (!trazar_ultimoDato) return;
+  var data = trazar_ultimoDato;
+  var b = trazar_construirBloques_(data);
+
+  var w = window.open('', '_blank');
+  if (!w) { mostrarAlerta('Bloqueado', 'El navegador bloque\u00f3 la ventana. Habilita ventanas emergentes.'); return; }
+
+  var fecha = new Date().toLocaleString('es-CL', { hour12: false });
+
+  var html = '<!DOCTYPE html><htm' + 'l><hea' + 'd><meta charset="utf-8">' +
+    '<title>Trazabilidad ' + data.lote + '</title>' +
+    '<sty' + 'le>*{box-sizing:border-box;-webkit-print-color-adjust:exact;print-color-adjust:exact;color-adjust:exact;}' +
+    'body{font-family:Arial,sans-serif;margin:22px;color:#1c2b36;font-size:12.5px;}' +
+    'h2{margin:0 0 2px;color:#0b3c5d;}p.sub{color:#7a8b95;margin:0 0 14px;font-size:11px;}' +
+    '.badge{display:inline-block;background:' + b.badgeColor + ';color:#fff;padding:2px 10px;' +
+      'border-radius:99px;font-size:11px;font-weight:800;margin-left:8px;}' +
+    '.btnImprimir{position:fixed;top:14px;right:14px;background:#1b6ca8;color:#fff;border:none;' +
+    'border-radius:10px;padding:11px 18px;font-size:14px;font-weight:800;cursor:pointer;box-shadow:0 3px 10px rgba(0,0,0,.2);}' +
+    '@media print{.btnImprimir{display:none}}</sty' + 'le></hea' + 'd><bod' + 'y>' +
+    '<button class="btnImprimir" onclick="window.print()">Imprimir</button>' +
+    '<h2>\ud83d\udd0d Trazabilidad de lote ' + data.lote + '<span class="badge">' + b.estadoTxt + '</span></h2>' +
+    '<p class="sub">Generado el ' + fecha + '</p>' +
+    b.maestroHtml + b.stockHtml + b.timelineHtml +
+    '</bod' + 'y></htm' + 'l>';
+
+  w.document.open(); w.document.write(html); w.document.close();
 }
 
 /* =========================================================
