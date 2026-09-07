@@ -47,8 +47,15 @@ self.addEventListener("fetch", (event) => {
   // versión vieja mientras haya conexión. Si falla la red, se usa el caché
   // como respaldo offline.
   if (request.mode === "navigate" || request.destination === "document") {
+    // FIX: "fetch(request)" a secas todavía puede resolverse contra el
+    // caché HTTP del navegador (no el de este service worker) si el
+    // servidor mandó Cache-Control con algunos minutos de vigencia —
+    // eso hacía que un dispositivo recién abierto siguiera viendo la
+    // versión vieja después de un deploy exitoso, aunque esta lógica
+    // ya era "red primero". Con { cache: "no-store" } se obliga a
+    // preguntarle siempre al servidor, sin importar la vigencia.
     event.respondWith(
-      fetch(request)
+      fetch(request, { cache: "no-store" })
         .then((response) => {
           const copy = response.clone();
           caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
