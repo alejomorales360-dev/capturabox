@@ -1938,7 +1938,7 @@ button:active {
             Cambiar mi clave
           </span>
         </div>
-        <div style="text-align:center; margin-top:10px; font-size:10px; color:#c3ccd1;">v2026-09-07b</div>
+        <div style="text-align:center; margin-top:10px; font-size:10px; color:#c3ccd1;">v2026-09-07c</div>
       </div>
 
       <!-- PANEL CAMBIAR CLAVE -->
@@ -3464,7 +3464,7 @@ button:active {
     </div>
 
     <div class="rcFormGroup" style="margin-bottom:4px;">
-      <label class="rcFormLbl">Volumen Total m³ <span style="font-weight:400; color:#9aa7b0;">(opcional — puedes ingresarlo al cerrar)</span></label>
+      <label class="rcFormLbl">Volumen Total m³ <span style="font-weight:400; color:#9aa7b0;">(puedes dejarlo en blanco aquí — se pedirá obligatorio al cerrar el camión)</span></label>
       <input id="rc_volumen_camion" class="rcFormInput" type="number" min="0" step="0.001"
              placeholder="Ej: 48.250" style="padding:12px 14px;">
     </div>
@@ -5575,6 +5575,19 @@ async function cerrarCamion() {
     if (_lotesCheck.length === 0) {
       mostrarAlerta('\u26a0\ufe0f Sin lotes', 'No puede cerrar un cam\u00f3n sin lotes ingresados.');
       return;
+    }
+
+    // \u2705 Volumen Total m\u00b3 obligatorio para cerrar. Antes era opcional y
+    // se perd\u00eda en la mayor\u00eda de los camiones (quedaban en 0), aunque
+    // s\u00ed se contaban como cami\u00f3n recibido \u2014 eso desajustaba el m\u00b3 real
+    // reportado en el hist\u00f3rico semanal (TV) frente al n\u00famero de
+    // camiones. Si no se carg\u00f3 al iniciar la recepci\u00f3n, se pide ahora.
+    if (_jobCheck && (!_jobCheck.volumenTotal || Number(_jobCheck.volumenTotal) <= 0)) {
+      const _vol = await mostrarPromptVolumen(_jobCheck.volumenTotal);
+      if (!_vol) return; // cancel\u00f3: no se puede cerrar sin volumen
+      _jobCheck.volumenTotal = _vol;
+      _jobCheck.updatedAt = Date.now();
+      await rc_putJob(_jobCheck);
     }
 
     const _ok = await mostrarConfirm(
@@ -11019,6 +11032,56 @@ function mostrarConfirm(titulo, mensaje, txtSi, txtNo) {
       setTimeout(function(){ var si=document.getElementById('scannerInput'); if(si) si.focus(); }, 100);
       resolve(false);
     };
+  });
+}
+
+/* Pide el Volumen Total m³ del camión antes de cerrarlo. Se usa cuando
+   el supervisor no lo dejó cargado al iniciar la recepción — antes el
+   campo era opcional y muchos camiones quedaban con volumen 0, aunque
+   sí se contaban como camión recibido (por eso el gráfico de la TV podía
+   mostrar 35 camiones con solo 5,9 m³ esa semana: casi ninguno traía el
+   dato). Devuelve el número ingresado, o null si el usuario cancela. */
+function mostrarPromptVolumen(volumenActual) {
+  return new Promise(function(resolve) {
+    var el = document.getElementById('cbAlertBox');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'cbAlertBox';
+      el.style.cssText = 'position:fixed;inset:0;width:100vw;height:100vh;overflow-y:auto;' +
+        'background:rgba(0,0,0,.6);display:flex;align-items:center;' +
+        'justify-content:center;z-index:2000000;padding:20px;box-sizing:border-box;';
+    }
+    document.body.appendChild(el);
+    el.innerHTML =
+      '<div style="background:#fff;border-radius:18px;padding:24px 20px;max-width:360px;' +
+      'width:100%;box-shadow:0 8px 32px rgba(0,0,0,.3);text-align:center;">' +
+      '<div style="font-size:18px;font-weight:800;color:#0b3c5d;margin-bottom:12px;">📦 Volumen Total del camión</div>' +
+      '<div style="font-size:14px;color:#3a4a57;line-height:1.6;margin-bottom:16px;">' +
+      'Falta el volumen total (m³) para poder cerrar este camión.</div>' +
+      '<input id="cbPromptVolumen" type="number" min="0.001" step="0.001" ' +
+      'value="' + (volumenActual ? volumenActual : '') + '" placeholder="Ej: 48.250" ' +
+      'style="width:100%;box-sizing:border-box;padding:12px 14px;border:1.5px solid #d5dde5;' +
+      'border-radius:10px;font-size:16px;text-align:center;margin-bottom:18px;">' +
+      '<div style="display:flex;gap:10px;">' +
+      '<button id="cbPromptVolCancel" style="flex:1;background:#f4f7f9;color:#5a6b77;border:none;' +
+      'border-radius:12px;padding:12px;font-size:15px;font-weight:700;cursor:pointer;">Cancelar</button>' +
+      '<button id="cbPromptVolOk" style="flex:1;background:#0b7a50;color:#fff;border:none;' +
+      'border-radius:12px;padding:12px;font-size:15px;font-weight:700;cursor:pointer;">Confirmar</button></div></div>';
+    el.style.display = 'flex';
+    var input = document.getElementById('cbPromptVolumen');
+    setTimeout(function(){ input && input.focus(); }, 100);
+
+    function cerrar(valor) {
+      el.style.display = 'none';
+      setTimeout(function(){ var si=document.getElementById('scannerInput'); if(si) si.focus(); }, 100);
+      resolve(valor);
+    }
+    document.getElementById('cbPromptVolOk').onclick = function() {
+      var v = parseFloat(input.value);
+      if (!v || v <= 0 || isNaN(v)) { input.style.borderColor = '#e05c2b'; input.focus(); return; }
+      cerrar(v);
+    };
+    document.getElementById('cbPromptVolCancel').onclick = function() { cerrar(null); };
   });
 }
 
