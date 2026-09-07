@@ -7716,6 +7716,17 @@ async function enviarABaseDeDatosDesdeJob(job) {
   }
 
   if (!resultado.ok) throw new Error(resultado.msg || "Error servidor");
+
+  // La recepción se guardó bien, pero el backend puede avisar que
+  // alguna foto de daño no se pudo subir (antes esto se perdía en
+  // silencio sin que nadie se enterara).
+  if (Array.isArray(resultado.fotosConError) && resultado.fotosConError.length) {
+    setTimeout(function () {
+      mostrarAlerta('⚠️ Foto(s) de daño no subida(s)',
+        (resultado.msg || 'Algunas fotos de daño no se pudieron subir.') +
+        '\n\nUsa "Editar" en esta recepción para volver a intentar subir la(s) foto(s) del lote afectado.');
+    }, 300);
+  }
 }
 
 /* ===================================================
