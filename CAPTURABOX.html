@@ -1938,7 +1938,7 @@ button:active {
             Cambiar mi clave
           </span>
         </div>
-        <div style="text-align:center; margin-top:10px; font-size:10px; color:#c3ccd1;">v2026-09-07d</div>
+        <div style="text-align:center; margin-top:10px; font-size:10px; color:#c3ccd1;">v2026-09-08a</div>
       </div>
 
       <!-- PANEL CAMBIAR CLAVE -->
@@ -10006,7 +10006,7 @@ function _fechaAyerLocal() {
     String(d.getDate()).padStart(2,'0');
 }
 
-const URL_GAS = "https://script.google.com/macros/s/AKfycbxyvIJF6WlaF7o7NUVPtelIrynQ_u7fi4_lVxIcdt4-EERW2xzRALEioMeY_hs5D78/exec";
+const URL_GAS = "https://script.google.com/macros/s/AKfycbzjBc2iL6IKHAZlIrrzjXGZjc-M92IiTiBEYI-kn3noO2gDgWRn288T3tPcfcbpgHKY/exec";
 
 // ─── LICENCIA Y DISPOSITIVO ──────────────────────────────────────
 const APP_LICENCIA = "CBOX-2026-ARAUCO-PROD-001"; // Cambiar por tu clave única
@@ -10919,8 +10919,21 @@ async function syncParcialANube(job) {
   _cbNube_lock = true;
   _cbNube_pendiente = false;
   try {
+    // FIX: antes totalPeso/totalVolumen se mandaban desde job.totalPeso/
+    // job.totalVolumen — un valor "congelado" desde la última vez que se
+    // guardó localmente (hasta 90s atrás por el freno de red), mientras
+    // que totalLotes sí se recalculaba fresco. Ahora los tres (lotes,
+    // peso, volumen y nave) se recalculan frescos desde los registros
+    // reales al momento de enviar, para que "en proceso" en el dashboard
+    // TV no muestre datos desactualizados o en 0 mientras el contenedor
+    // sigue abierto.
     var registrosActuales = (typeof registros !== 'undefined') ? registros : (job.registros || []);
     var totalLotesActual = registrosActuales.reduce(function(a,r){ return a+(Number(r.cantidad)||1); },0);
+    var totalPesoActual = registrosActuales.reduce(function(a,r){ return a+(Number(r.peso)||0); },0);
+    var totalVolumenActual = registrosActuales.reduce(function(a,r){ return a+(Number(r.volumen)||0); },0);
+    // Nave: no es un dato de cabecera (datosCont), viene de cada lote
+    // escaneado — se usa la del último lote agregado como referencia.
+    var naveActual = registrosActuales.length ? (registrosActuales[registrosActuales.length - 1].nave || '') : '';
 
     var _payload = {
       accion:       'guardarConsolidadoParcial',
@@ -10934,9 +10947,10 @@ async function syncParcialANube(job) {
       tara:         job.datosCont.tara,
       maxgross:     job.datosCont.maxgross || '',
       tipo:         job.datosCont.tipo || '',
+      nave:         naveActual,
       totalLotes:   totalLotesActual,
-      totalPeso:    job.totalPeso,
-      totalVolumen: job.totalVolumen,
+      totalPeso:    totalPesoActual,
+      totalVolumen: totalVolumenActual,
       actualizado:  job.actualizado
     };
 
