@@ -1938,7 +1938,7 @@ button:active {
             Cambiar mi clave
           </span>
         </div>
-        <div style="text-align:center; margin-top:10px; font-size:10px; color:#c3ccd1;">v2026-09-08e</div>
+        <div style="text-align:center; margin-top:10px; font-size:10px; color:#c3ccd1;">v2026-09-08f</div>
       </div>
 
       <!-- PANEL CAMBIAR CLAVE -->
@@ -10006,7 +10006,7 @@ function _fechaAyerLocal() {
     String(d.getDate()).padStart(2,'0');
 }
 
-const URL_GAS = "https://script.google.com/macros/s/AKfycbzkzhSBSEtOdJSv_jfcrbds9uEtjIH9pINHLTKL1YwZokzDtInDX8sv3G2z7P9CYgaM/exec";
+const URL_GAS = "https://script.google.com/macros/s/AKfycbyt2_QL0JVITmV6AjXdhyg6S_Z45GMluuqSnw06c_MRiquucoRXc7PRCswAo4RvYKg/exec";
 
 // ─── LICENCIA Y DISPOSITIVO ──────────────────────────────────────
 const APP_LICENCIA = "CBOX-2026-ARAUCO-PROD-001"; // Cambiar por tu clave única
@@ -22911,6 +22911,7 @@ async function cb_verPendientesRecepcion() {
     }
 
     var filas = d.data.map(function(x, i) {
+      var loteEsc = String(x.Lote || '').replace(/'/g, "\\'");
       return '<tr style="background:' + (i % 2 ? '#f7f9fb' : '#fff') + ';">' +
         '<td style="padding:6px 8px;border:1px solid #e6ebee;font-weight:700;">' + (x.Lote || '\u2014') + '</td>' +
         '<td style="padding:6px 8px;border:1px solid #e6ebee;">' + (x.Cliente || '\u2014') + '</td>' +
@@ -22918,6 +22919,12 @@ async function cb_verPendientesRecepcion() {
         '<td style="padding:6px 8px;border:1px solid #e6ebee;">' + (x.Nave || '\u2014') + '</td>' +
         '<td style="padding:6px 8px;border:1px solid #e6ebee;text-align:right;">' +
           (Number(x.Volumen) ? Number(x.Volumen).toFixed(3) : '\u2014') + '</td>' +
+        '<td style="padding:6px 8px;border:1px solid #e6ebee;text-align:center;">' +
+          '<button onclick="cb_aprobarPendienteSinGuia(\'' + loteEsc + '\')" ' +
+            'style="background:#0b3c5d;color:#fff;border:none;border-radius:8px;' +
+            'padding:6px 10px;font-size:11px;font-weight:800;cursor:pointer;white-space:nowrap;">' +
+            '\u2705 Sin gu\u00eda</button>' +
+        '</td>' +
       '</tr>';
     }).join('');
 
@@ -22952,6 +22959,7 @@ async function cb_verPendientesRecepcion() {
                 '<th style="padding:7px 8px;text-align:left;">ENTREGA</th>' +
                 '<th style="padding:7px 8px;text-align:left;">NAVE</th>' +
                 '<th style="padding:7px 8px;text-align:right;">M\u00b3</th>' +
+                '<th style="padding:7px 8px;text-align:center;">ACCI\u00d3N</th>' +
               '</tr></thead><tbody>' + filas + '</tbody>' +
             '</table>' +
           '</div>' +
@@ -22994,6 +23002,44 @@ async function cb_forzarPromocion() {
   } catch (e) {
     ocultarCargando();
     mostrarAlerta('\u274c Error de conexi\u00f3n', 'No se pudo promover. Intenta de nuevo.');
+  }
+}
+
+/* Ingresa a Stock un lote pendiente SIN exigir que tenga una gu\u00eda de
+   recepci\u00f3n real \u2014 para casos excepcionales (ej: el cliente reetiquet\u00f3
+   o reincorpor\u00f3 un lote a su stock que nunca lleg\u00f3 f\u00edsicamente por
+   gu\u00eda). Queda registrado en Auditoria_AprobacionManualStock qui\u00e9n lo
+   aprob\u00f3. */
+async function cb_aprobarPendienteSinGuia(lote) {
+  var ok = await mostrarConfirm('\u26a0\ufe0f Ingresar sin gu\u00eda',
+    'Vas a incorporar el lote <b>' + lote + '</b> al Stock Cliente ' +
+    'SIN que exista una recepci\u00f3n con gu\u00eda para \u00e9l.' +
+    '<br><br>\u00dasalo solo para casos excepcionales confirmados con el cliente ' +
+    '(ej: reetiquetado o reincorporaci\u00f3n de un lote que nunca lleg\u00f3 f\u00edsicamente por gu\u00eda). ' +
+    'Quedar\u00e1 registrado qui\u00e9n lo aprob\u00f3.' +
+    '<br><br>\u00bfConfirmas?');
+  if (!ok) return;
+
+  mostrarCargando('Ingresando lote a stock...');
+  try {
+    var r = await fetch(URL_GAS, { method: 'POST',
+      body: JSON.stringify({
+        accion: 'aprobarPendienteSinRecepcion',
+        lote: lote,
+        rut: localStorage.getItem('usuario') || ''
+      }) });
+    var d = await r.json();
+    ocultarCargando();
+    if (d.ok) {
+      mostrarAlerta('\u2705 Lote ingresado',
+        'El lote <b>' + d.lote + '</b> (' + (d.cliente || 'sin cliente') + ') ya est\u00e1 en Stock Cliente.');
+      cb_verPendientesRecepcion(); // refresca la lista, ya sin este lote
+    } else {
+      mostrarAlerta('\u274c Error', d.msg || 'No se pudo ingresar el lote.');
+    }
+  } catch (e) {
+    ocultarCargando();
+    mostrarAlerta('\u274c Error de conexi\u00f3n', 'No se pudo ingresar el lote. Intenta de nuevo.');
   }
 }
 
