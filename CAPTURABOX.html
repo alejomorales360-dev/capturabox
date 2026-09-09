@@ -1938,7 +1938,7 @@ button:active {
             Cambiar mi clave
           </span>
         </div>
-        <div style="text-align:center; margin-top:10px; font-size:10px; color:#c3ccd1;">v2026-09-09h</div>
+        <div style="text-align:center; margin-top:10px; font-size:10px; color:#c3ccd1;">v2026-09-09i</div>
       </div>
 
       <!-- PANEL CAMBIAR CLAVE -->
@@ -22794,8 +22794,31 @@ async function cb_ejecutar() {
   }
 }
 
+/* Sube una tanda a stockClienteRecibirTanda con reintentos: en wifi de
+   bodega o datos m\u00f3viles es normal que una conexi\u00f3n falle una vez
+   ("Failed to fetch") sin que sea un error real \u2014 antes de rendirse,
+   reintenta unas pocas veces con una breve espera entre intento e
+   intento. */
+async function cb_fetchConReintento_(body, intentos) {
+  var ultimoError = null;
+  for (var i = 0; i < intentos; i++) {
+    try {
+      var r = await fetch(URL_GAS, { method: 'POST', body: JSON.stringify(body) });
+      return await r.json();
+    } catch (e) {
+      ultimoError = e;
+      if (i < intentos - 1) await new Promise(function(res) { setTimeout(res, 1500 * (i + 1)); });
+    }
+  }
+  throw ultimoError;
+}
+
 /* Carga del stock del cliente: reemplaza todo y cruza de una vez.
-   Va en una sola llamada porque el cruce necesita el archivo completo. */
+   El archivo se sube en tandas chicas a una hoja de staging en el
+   servidor (r\u00e1pidas y livianas, para no perder la conexi\u00f3n en
+   archivos grandes) y reci\u00e9n al final se pide "finalizar", que junta
+   todas las tandas y hace el cruce completo \u2014 el cruce necesita el
+   archivo completo para saber qu\u00e9 lotes salieron del stock. */
 async function cb_ejecutarStock() {
   var _cliSel = (document.getElementById('cb_clienteStock') || {}).value || '';
 
@@ -22808,18 +22831,43 @@ async function cb_ejecutarStock() {
     '<br><br>\u00bfDesea continuar?');
   if (!ok) return;
 
-  mostrarCargando('Cargando y cruzando ' + cb_filas.length + ' lotes...');
+  var rut = localStorage.getItem('usuario') || '';
+  var sesionId = 'st_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+  var TANDA_STOCK = 400;
+  var tandas = [];
+  for (var i = 0; i < cb_filas.length; i += TANDA_STOCK) tandas.push(cb_filas.slice(i, i + TANDA_STOCK));
 
   try {
-    var r = await fetch(URL_GAS, { method: 'POST',
-      body: JSON.stringify({
-        accion: 'cargarStockCliente',
-        rut: localStorage.getItem('usuario') || '',
-        cliente: (document.getElementById('cb_clienteStock') || {}).value || '',
-        archivo: cb_archivo,
-        filas: cb_filas
-      }) });
-    var d = await r.json();
+    for (var t = 0; t < tandas.length; t++) {
+      mostrarCargando('Subiendo tanda ' + (t + 1) + ' de ' + tandas.length + '...');
+
+      var dTanda = await cb_fetchConReintento_({
+        accion: 'stockClienteRecibirTanda',
+        rut: rut,
+        sesionId: sesionId,
+        cliente: _cliSel,
+        filas: tandas[t]
+      }, 3);
+
+      if (!dTanda.ok) {
+        ocultarCargando();
+        mostrarAlerta('\u274c No se pudo cargar',
+          'Fall\u00f3 al subir la tanda ' + (t + 1) + ' de ' + tandas.length + '.<br><br>' +
+          (dTanda.msg || '') + '<br><br>No se aplic\u00f3 ning\u00fan cambio al stock \u2014 puedes reintentar ' +
+          'la carga completa del archivo.');
+        return;
+      }
+    }
+
+    mostrarCargando('Cargando y cruzando ' + cb_filas.length + ' lotes...');
+
+    var d = await cb_fetchConReintento_({
+      accion: 'stockClienteFinalizar',
+      rut: rut,
+      sesionId: sesionId,
+      cliente: _cliSel,
+      archivo: cb_archivo
+    }, 3);
     ocultarCargando();
 
     if (!d.ok) {
