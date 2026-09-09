@@ -1938,7 +1938,7 @@ button:active {
             Cambiar mi clave
           </span>
         </div>
-        <div style="text-align:center; margin-top:10px; font-size:10px; color:#c3ccd1;">v2026-09-09i</div>
+        <div style="text-align:center; margin-top:10px; font-size:10px; color:#c3ccd1;">v2026-09-09j</div>
       </div>
 
       <!-- PANEL CAMBIAR CLAVE -->
@@ -10096,7 +10096,7 @@ function _fechaAyerLocal() {
     String(d.getDate()).padStart(2,'0');
 }
 
-const URL_GAS = "https://script.google.com/macros/s/AKfycby56E3Zy82qE6nVmH3-ehwwb7E1PPb8f-FxLSPy4G25ShTCXW7BlX9rYo904w4mzPF_/exec";
+const URL_GAS = "https://script.google.com/macros/s/AKfycbyiyyskrGBfqtbXcqFE4PkxSRRQFfEAl_G6G-0KdpavBrEKXk9GRA8Bb4Wvy3hTZyDk/exec";
 
 // ─── LICENCIA Y DISPOSITIVO ──────────────────────────────────────
 const APP_LICENCIA = "CBOX-2026-ARAUCO-PROD-001"; // Cambiar por tu clave única
@@ -22871,7 +22871,14 @@ async function cb_ejecutarStock() {
     ocultarCargando();
 
     if (!d.ok) {
-      mostrarAlerta('\u274c No se pudo cargar', d.msg || 'Error desconocido');
+      var esCargaEnCurso = /carga de stock.*en curso/i.test(d.msg || '');
+      mostrarAlerta('\u274c No se pudo cargar',
+        (d.msg || 'Error desconocido') +
+        (esCargaEnCurso
+          ? '<br><br><span style="font-size:12px;color:#7a8b95;">Puede que el intento anterior s\u00ed ' +
+            'haya terminado bien, solo que tard\u00f3 m\u00e1s de lo que tu conexi\u00f3n esper\u00f3 una respuesta. ' +
+            'Antes de reintentar, revisa <b>Ver \u00faltimas cargas</b> para confirmar si ya se aplic\u00f3.</span>'
+          : ''));
       return;
     }
 
