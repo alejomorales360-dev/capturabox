@@ -13532,10 +13532,38 @@ function resetToggleTrineo() {
   actualizarPendienteTrineo();
 }
 
+/* Última red de seguridad: vuelve a revisar TODOS los lotes ya
+   agregados al contenedor (no solo el que se acaba de escanear) por
+   si alguno de un producto que siempre lleva trineo (plywood, madera
+   verde) quedó sin corregir el switch — por ejemplo porque su
+   "producto" llegó vacío justo en el momento del escaneo. Se llama
+   antes de cada guardado (parcial cada 90s y final), así se
+   autocorrige aunque el chequeo del momento del escaneo haya fallado.
+   No hace nada si el usuario ya fijó el trineo a mano. */
+function trineo_revisarTodosLosLotes_() {
+  if (_trineoManual) return;
+  if (typeof registros === 'undefined' || !Array.isArray(registros)) return;
+
+  var actual = (document.getElementById('dc_trineo') || {}).value || 'NO';
+  if (actual === 'SI') return;
+
+  for (var i = 0; i < registros.length; i++) {
+    var sugerencia = trineo_sugerenciaPorProducto(registros[i].producto || '');
+    if (sugerencia === 'SI') {
+      setTrineo('SI');
+      var msgAuto = '🛷 Se ajustó el trineo a <b>SÍ</b> porque hay lotes de <b>' +
+        (registros[i].producto || '') + '</b> en este contenedor — ese producto siempre lleva trineo.';
+      if (typeof mostrarAlerta === 'function') mostrarAlerta('🛷 Trineo ajustado automáticamente', msgAuto);
+      return;
+    }
+  }
+}
+
 /* Bloquea el guardado si el trineo no fue confirmado (a mano o
    por auto-detección). Llamar al inicio de guardarParcial y
    guardarConsolidadoFinal. Devuelve true si se puede continuar. */
 function trineo_validarAntesDeGuardar() {
+  trineo_revisarTodosLosLotes_();
   if (_trineoRespondido) return true;
   var msg = 'Debes marcar si el contenedor llevó trineo (patinado) o no, antes de guardar.';
   if (typeof mostrarAlerta === 'function') mostrarAlerta('🛷 Falta confirmar trineo', msg);
