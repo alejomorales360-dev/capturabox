@@ -1938,7 +1938,7 @@ button:active {
             Cambiar mi clave
           </span>
         </div>
-        <div style="text-align:center; margin-top:10px; font-size:10px; color:#c3ccd1;">v2026-09-09f</div>
+        <div style="text-align:center; margin-top:10px; font-size:10px; color:#c3ccd1;">v2026-09-09g</div>
       </div>
 
       <!-- PANEL CAMBIAR CLAVE -->
@@ -8737,11 +8737,17 @@ function abrirDetalleRecepcionDesdeResumenNube(keyOrIdx) {
     });
   }
 
+  // Se calcula antes de armar los botones para saber si corresponde
+  // mostrar "🖼️ Fotos" (solo si hay algún lote con daño y foto).
+  const detalle   = Array.isArray(c.detalle) ? c.detalle : [];
+  const lotesDanio = detalle.filter(d => d.danio === "SI" || d.danio === true);
+
   // La fila de botones se recalcula en cada apertura (no solo al crear el
   // modal) porque el permiso de edición puede cambiar entre una apertura y
   // otra dentro de la misma sesión.
   document.getElementById("rc_detalleBotones").innerHTML = `
     <button class="no-print" onclick="imprimirModalRecepcion()" style="flex:1;">🖨️ Imprimir PDF</button>
+    ${lotesDanio.length ? '<button class="no-print" onclick="imprimirFotosRecepcion()" style="flex:1;background:#b04a10;">🖼️ Fotos</button>' : ''}
     <button class="no-print" onclick="exportarRecepcionXLSX()" style="flex:1;background:#1b7a3a;">📗 XLSX</button>
     ${rc_puedeEditar() ? '<button class="no-print" onclick="rc_editarRecepcionEnviada()" style="flex:1;background:#e05c2b;">✏️ Editar</button>' : ''}
     <button class="no-print" onclick="cerrarDetalleRecepcion()" style="flex:1;background:#444;">← Cerrar</button>
@@ -8752,8 +8758,6 @@ function abrirDetalleRecepcionDesdeResumenNube(keyOrIdx) {
 
   // ── SECCIÓN DE DAÑOS ─────────────────────────────────────────
   const daniosDiv = document.getElementById("rc_detalleDanios");
-  const detalle   = Array.isArray(c.detalle) ? c.detalle : [];
-  const lotesDanio = detalle.filter(d => d.danio === "SI" || d.danio === true);
 
   // ── Normalizar campos de daño ──────────────────────────────────────────
   lotesDanio.forEach(d => {
@@ -9127,6 +9131,92 @@ function rc_linkFotoAMostrar(url) {
   const m = url.match(/\/file\/d\/([^/]+)/);
   if (m) return `https://drive.google.com/uc?export=view&id=${m[1]}`;
   return url;
+}
+
+/* Aplana las fotos de daño de la recepción actual a [{ etiqueta, src }]
+   — un lote puede traer varias fotos separadas por " | ". Mismo patrón
+   que _extraerFotosParaImprimir() de Consolidado. */
+function _extraerFotosDanioRecepcion(c) {
+  const out = [];
+  const detalle = Array.isArray(c && c.detalle) ? c.detalle : [];
+  detalle.forEach(function (d) {
+    if (!(d.danio === "SI" || d.danio === true)) return;
+    const linkFotos = d.linkFotos || d.linkFotosDanio || d.link_fotos || "";
+    if (!linkFotos || linkFotos === "—") return;
+    linkFotos.split(" | ").map(function (u) { return u.trim(); }).filter(Boolean)
+      .forEach(function (url, i) {
+        const src = rc_linkFotoAMostrar(url);
+        if (src) out.push({ etiqueta: "Lote " + (d.lote || "—") + " · Foto " + (i + 1), src: src });
+      });
+  });
+  return out;
+}
+
+/* Genera una hoja imprimible con TODAS las fotos de daño de esta
+   recepción (4 por página, 2x2) junto con los datos de la guía — mismo
+   patrón que imprimirFotosConsolidado(), para tener un respaldo en PDF
+   de las fotos además del link/QR a Drive. */
+function imprimirFotosRecepcion() {
+  const c = window._rc_detalleActual;
+  if (!c) {
+    mostrarAlerta('⚠️ Sin datos', 'No hay una recepción cargada.');
+    return;
+  }
+
+  const fotos = _extraerFotosDanioRecepcion(c);
+  if (!fotos.length) {
+    mostrarAlerta('📷 Sin fotos', 'Esta recepción no tiene fotos de daño para imprimir.');
+    return;
+  }
+
+  const w = window.open('', '_blank');
+  if (!w) { mostrarAlerta('Bloqueado', 'El navegador bloqueó la ventana. Habilita ventanas emergentes.'); return; }
+
+  const guiasTxt = Array.isArray(c.guias) ? c.guias.join(' / ') : (c.guias || '—');
+  const encabezado = (c.cliente || '—') +
+    ' · Guías ' + guiasTxt +
+    (c.operacion ? ' · OP ' + c.operacion : '') +
+    (c.patente ? ' · ' + c.patente : '');
+
+  const hojas = [];
+  for (let i = 0; i < fotos.length; i += 4) hojas.push(fotos.slice(i, i + 4));
+
+  const htmlHojas = hojas.map(function (grupo, idxHoja) {
+    const celdas = grupo.map(function (f) {
+      return '<div class="celda">' +
+        '<img src="' + f.src + '" alt="' + f.etiqueta + '">' +
+        '<div class="etiqueta">' + f.etiqueta + '</div>' +
+        '</div>';
+    }).join('');
+    return '<div class="hoja' + (idxHoja < hojas.length - 1 ? ' salto' : '') + '">' +
+      '<div class="hojaTop"><b>' + encabezado + '</b><span>Hoja ' + (idxHoja + 1) + ' de ' + hojas.length + '</span></div>' +
+      '<div class="grid">' + celdas + '</div>' +
+      '</div>';
+  }).join('');
+
+  const html = '<!DOCTYPE html><htm' + 'l><hea' + 'd><meta charset="utf-8">' +
+    '<title>Fotos daño ' + guiasTxt + '</title>' +
+    '<sty' + 'le>*{box-sizing:border-box;-webkit-print-color-adjust:exact;print-color-adjust:exact;color-adjust:exact;}' +
+    'body{font-family:Arial,sans-serif;margin:0;color:#1a2a3a;}' +
+    '@page{size:A4 portrait;margin:12mm;}' +
+    '.hoja{display:flex;flex-direction:column;height:265mm;}' +
+    '.hoja.salto{page-break-after:always;}' +
+    '.hojaTop{display:flex;justify-content:space-between;align-items:baseline;' +
+    'font-size:12px;color:#0b3c5d;border-bottom:2px solid #0b3c5d;padding-bottom:6px;margin-bottom:10px;}' +
+    '.hojaTop span{font-size:11px;color:#7a8b95;}' +
+    '.grid{flex:1;display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;gap:10px;min-height:0;}' +
+    '.celda{border:1px solid #dde3e8;border-radius:8px;padding:6px;display:flex;flex-direction:column;min-height:0;}' +
+    '.celda img{flex:1;width:100%;height:100%;object-fit:contain;min-height:0;}' +
+    '.etiqueta{text-align:center;font-size:11px;font-weight:800;color:#0b3c5d;letter-spacing:.5px;padding-top:4px;}' +
+    '.btnImprimir{position:fixed;top:14px;right:14px;background:#0b3c5d;color:#fff;border:none;' +
+    'border-radius:10px;padding:11px 18px;font-size:14px;font-weight:800;cursor:pointer;box-shadow:0 3px 10px rgba(0,0,0,.2);}' +
+    '@media print{.btnImprimir{display:none}}</sty' + 'le></hea' + 'd><bod' + 'y>' +
+    '<button class="btnImprimir" onclick="window.print()">🖨️ Imprimir / Guardar como PDF</button>' +
+    htmlHojas +
+    '</bod' + 'y></htm' + 'l>';
+
+  w.document.open(); w.document.write(html); w.document.close();
+  setTimeout(function () { w.print(); }, 700);
 }
 
 function rc_imprimirDetalleRecepcionModal(){
