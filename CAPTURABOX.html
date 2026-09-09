@@ -1938,7 +1938,7 @@ button:active {
             Cambiar mi clave
           </span>
         </div>
-        <div style="text-align:center; margin-top:10px; font-size:10px; color:#c3ccd1;">v2026-09-09c</div>
+        <div style="text-align:center; margin-top:10px; font-size:10px; color:#c3ccd1;">v2026-09-09d</div>
       </div>
 
       <!-- PANEL CAMBIAR CLAVE -->
@@ -13434,6 +13434,13 @@ function trineo_sugerenciaPorProducto(producto) {
    el valor, sigue quedando en true igual que antes. */
 var _trineoRespondido = true;
 
+/* true solo cuando el USUARIO tocó el switch a mano (toggleTrineo).
+   Mientras siga en false, el valor viene de la auto-detección y se
+   puede seguir corrigiendo solo con cada lote nuevo — así un lote de
+   plywood que llega después del primero no se queda silenciado
+   detrás de una alerta que nadie alcanzó a leer. */
+var _trineoManual = false;
+
 function actualizarPendienteTrineo() {
   var el = document.getElementById('dc_trineo_pendiente');
   if (el) el.style.display = _trineoRespondido ? 'none' : 'block';
@@ -13473,13 +13480,24 @@ function trineo_evaluarProductoLote(producto, esPrimerLote) {
   }
 
   var actual = (document.getElementById('dc_trineo') || {}).value || 'NO';
-  if (sugerencia !== actual) {
-    var msg = '⚠️ El producto <b>' + (producto || '') + '</b> normalmente lleva trineo <b>' +
-      (sugerencia === 'SI' ? 'SÍ' : 'NO') + '</b>, pero este contenedor está marcado con trineo <b>' +
-      (actual === 'SI' ? 'SÍ' : 'NO') + '</b>.<br><br>Revisa si corresponde ajustarlo manualmente.';
-    if (typeof mostrarAlerta === 'function') mostrarAlerta('🛷 Verificar trineo', msg);
-    else alert('Verificar trineo: ' + (producto || '') + ' sugiere trineo ' + sugerencia + ', contenedor está en ' + actual);
+  if (sugerencia === actual) return;
+
+  if (!_trineoManual) {
+    // Nadie tocó el switch a mano todavía — se corrige solo en vez de
+    // depender de que alguien alcance a leer una alerta.
+    setTrineo(sugerencia);
+    var msgAuto = '🛷 Se ajustó el trineo a <b>' + (sugerencia === 'SI' ? 'SÍ' : 'NO') +
+      '</b> porque el producto <b>' + (producto || '') + '</b> lo requiere.';
+    if (typeof mostrarAlerta === 'function') mostrarAlerta('🛷 Trineo ajustado automáticamente', msgAuto);
+    else alert(msgAuto.replace(/<[^>]+>/g, ''));
+    return;
   }
+
+  var msg = '⚠️ El producto <b>' + (producto || '') + '</b> normalmente lleva trineo <b>' +
+    (sugerencia === 'SI' ? 'SÍ' : 'NO') + '</b>, pero este contenedor está marcado con trineo <b>' +
+    (actual === 'SI' ? 'SÍ' : 'NO') + '</b> (lo marcaste tú a mano).<br><br>Revisa si corresponde ajustarlo.';
+  if (typeof mostrarAlerta === 'function') mostrarAlerta('🛷 Verificar trineo', msg);
+  else alert('Verificar trineo: ' + (producto || '') + ' sugiere trineo ' + sugerencia + ', contenedor está en ' + actual);
 }
 
 function toggleTrineo() {
@@ -13497,6 +13515,7 @@ function toggleTrineo() {
     toggle.style.background = '#11a06b';
     dot.style.left = '28px';
   }
+  _trineoManual = true;
   _trineoRespondido = true;
   actualizarPendienteTrineo();
 }
@@ -13508,14 +13527,43 @@ function resetToggleTrineo() {
   if (input) input.value = 'NO';
   if (toggle) toggle.style.background = '#ccc';
   if (dot) dot.style.left = '2px';
+  _trineoManual = false;
   _trineoRespondido = true;
   actualizarPendienteTrineo();
+}
+
+/* Última red de seguridad: vuelve a revisar TODOS los lotes ya
+   agregados al contenedor (no solo el que se acaba de escanear) por
+   si alguno de un producto que siempre lleva trineo (plywood, madera
+   verde) quedó sin corregir el switch — por ejemplo porque su
+   "producto" llegó vacío justo en el momento del escaneo. Se llama
+   antes de cada guardado (parcial cada 90s y final), así se
+   autocorrige aunque el chequeo del momento del escaneo haya fallado.
+   No hace nada si el usuario ya fijó el trineo a mano. */
+function trineo_revisarTodosLosLotes_() {
+  if (_trineoManual) return;
+  if (typeof registros === 'undefined' || !Array.isArray(registros)) return;
+
+  var actual = (document.getElementById('dc_trineo') || {}).value || 'NO';
+  if (actual === 'SI') return;
+
+  for (var i = 0; i < registros.length; i++) {
+    var sugerencia = trineo_sugerenciaPorProducto(registros[i].producto || '');
+    if (sugerencia === 'SI') {
+      setTrineo('SI');
+      var msgAuto = '🛷 Se ajustó el trineo a <b>SÍ</b> porque hay lotes de <b>' +
+        (registros[i].producto || '') + '</b> en este contenedor — ese producto siempre lleva trineo.';
+      if (typeof mostrarAlerta === 'function') mostrarAlerta('🛷 Trineo ajustado automáticamente', msgAuto);
+      return;
+    }
+  }
 }
 
 /* Bloquea el guardado si el trineo no fue confirmado (a mano o
    por auto-detección). Llamar al inicio de guardarParcial y
    guardarConsolidadoFinal. Devuelve true si se puede continuar. */
 function trineo_validarAntesDeGuardar() {
+  trineo_revisarTodosLosLotes_();
   if (_trineoRespondido) return true;
   var msg = 'Debes marcar si el contenedor llevó trineo (patinado) o no, antes de guardar.';
   if (typeof mostrarAlerta === 'function') mostrarAlerta('🛷 Falta confirmar trineo', msg);
