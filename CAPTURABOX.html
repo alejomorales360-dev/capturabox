@@ -1938,7 +1938,7 @@ button:active {
             Cambiar mi clave
           </span>
         </div>
-        <div style="text-align:center; margin-top:10px; font-size:10px; color:#c3ccd1;">v2026-09-09l</div>
+        <div style="text-align:center; margin-top:10px; font-size:10px; color:#c3ccd1;">v2026-09-09m</div>
       </div>
 
       <!-- PANEL CAMBIAR CLAVE -->
@@ -22870,12 +22870,12 @@ async function cb_ejecutarStock() {
 
     mostrarCargando('Cargando y cruzando ' + cb_filas.length + ' lotes...');
 
-    // El cruce puede tardar varios minutos en clientes grandes — en
-    // vez de mantener una sola conexión abierta esperando esa
-    // respuesta (lo que se estaba cortando con "Failed to fetch" en
-    // conexiones inestables), "finalizar" solo deja el cruce corriendo
-    // en el servidor y responde al toque; el avance real se consulta
-    // acá cada pocos segundos.
+    // El cruce ya no se hace en una sola llamada larga (eso era lo
+    // que se cortaba con "Failed to fetch") ni en un trigger de
+    // fondo (poco confiable — puede tardar minutos en dispararse o
+    // no correr nunca). Ahora "finalizar" solo crea el trabajo, y
+    // stockClienteEstadoJob se llama seguido: cada llamada avanza un
+    // tramo real (300 lotes) y devuelve el progreso, hasta terminar.
     var dInicio = await cb_fetchConReintento_({
       accion: 'stockClienteFinalizar',
       rut: rut,
@@ -22891,41 +22891,56 @@ async function cb_ejecutarStock() {
 
     if (!dInicio.ok) {
       ocultarCargando();
-      mostrarAlerta('\u274c No se pudo cargar', dInicio.msg || 'Error desconocido');
+      mostrarAlerta('❌ No se pudo cargar', dInicio.msg || 'Error desconocido');
       return;
     }
 
-    var d = null, segundos = 0;
-    while (true) {
-      await new Promise(function (res) { setTimeout(res, 4000); });
-      segundos += 4;
+    var d = null;
+    var MAX_TRAMOS_SIN_AVANZAR = 20; // ~ si 20 llamadas seguidas fallan, algo real está roto
+    var sinAvanzar = 0, ultimoCursor = -1;
 
+    while (true) {
       var dEstado;
       try {
         dEstado = await cb_fetchConReintento_({ accion: 'stockClienteEstadoJob', jobId: sesionId }, 3);
       } catch (e) {
-        // El cruce sigue corriendo en el servidor pase lo que pase acá
-        // (no depende de esta conexión) — un fallo consultando el
-        // estado no es motivo para rendirse, solo para reintentar.
-        mostrarCargando('Cruzando ' + cb_filas.length + ' lotes... (' + segundos +
-          's, reconectando...)');
-        continue;
+        ocultarCargando();
+        mostrarAlerta('❌ No se pudo cargar',
+          'Se perdió la conexión consultando el avance del cruce.<br><br>' +
+          'El proceso puede seguir corriendo en el servidor — antes de reintentar, ' +
+          'revisa <b>Ver últimas cargas</b> para confirmar si ya se aplicó.');
+        return;
       }
 
       if (!dEstado.estado) {
         ocultarCargando();
-        mostrarAlerta('\u274c No se pudo cargar', dEstado.msg || 'Error desconocido');
+        mostrarAlerta('❌ No se pudo cargar', dEstado.msg || 'Error desconocido');
         return;
       }
       if (dEstado.estado === 'LISTO' || dEstado.estado === 'ERROR') { d = dEstado; break; }
 
-      mostrarCargando('Cruzando ' + cb_filas.length + ' lotes... (' + segundos + 's)');
+      var cursorActual = dEstado.cursor || 0;
+      if (cursorActual === ultimoCursor) {
+        sinAvanzar++;
+        if (sinAvanzar >= MAX_TRAMOS_SIN_AVANZAR) {
+          ocultarCargando();
+          mostrarAlerta('❌ No se pudo cargar',
+            'El cruce dejó de avanzar (se quedó en ' + cursorActual + ' de ' + (dEstado.total || '?') +
+            ' lotes). Revisa <b>Ver últimas cargas</b> antes de reintentar.');
+          return;
+        }
+      } else {
+        sinAvanzar = 0;
+        ultimoCursor = cursorActual;
+      }
+
+      mostrarCargando('Cruzando lotes... (' + cursorActual + ' de ' + (dEstado.total || cb_filas.length) + ')');
     }
 
     ocultarCargando();
 
     if (!d.ok) {
-      mostrarAlerta('\u274c No se pudo cargar', d.msg || 'Error desconocido');
+      mostrarAlerta('❌ No se pudo cargar', d.msg || 'Error desconocido');
       return;
     }
     var salidas = (d.salidasConsolidado || 0) + (d.salidasDespacho || 0) +
