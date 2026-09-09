@@ -1938,7 +1938,7 @@ button:active {
             Cambiar mi clave
           </span>
         </div>
-        <div style="text-align:center; margin-top:10px; font-size:10px; color:#c3ccd1;">v2026-09-09c</div>
+        <div style="text-align:center; margin-top:10px; font-size:10px; color:#c3ccd1;">v2026-09-09d</div>
       </div>
 
       <!-- PANEL CAMBIAR CLAVE -->
@@ -13434,6 +13434,13 @@ function trineo_sugerenciaPorProducto(producto) {
    el valor, sigue quedando en true igual que antes. */
 var _trineoRespondido = true;
 
+/* true solo cuando el USUARIO tocó el switch a mano (toggleTrineo).
+   Mientras siga en false, el valor viene de la auto-detección y se
+   puede seguir corrigiendo solo con cada lote nuevo — así un lote de
+   plywood que llega después del primero no se queda silenciado
+   detrás de una alerta que nadie alcanzó a leer. */
+var _trineoManual = false;
+
 function actualizarPendienteTrineo() {
   var el = document.getElementById('dc_trineo_pendiente');
   if (el) el.style.display = _trineoRespondido ? 'none' : 'block';
@@ -13473,13 +13480,24 @@ function trineo_evaluarProductoLote(producto, esPrimerLote) {
   }
 
   var actual = (document.getElementById('dc_trineo') || {}).value || 'NO';
-  if (sugerencia !== actual) {
-    var msg = '⚠️ El producto <b>' + (producto || '') + '</b> normalmente lleva trineo <b>' +
-      (sugerencia === 'SI' ? 'SÍ' : 'NO') + '</b>, pero este contenedor está marcado con trineo <b>' +
-      (actual === 'SI' ? 'SÍ' : 'NO') + '</b>.<br><br>Revisa si corresponde ajustarlo manualmente.';
-    if (typeof mostrarAlerta === 'function') mostrarAlerta('🛷 Verificar trineo', msg);
-    else alert('Verificar trineo: ' + (producto || '') + ' sugiere trineo ' + sugerencia + ', contenedor está en ' + actual);
+  if (sugerencia === actual) return;
+
+  if (!_trineoManual) {
+    // Nadie tocó el switch a mano todavía — se corrige solo en vez de
+    // depender de que alguien alcance a leer una alerta.
+    setTrineo(sugerencia);
+    var msgAuto = '🛷 Se ajustó el trineo a <b>' + (sugerencia === 'SI' ? 'SÍ' : 'NO') +
+      '</b> porque el producto <b>' + (producto || '') + '</b> lo requiere.';
+    if (typeof mostrarAlerta === 'function') mostrarAlerta('🛷 Trineo ajustado automáticamente', msgAuto);
+    else alert(msgAuto.replace(/<[^>]+>/g, ''));
+    return;
   }
+
+  var msg = '⚠️ El producto <b>' + (producto || '') + '</b> normalmente lleva trineo <b>' +
+    (sugerencia === 'SI' ? 'SÍ' : 'NO') + '</b>, pero este contenedor está marcado con trineo <b>' +
+    (actual === 'SI' ? 'SÍ' : 'NO') + '</b> (lo marcaste tú a mano).<br><br>Revisa si corresponde ajustarlo.';
+  if (typeof mostrarAlerta === 'function') mostrarAlerta('🛷 Verificar trineo', msg);
+  else alert('Verificar trineo: ' + (producto || '') + ' sugiere trineo ' + sugerencia + ', contenedor está en ' + actual);
 }
 
 function toggleTrineo() {
@@ -13497,6 +13515,7 @@ function toggleTrineo() {
     toggle.style.background = '#11a06b';
     dot.style.left = '28px';
   }
+  _trineoManual = true;
   _trineoRespondido = true;
   actualizarPendienteTrineo();
 }
@@ -13508,6 +13527,7 @@ function resetToggleTrineo() {
   if (input) input.value = 'NO';
   if (toggle) toggle.style.background = '#ccc';
   if (dot) dot.style.left = '2px';
+  _trineoManual = false;
   _trineoRespondido = true;
   actualizarPendienteTrineo();
 }
