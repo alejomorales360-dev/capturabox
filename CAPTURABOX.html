@@ -1938,7 +1938,7 @@ button:active {
             Cambiar mi clave
           </span>
         </div>
-        <div style="text-align:center; margin-top:10px; font-size:10px; color:#c3ccd1;">v2026-09-08h</div>
+        <div style="text-align:center; margin-top:10px; font-size:10px; color:#c3ccd1;">v2026-09-09b</div>
       </div>
 
       <!-- PANEL CAMBIAR CLAVE -->
@@ -10006,7 +10006,7 @@ function _fechaAyerLocal() {
     String(d.getDate()).padStart(2,'0');
 }
 
-const URL_GAS = "https://script.google.com/macros/s/AKfycbwBnuviB9k8Xd2Oxfq93YljVqtmn69f7lGby_-p1298PDRWmM14Il6XZAaNE70PSLvj/exec";
+const URL_GAS = "https://script.google.com/macros/s/AKfycbxt8f6mcsIYEZ4tqfUkfgUfTaiDNW-fOHg2mlcmjM-xxWz_SAs_jnaRDOEpLEM-Y-Wq/exec";
 
 // ─── LICENCIA Y DISPOSITIVO ──────────────────────────────────────
 const APP_LICENCIA = "CBOX-2026-ARAUCO-PROD-001"; // Cambiar por tu clave única
@@ -22910,6 +22910,7 @@ async function cb_verPendientesRecepcion() {
       return;
     }
 
+    var _esAdminPendientes = localStorage.getItem('usuario_esadmin') === '1';
     var filas = d.data.map(function(x, i) {
       var loteEsc = String(x.Lote || '').replace(/'/g, "\\'");
       return '<tr style="background:' + (i % 2 ? '#f7f9fb' : '#fff') + ';">' +
@@ -22919,11 +22920,17 @@ async function cb_verPendientesRecepcion() {
         '<td style="padding:6px 8px;border:1px solid #e6ebee;">' + (x.Nave || '\u2014') + '</td>' +
         '<td style="padding:6px 8px;border:1px solid #e6ebee;text-align:right;">' +
           (Number(x.Volumen) ? Number(x.Volumen).toFixed(3) : '\u2014') + '</td>' +
-        '<td style="padding:6px 8px;border:1px solid #e6ebee;text-align:center;">' +
-          '<button onclick="cb_aprobarPendienteSinGuia(\'' + loteEsc + '\')" ' +
-            'style="background:#0b3c5d;color:#fff;border:none;border-radius:8px;' +
+        '<td style="padding:6px 8px;border:1px solid #e6ebee;text-align:center;white-space:nowrap;">' +
+          (_esAdminPendientes
+            ? '<button onclick="cb_aprobarPendienteSinGuia(\'' + loteEsc + '\')" ' +
+                'style="background:#0b3c5d;color:#fff;border:none;border-radius:8px;' +
+                'padding:6px 10px;font-size:11px;font-weight:800;cursor:pointer;white-space:nowrap;margin-right:4px;">' +
+                '\u2705 Sin gu\u00eda</button>'
+            : '<span style="font-size:10px;color:#9aa7b0;margin-right:4px;">Sin gu\u00eda: solo admin</span>') +
+          '<button onclick="cb_eliminarPendiente(\'' + loteEsc + '\')" ' +
+            'style="background:#c62828;color:#fff;border:none;border-radius:8px;' +
             'padding:6px 10px;font-size:11px;font-weight:800;cursor:pointer;white-space:nowrap;">' +
-            '\u2705 Sin gu\u00eda</button>' +
+            '\ud83d\uddd1\ufe0f</button>' +
         '</td>' +
       '</tr>';
     }).join('');
@@ -23040,6 +23047,38 @@ async function cb_aprobarPendienteSinGuia(lote) {
   } catch (e) {
     ocultarCargando();
     mostrarAlerta('\u274c Error de conexi\u00f3n', 'No se pudo ingresar el lote. Intenta de nuevo.');
+  }
+}
+
+/* Elimina un lote de la lista de espera (STOCK_PENDIENTES) \u2014 para
+   c\u00f3digos que resultaron ser un error del cliente o que nunca van a
+   llegar. No toca Stock Cliente ni ninguna otra hoja. */
+async function cb_eliminarPendiente(lote) {
+  var ok = await mostrarConfirm('\ud83d\uddd1\ufe0f Eliminar de la espera',
+    '\u00bfEliminar el lote <b>' + lote + '</b> de la lista de pendientes de recepci\u00f3n?' +
+    '<br><br>\u00dasalo cuando confirmaste que el c\u00f3digo no va a llegar (error del cliente). ' +
+    'No queda ning\u00fan registro de este lote en el sistema.' +
+    '<br><br>\u00bfConfirmas?');
+  if (!ok) return;
+
+  mostrarCargando('Eliminando de la espera...');
+  try {
+    var r = await fetch(URL_GAS, { method: 'POST',
+      body: JSON.stringify({
+        accion: 'eliminarPendienteRecepcion',
+        lote: lote,
+        rut: localStorage.getItem('usuario') || ''
+      }) });
+    var d = await r.json();
+    ocultarCargando();
+    if (d.ok) {
+      cb_verPendientesRecepcion(); // refresca la lista, ya sin este lote
+    } else {
+      mostrarAlerta('\u274c Error', d.msg || 'No se pudo eliminar el lote.');
+    }
+  } catch (e) {
+    ocultarCargando();
+    mostrarAlerta('\u274c Error de conexi\u00f3n', 'No se pudo eliminar el lote. Intenta de nuevo.');
   }
 }
 
