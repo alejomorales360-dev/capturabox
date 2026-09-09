@@ -1938,7 +1938,7 @@ button:active {
             Cambiar mi clave
           </span>
         </div>
-        <div style="text-align:center; margin-top:10px; font-size:10px; color:#c3ccd1;">v2026-09-09j</div>
+        <div style="text-align:center; margin-top:10px; font-size:10px; color:#c3ccd1;">v2026-09-09l</div>
       </div>
 
       <!-- PANEL CAMBIAR CLAVE -->
@@ -10096,7 +10096,7 @@ function _fechaAyerLocal() {
     String(d.getDate()).padStart(2,'0');
 }
 
-const URL_GAS = "https://script.google.com/macros/s/AKfycbyiyyskrGBfqtbXcqFE4PkxSRRQFfEAl_G6G-0KdpavBrEKXk9GRA8Bb4Wvy3hTZyDk/exec";
+const URL_GAS = "https://script.google.com/macros/s/AKfycbyq9Sj93Xm0BRvGFYdh6wqDpEEu7z8BbIukjpSaA6l_6941Q80x-0omGTekIX2IAcd1/exec";
 
 // ─── LICENCIA Y DISPOSITIVO ──────────────────────────────────────
 const APP_LICENCIA = "CBOX-2026-ARAUCO-PROD-001"; // Cambiar por tu clave única
@@ -22798,10 +22798,14 @@ async function cb_ejecutar() {
    bodega o datos m\u00f3viles es normal que una conexi\u00f3n falle una vez
    ("Failed to fetch") sin que sea un error real \u2014 antes de rendirse,
    reintenta unas pocas veces con una breve espera entre intento e
-   intento. */
-async function cb_fetchConReintento_(body, intentos) {
+   intento. onIntento(n, total), si se pasa, avisa ANTES de cada
+   intento \u2014 sin esto, un reintento silencioso de una llamada lenta
+   deja el mismo cartel de "Cargando..." pegado en pantalla sin que
+   se note que en realidad ya va por el segundo o tercer intento. */
+async function cb_fetchConReintento_(body, intentos, onIntento) {
   var ultimoError = null;
   for (var i = 0; i < intentos; i++) {
+    if (onIntento) onIntento(i + 1, intentos);
     try {
       var r = await fetch(URL_GAS, { method: 'POST', body: JSON.stringify(body) });
       return await r.json();
@@ -22847,7 +22851,12 @@ async function cb_ejecutarStock() {
         sesionId: sesionId,
         cliente: _cliSel,
         filas: tandas[t]
-      }, 3);
+      }, 3, function (intento, total) {
+        if (intento > 1) {
+          mostrarCargando('Subiendo tanda ' + (t + 1) + ' de ' + tandas.length +
+            ' (reintento ' + intento + ' de ' + total + ')...');
+        }
+      });
 
       if (!dTanda.ok) {
         ocultarCargando();
@@ -22861,27 +22870,64 @@ async function cb_ejecutarStock() {
 
     mostrarCargando('Cargando y cruzando ' + cb_filas.length + ' lotes...');
 
-    var d = await cb_fetchConReintento_({
+    // El cruce puede tardar varios minutos en clientes grandes — en
+    // vez de mantener una sola conexión abierta esperando esa
+    // respuesta (lo que se estaba cortando con "Failed to fetch" en
+    // conexiones inestables), "finalizar" solo deja el cruce corriendo
+    // en el servidor y responde al toque; el avance real se consulta
+    // acá cada pocos segundos.
+    var dInicio = await cb_fetchConReintento_({
       accion: 'stockClienteFinalizar',
       rut: rut,
       sesionId: sesionId,
       cliente: _cliSel,
       archivo: cb_archivo
-    }, 3);
-    ocultarCargando();
+    }, 3, function (intento, total) {
+      if (intento > 1) {
+        mostrarCargando('Cargando y cruzando ' + cb_filas.length + ' lotes (reintento ' +
+          intento + ' de ' + total + ')...');
+      }
+    });
 
-    if (!d.ok) {
-      var esCargaEnCurso = /carga de stock.*en curso/i.test(d.msg || '');
-      mostrarAlerta('\u274c No se pudo cargar',
-        (d.msg || 'Error desconocido') +
-        (esCargaEnCurso
-          ? '<br><br><span style="font-size:12px;color:#7a8b95;">Puede que el intento anterior s\u00ed ' +
-            'haya terminado bien, solo que tard\u00f3 m\u00e1s de lo que tu conexi\u00f3n esper\u00f3 una respuesta. ' +
-            'Antes de reintentar, revisa <b>Ver \u00faltimas cargas</b> para confirmar si ya se aplic\u00f3.</span>'
-          : ''));
+    if (!dInicio.ok) {
+      ocultarCargando();
+      mostrarAlerta('\u274c No se pudo cargar', dInicio.msg || 'Error desconocido');
       return;
     }
 
+    var d = null, segundos = 0;
+    while (true) {
+      await new Promise(function (res) { setTimeout(res, 4000); });
+      segundos += 4;
+
+      var dEstado;
+      try {
+        dEstado = await cb_fetchConReintento_({ accion: 'stockClienteEstadoJob', jobId: sesionId }, 3);
+      } catch (e) {
+        // El cruce sigue corriendo en el servidor pase lo que pase acá
+        // (no depende de esta conexión) — un fallo consultando el
+        // estado no es motivo para rendirse, solo para reintentar.
+        mostrarCargando('Cruzando ' + cb_filas.length + ' lotes... (' + segundos +
+          's, reconectando...)');
+        continue;
+      }
+
+      if (!dEstado.estado) {
+        ocultarCargando();
+        mostrarAlerta('\u274c No se pudo cargar', dEstado.msg || 'Error desconocido');
+        return;
+      }
+      if (dEstado.estado === 'LISTO' || dEstado.estado === 'ERROR') { d = dEstado; break; }
+
+      mostrarCargando('Cruzando ' + cb_filas.length + ' lotes... (' + segundos + 's)');
+    }
+
+    ocultarCargando();
+
+    if (!d.ok) {
+      mostrarAlerta('\u274c No se pudo cargar', d.msg || 'Error desconocido');
+      return;
+    }
     var salidas = (d.salidasConsolidado || 0) + (d.salidasDespacho || 0) +
                   (d.salidasSinRegistro || 0);
 
