@@ -4584,6 +4584,7 @@ button:active {
         <option value="ESTANDAR">Estándar — columnas exactas</option>
         <option value="JCE">Packing List JCE — tal como lo envía el cliente</option>
         <option value="JCE_STOCK">Stock JCE — planilla de stock (hoja STOCK)</option>
+        <option value="FORACTION_STOCK">Stock FORACTION — planilla de stock (hoja STOCK)</option>
         <option value="ARAUCO">Stock Arauco (ZQUSTOCKHOY) — archivo .XLS/.DBF</option>
         <option value="ZOOPP">Consolidado Arauco (ZOOPP) — planilla de embarque</option>
         <option value="VOL8">Volumen VIII Arauco — filtro Maersk Cervantes</option>
@@ -4645,6 +4646,20 @@ button:active {
         Se busca automáticamente la hoja <b>STOCK</b> (no la de Recepción, Despacho ni
         Reexpedición), y de ahí se toman <b>solo las filas donde "En stock" dice
         "En stock"</b> — lo despachado se ignora. Columnas que se toman:
+        <div style="margin-top:6px;line-height:1.7;">
+          <b>ETIQUETAS</b> → Lote &nbsp;·&nbsp; <b>MARCA</b> → Entrega<br>
+          <b>ESPESOR + ANCHO + LARGO + PIEZAS</b> → Marca (combinado)<br>
+          <b>M3</b> → Volumen &nbsp;·&nbsp; <b>PRODUCTO</b> → Producto
+        </div>
+        <div style="margin-top:6px;">Nave, Puerto y EtaNave quedan vacíos — ese archivo no los trae.</div>
+      </div>
+
+      <div id="cb_avisoStockFORACTION" style="display:none;background:#fce4ec;border:1px solid #f48fb1;
+           border-radius:10px;padding:10px 12px;margin-bottom:12px;font-size:12px;color:#880e4f;">
+        <b>Stock FORACTION:</b> arrastra la planilla de stock tal como la envía el cliente
+        (mismo formato que JCE). Se busca automáticamente la hoja <b>STOCK</b> (no la de
+        Recepción, Despacho ni Reexpedición), y de ahí se toman <b>solo las filas donde
+        "En stock" dice "En stock"</b> — lo despachado se ignora. Columnas que se toman:
         <div style="margin-top:6px;line-height:1.7;">
           <b>ETIQUETAS</b> → Lote &nbsp;·&nbsp; <b>MARCA</b> → Entrega<br>
           <b>ESPESOR + ANCHO + LARGO + PIEZAS</b> → Marca (combinado)<br>
@@ -21969,6 +21984,7 @@ var CB_FORMATOS_POR_DESTINO = {
     { value: 'ESTANDAR', label: 'Estándar — columnas exactas' },
     { value: 'ARAUCO', label: 'Stock Arauco (ZQUSTOCKHOY) — archivo .XLS/.DBF' },
     { value: 'JCE_STOCK', label: 'Stock JCE — planilla de stock (hoja STOCK)' },
+    { value: 'FORACTION_STOCK', label: 'Stock FORACTION — planilla de stock (hoja STOCK)' },
     { value: 'JCE_FOTO', label: '📷📄 Foto o PDF de guía JCE — leer con IA' }
   ],
   LOTESREEX: [
@@ -22183,8 +22199,9 @@ function cb_leerArchivo(file) {
         return;
       }
 
-      // ---- Stock JCE (siempre hoja STOCK, solo filas "En stock") ----
-      if (formato === 'JCE_STOCK') {
+      // ---- Stock JCE / FORACTION (mismo formato de archivo, siempre
+      //      hoja STOCK, solo filas "En stock") ----
+      if (formato === 'JCE_STOCK' || formato === 'FORACTION_STOCK') {
         var resSJ = cb_parsearStockJCE(wb);
         cb_filas = resSJ.filas;
         document.getElementById('cb_pegar').value = '';
@@ -23494,16 +23511,18 @@ function cb_cambiarFormato() {
   // propios de un cliente único (Stock Arauco, Stock JCE), donde se
   // fija solo y se bloquea para que nadie lo pueda cambiar por error.
   var selCliReset = document.getElementById('cb_clienteStock');
-  if (selCliReset && f !== 'ARAUCO' && f !== 'JCE_STOCK' && f !== 'JCE_FOTO') selCliReset.disabled = false;
+  if (selCliReset && f !== 'ARAUCO' && f !== 'JCE_STOCK' && f !== 'FORACTION_STOCK' && f !== 'JCE_FOTO') selCliReset.disabled = false;
 
   var aviso = document.getElementById('cb_avisoJCE');
   var avArauco = document.getElementById('cb_avisoArauco');
   var avStockJCE = document.getElementById('cb_avisoStockJCE');
+  var avStockFORACTION = document.getElementById('cb_avisoStockFORACTION');
   var avVol8 = document.getElementById('cb_avisoVol8');
   var avFotoJCE = document.getElementById('cb_avisoFotoJCE');
   if (aviso)    aviso.style.display    = (f === 'JCE')    ? 'block' : 'none';
   if (avArauco) avArauco.style.display = (f === 'ARAUCO') ? 'block' : 'none';
   if (avStockJCE) avStockJCE.style.display = (f === 'JCE_STOCK') ? 'block' : 'none';
+  if (avStockFORACTION) avStockFORACTION.style.display = (f === 'FORACTION_STOCK') ? 'block' : 'none';
   if (avVol8) avVol8.style.display = (f === 'VOL8') ? 'block' : 'none';
   if (avFotoJCE) avFotoJCE.style.display = (f === 'JCE_FOTO') ? 'block' : 'none';
 
@@ -23563,6 +23582,20 @@ function cb_cambiarFormato() {
     }
     var selCliJS = document.getElementById('cb_clienteStock');
     if (selCliJS) { selCliJS.value = 'JCE'; selCliJS.disabled = true; }
+  }
+
+  // El stock de FORACTION también solo alimenta STOCK_CLIENTE (mismo
+  // formato de archivo que JCE, solo cambia el cliente)
+  if (f === 'FORACTION_STOCK') {
+    var selFS = document.getElementById('cb_destino');
+    if (selFS && selFS.value !== 'STOCK_CLIENTE') {
+      selFS.value = 'STOCK_CLIENTE';
+      cb_cambiarDestino();
+      document.getElementById('cb_formatoArchivo').value = 'FORACTION_STOCK';
+      if (avStockFORACTION) avStockFORACTION.style.display = 'block';
+    }
+    var selCliFS = document.getElementById('cb_clienteStock');
+    if (selCliFS) { selCliFS.value = 'FORACTION'; selCliFS.disabled = true; }
   }
 
   // Foto de guía JCE (leída con IA) también solo alimenta STOCK_CLIENTE
