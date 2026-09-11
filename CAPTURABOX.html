@@ -5374,6 +5374,42 @@ function bloquearBotonesRecepcion(bloquear) {
   });
 }
 
+/* Fetch robusto a GAS: reintenta automáticamente si la conexión falla o si
+   el servidor devuelve algo que no es JSON (proxy intermedio, cupo de Apps
+   Script agotado, etc.). Antes cada pantalla hacía un único intento propio
+   —la mayoría sin reintento— así que un solo hipo de red o de la cuota de
+   Google bastaba para bloquear al usuario con un error duro. También corta
+   el texto de error a un largo razonable: cuando la respuesta no es JSON
+   (por ejemplo una página HTML inyectada por un proxy) podía venir con
+   miles de caracteres y el mensaje de error se volvía ilegible. */
+async function fetchGasJson_(payload, opts) {
+  opts = opts || {};
+  const intentos     = opts.intentos    || 3;
+  const timeoutMs     = opts.timeoutMs   || 20000;
+  const esperaBaseMs  = opts.esperaBaseMs != null ? opts.esperaBaseMs : 1200;
+  let ultimoError = null;
+  for (let i = 0; i < intentos; i++) {
+    if (opts.onIntento) opts.onIntento(i + 1, intentos);
+    const controller = new AbortController();
+    const timeoutId  = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const res = await fetch(URL_GAS, { method: "POST", body: JSON.stringify(payload), signal: controller.signal });
+      clearTimeout(timeoutId);
+      const txt = await res.text();
+      try {
+        return JSON.parse(txt);
+      } catch (eParse) {
+        throw new Error("GAS no devolvió JSON: " + txt.slice(0, 200));
+      }
+    } catch (e) {
+      clearTimeout(timeoutId);
+      ultimoError = e.name === "AbortError" ? new Error("TIMEOUT: el servidor tardó demasiado en responder.") : e;
+      if (i < intentos - 1) await new Promise(r => setTimeout(r, esperaBaseMs * (i + 1)));
+    }
+  }
+  throw ultimoError;
+}
+
 async function validarGuiasClienteEnServidor(cliente, guiasNormalizadas) {
   try {
     const payload = {
@@ -5381,14 +5417,7 @@ async function validarGuiasClienteEnServidor(cliente, guiasNormalizadas) {
       cliente,
       guias: guiasNormalizadas
     };
-
-    const res = await fetch(URL_GAS, { method: "POST", body: JSON.stringify(payload) });
-    const txt = await res.text();
-    let data;
-    try { data = JSON.parse(txt); }
-    catch { return { ok:false, msg:"GAS no devolvió JSON: " + txt }; }
-
-    return data;
+    return await fetchGasJson_(payload);
   } catch (e) {
     return { ok:false, msg: String(e.message || e) };
   }
@@ -5416,11 +5445,7 @@ function rc_getGuiasTextoActual() {
 async function rc_validarLoteEnBD(lote) {
   const payload = { accion: "buscarLoteRecepcion", lote };
 
-  const res = await fetch(URL_GAS, { method: "POST", body: JSON.stringify(payload) });
-  const txt = await res.text();
-
-  let data;
-  try { data = JSON.parse(txt); } catch { throw new Error("GAS no devolvió JSON: " + txt); }
+  const data = await fetchGasJson_(payload);
 
   // Esperado: { ok:true, existe:true/false, guias:"...", patente:"...", fecha:"..." }
   if (!data.ok) throw new Error(data.msg || "Error validando lote en BD");
@@ -6049,8 +6074,7 @@ async function cargarRecepcionesSheet() {
       fechaDesde: desdeRaw,
       fechaHasta: hastaRaw
     };
-    const res  = await fetch(URL_GAS, { method:"POST", body:JSON.stringify(payload) });
-    const data = await res.json();
+    const data = await fetchGasJson_(payload);
 
     if (!data.ok || !Array.isArray(data.data)) {
       if (elErrorNube) {
@@ -7667,11 +7691,7 @@ async function enviarABaseDeDatosDesdeJob(job) {
   // Si es un reintento, verificar primero si el GAS ya grabo este job.
   if (job.envioId && job.intentosEnvio > 0) {
     try {
-      const chk = await fetch(URL_GAS, {
-        method: "POST",
-        body: JSON.stringify({ accion: "verificarEnvio", envioId: job.envioId })
-      });
-      const r = await chk.json();
+      const r = await fetchGasJson_({ accion: "verificarEnvio", envioId: job.envioId });
       if (r && r.ok && r.existe) {
         console.log("[RC] Job", job.envioId, "ya estaba grabado, no se reenvia");
         return; // exito sin reenviar
@@ -15110,12 +15130,7 @@ aplicarPermisosMenu();
   // ==========================
   try {
     const payload = { accion: "login", rut, clave };
-    const res = await fetch(URL_GAS, {
-      method: "POST",
-      body: JSON.stringify(payload)
-    });
-
-    const data = await res.json();
+    const data = await fetchGasJson_(payload);
 
     if (!data.ok) {
       err.innerText = "❌ RUT o Clave incorrectos.";
