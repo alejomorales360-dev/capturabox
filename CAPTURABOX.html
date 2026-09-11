@@ -13251,6 +13251,18 @@ async function enviarJobAlServidor(job) {
     console.log("ℹ️ El GAS detecto envio duplicado — no se grabo dos veces");
   }
 
+  // El contenedor y los lotes se guardaron igual, pero alguna foto
+  // pudo haber fallado al subir en el respaldo del servidor — avisar
+  // en vez de que se pierda en silencio (antes ni siquiera llegaba
+  // este dato, una foto fallida hacía fallar el envío completo).
+  if (Array.isArray(resultado.fotosConError) && resultado.fotosConError.length) {
+    setTimeout(function () {
+      mostrarAlerta('⚠️ Foto(s) no subida(s)',
+        (resultado.msg || 'Algunas fotos no se pudieron subir.') +
+        '\n\nRevisa el contenedor y vuelve a intentar subir la(s) foto(s) afectada(s).');
+    }, 300);
+  }
+
   console.log("✅ Job completo OK | envioId:", job.envioId);
 
   // Si el usuario ingresó VGM al momento de cerrar el contenedor,
