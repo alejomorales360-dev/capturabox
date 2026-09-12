@@ -11082,8 +11082,31 @@ async function syncParcialANube(job) {
     // FIX v352: registrar que este contenedor SÍ llegó a la nube.
     // Necesario para distinguir un parcial "fantasma" (borrado en otro
     // dispositivo) de uno creado offline que aún no ha subido.
+    //
+    // FIX v28 (backend Code_CERVANTES_v28...): antes esto se marcaba con
+    // solo mirar _respSync.ok (estado HTTP) — el GAS siempre responde 200
+    // para esta acción, INCLUSO cuando internamente decide no guardar nada
+    // (guardarConsolidadoParcial_ descarta en silencio el aviso si el N° de
+    // contenedor ya aparecía como cerrado en el historial, algo que pasa
+    // seguido porque los contenedores físicos se reutilizan en despachos
+    // distintos). Con el criterio viejo, ese "sincronizado" quedaba marcado
+    // igual aunque NO se hubiera guardado nada, y la detección de
+    // "fantasma" del panel de parciales terminaba borrando el único
+    // respaldo local (IndexedDB, con lotes y fotos reales) de un contenedor
+    // que en realidad seguía activo — "se perdió un contenedor". Ahora se
+    // exige además que el cuerpo confirme guardado:true. Si el backend
+    // todavía no está actualizado a esta versión (texto plano "OK" en vez
+    // de JSON), el parseo falla y — a propósito — NO se marca como
+    // sincronizado: es la opción segura mientras front y back no coincidan.
     if (_respSync && _respSync.ok) {
-      _marcarContenedorSincronizado(job.datosCont.contenedor);
+      var _syncBody = null;
+      try { _syncBody = await _respSync.json(); } catch (eParse) { _syncBody = null; }
+      if (_syncBody && _syncBody.ok && _syncBody.guardado === true) {
+        _marcarContenedorSincronizado(job.datosCont.contenedor);
+      } else if (_syncBody && _syncBody.guardado === false) {
+        console.warn('[SYNC] El servidor no guardó el parcial de', job.datosCont.contenedor,
+          '(motivo:', _syncBody.motivo, ') — no se marca como sincronizado.');
+      }
     }
   } catch(e) {
     console.warn('Sync parcial nube fallo:', e.message);
@@ -12129,6 +12152,28 @@ function _claveSubidaFoto_(contenedor, tipo, index) {
   return String(contenedor || '').trim().toUpperCase() + '|' + tipo + '|' + index;
 }
 
+/* FIX v28: eliminarFoto() usa Array.splice(), que corre todos los índices
+ * posteriores un puesto hacia atrás. _subidasFotoEnCurso/_subidasFotoResueltas
+ * están indexados por (contenedor+tipo+índice), así que después de borrar
+ * una foto de en medio, el índice que antes era de OTRA foto (ya subida,
+ * con su propia URL en la caché) pasa a ser el índice de una foto nueva
+ * que el usuario recién tome. Sin invalidar la caché, _subirFotoCompartida_
+ * devuelve esa URL vieja en caché para el índice reciclado — la foto nueva
+ * nunca se sube y el reporte final termina repitiendo la foto vieja en vez
+ * de subir la que corresponde. Se invalida toda la caché de ese
+ * contenedor+tipo al borrar: el backend igual deduplica por contenido
+ * (ver subirFoto en el .gs), así que forzar una verificación nueva es
+ * seguro y no genera archivos duplicados en Drive. */
+function _invalidarCacheFotosTipo_(contenedor, tipo) {
+  var pref = String(contenedor || '').trim().toUpperCase() + '|' + tipo + '|';
+  Object.keys(_subidasFotoResueltas).forEach(function (k) {
+    if (k.indexOf(pref) === 0) delete _subidasFotoResueltas[k];
+  });
+  Object.keys(_subidasFotoEnCurso).forEach(function (k) {
+    if (k.indexOf(pref) === 0) delete _subidasFotoEnCurso[k];
+  });
+}
+
 function _subirFotoCompartida_(contenedor, cliente, tipo, index, base64) {
   var clave = _claveSubidaFoto_(contenedor, tipo, index);
   if (_subidasFotoResueltas[clave]) return Promise.resolve(_subidasFotoResueltas[clave]);
@@ -12545,6 +12590,13 @@ function eliminarFoto(tipo, index) {
 
   // 1️⃣ Eliminar del array
   fotos[tipo].splice(index, 1);
+
+  // 1️⃣b FIX v28: los índices posteriores se corrieron un puesto — limpiar
+  // la caché de subidas compartidas para que ninguna foto nueva reciba por
+  // error la URL de una foto ya borrada (ver _invalidarCacheFotosTipo_).
+  if (typeof datosCont !== 'undefined' && datosCont && datosCont.contenedor) {
+    _invalidarCacheFotosTipo_(datosCont.contenedor, tipo);
+  }
 
   // 2️⃣ Volver a pintar previews
   actualizarPreviews(tipo);
