@@ -7741,29 +7741,21 @@ async function enviarABaseDeDatosDesdeJob(job) {
     horaTermino:  job.closedAt  ? new Date(job.closedAt).toISOString()  : ""
   };
 
-  const controller = new AbortController();
-  const timeoutId  = setTimeout(() => controller.abort(), 90000); // 90s
-  let respuesta;
-  try {
-    respuesta = await fetch(URL_GAS, {
-      method: "POST",
-      body: JSON.stringify(datos),
-      signal: controller.signal
-    });
-  } catch(e) {
-    clearTimeout(timeoutId);
-    if (e.name === "AbortError") throw new Error("TIMEOUT: el servidor tardó demasiado. Los lotes pueden haberse grabado — intenta ver el Resumen antes de reintentar.");
-    throw e;
-  } finally {
-    clearTimeout(timeoutId);
-  }
-
-  const txt = await respuesta.text();
+  // Reintenta solo hasta 3 veces (con espera creciente) si la conexión
+  // falla o el servidor no devuelve JSON válido — antes un solo hipo
+  // (proxy intermedio, un despliegue recién propagándose, etc.) dejaba
+  // al supervisor con el error en pantalla y tenía que reintentar a
+  // mano. Es seguro reintentar: el envío va con envioId y el backend
+  // ya lo reconoce si quedó grabado, así que un reintento nunca duplica
+  // el camión.
   let resultado;
   try {
-    resultado = JSON.parse(txt);
-  } catch {
-    throw new Error("GAS no devolvió JSON: " + txt);
+    resultado = await fetchGasJson_(datos, { timeoutMs: 90000, intentos: 3 });
+  } catch (e) {
+    if (String(e.message || "").indexOf("TIMEOUT") !== -1) {
+      throw new Error("TIMEOUT: el servidor tardó demasiado. Los lotes pueden haberse grabado — intenta ver el Resumen antes de reintentar.");
+    }
+    throw e;
   }
 
   if (!resultado.ok) throw new Error(resultado.msg || "Error servidor");
