@@ -3549,9 +3549,9 @@ button:active {
     <div class="rcScanLabel">ESCANEE O INGRESE EL LOTE</div>
     <input type="text" id="lote" placeholder="Lote / código de barras" autofocus
            class="rcInputLote" oninput="this.value=this.value.toUpperCase();"
-           onkeydown="if(event.key==='Enter'){event.preventDefault(); if(this.value.trim()) guardarRecepcion();}">
+           onkeydown="if(event.key==='Enter'){event.preventDefault(); if(this.value.trim()) document.getElementById('producto')?.focus();}">
     <button type="button" title="Escanear con la cámara del celular"
-            onclick="abrirScanCamara(function(codigo){ document.getElementById('lote').value = codigo; guardarRecepcion(); })"
+            onclick="abrirScanCamara(function(codigo){ document.getElementById('lote').value = codigo; document.getElementById('producto')?.focus(); })"
             style="width:100%; margin-top:8px; background:#eef6ff; color:#1b6ca8; border:none;
                    border-radius:10px; padding:9px; font-size:13px; font-weight:800; cursor:pointer;">
       📷 Escanear con cámara (sin láser)
@@ -10981,7 +10981,27 @@ async function autoGuardarConsolidado() {
     totalVolumen: totalVol
   };
   if (existente && existente.id != null) job.id = existente.id;
-  await guardarEnIndexedDB(job, datosCont.contenedor);
+
+  // FIX v31: guardarEnIndexedDB() puede rechazar (QuotaExceededError si el
+  // almacenamiento del navegador se llenó con muchas fotos en base64
+  // acumuladas en contenedores parciales, transacción abortada, etc.).
+  // Los 10+ llamadores de autoGuardarConsolidado() en este archivo la
+  // invocan "fire and forget" (sin await ni .catch), así que un rechazo
+  // aquí antes solo generaba un unhandled promise rejection invisible en
+  // la consola — el supervisor seguía viendo el indicador de foto/lote en
+  // verde creyendo que ya estaba guardado localmente, cuando en realidad
+  // NUNCA se escribió en IndexedDB. Si el navegador se cierra o se recarga
+  // antes del envío final, eso se pierde sin ningún aviso. Ahora se atrapa
+  // el error acá adentro (protege a TODOS los llamadores de una vez) y se
+  // avisa de forma visible, aunque no bloqueante.
+  try {
+    await guardarEnIndexedDB(job, datosCont.contenedor);
+  } catch (eGuardar) {
+    console.error('[AUTOGUARDAR] No se pudo guardar el progreso local:', eGuardar);
+    _avisarFalloAutoguardado(eGuardar);
+    return; // no hay nada confirmado localmente: no hay nada que avisar a la nube
+  }
+
   // El guardado LOCAL (arriba) es siempre instantáneo — es la única copia
   // de verdad de este dispositivo. El envío a la nube va con freno (ver
   // syncParcialANubeConFreno): es solo un aviso liviano de "esto está en
@@ -10989,6 +11009,29 @@ async function autoGuardarConsolidado() {
   // retomar ni fusionar desde otro dispositivo, así que no hace falta
   // mandarlo en cada cambio.
   syncParcialANubeConFreno(job);
+}
+
+/* FIX v31: aviso visible (throttleado a 1 vez por minuto para no
+ * empapelar de alertas si el guardado sigue fallando en cada captura) de
+ * que el progreso NO se pudo guardar en el dispositivo. Antes esto no
+ * existía: la falla de guardarEnIndexedDB() era completamente invisible
+ * para un supervisor que nunca abre la consola del navegador. */
+var _ultimoAvisoFalloAutoguardado = 0;
+function _avisarFalloAutoguardado(err) {
+  var ahora = Date.now();
+  if (ahora - _ultimoAvisoFalloAutoguardado < 60000) return;
+  _ultimoAvisoFalloAutoguardado = ahora;
+  var detalle = (err && (err.name || err.message)) ? String(err.name || err.message) : '';
+  var msg = 'No se pudo guardar el progreso de este contenedor en este dispositivo ' +
+    '(posible falta de espacio de almacenamiento). La última foto, lote o sello que ' +
+    'acabas de ingresar puede NO haber quedado guardado localmente.\n\n' +
+    'Termina y envía este contenedor cuanto antes SIN cerrar la app, y avisa a soporte.' +
+    (detalle ? ('\n\n(' + detalle + ')') : '');
+  if (typeof mostrarAlerta === 'function') {
+    mostrarAlerta('⚠️ No se pudo guardar localmente', msg);
+  } else if (typeof alert === 'function') {
+    alert(msg);
+  }
 }
 
 /* Frena el envío a la nube del "parcial" a como mucho una vez cada
@@ -12233,22 +12276,56 @@ function _subirFotoCompartida_(contenedor, cliente, tipo, index, base64) {
     var txt = await Promise.race([fetchPromise, timeoutPromise]);
     clearTimeout(timeoutId);
 
-    var url;
-    if (txt && txt.trim().startsWith('http') && txt.trim().length > 20) {
-      url = txt.trim();
-    } else if (txt && !txt.startsWith("ERROR") && txt.length > 10 && !txt.includes('<html') && !txt.includes('<!DOCTYPE')) {
-      // Podría ser una URL sin http (raro pero posible)
-      url = txt.trim();
-    } else {
-      throw new Error('Respuesta no válida: ' + (txt || '(vacía)').substring(0, 100));
+    var trimmed = (txt || '').trim();
+
+    // FIX v31: si el backend lanzó una excepción (ej. LockService no pudo
+    // tomar el bloqueo dentro de los 15s cuando muchas fotos se suben a la
+    // vez en un día ocupado, o cualquier otro error de Drive), el catch
+    // general de doPost() devuelve JSON: {"ok":false,"error":...,"stack":...}
+    // — NUNCA texto que empiece con "http". La rama de abajo "URL sin http"
+    // (pensada para una URL sin protocolo, caso que en la práctica nunca
+    // ocurre: subirFoto() siempre devuelve file.getUrl()) aceptaba ese JSON
+    // como si fuera la URL real: la foto NUNCA se subía a Drive, pero
+    // quedaba marcada "✅ subida OK", se descartaba el base64 y no se
+    // reintentaba jamás — pérdida silenciosa y permanente de la foto. Se
+    // detecta explícitamente esa forma de respuesta y se trata como error.
+    if (trimmed.startsWith('{')) {
+      var motivoError = trimmed;
+      try {
+        var parsed = JSON.parse(trimmed);
+        motivoError = (parsed && (parsed.error || parsed.msg)) || trimmed;
+      } catch (eParse) { /* no era JSON válido, se usa el texto crudo */ }
+      throw new Error('Error del servidor: ' + String(motivoError).substring(0, 200));
     }
 
-    _subidasFotoResueltas[clave] = url;
+    var url;
+    if (trimmed.startsWith('http') && trimmed.length > 20) {
+      url = trimmed;
+    } else {
+      throw new Error('Respuesta no válida: ' + (trimmed || '(vacía)').substring(0, 100));
+    }
+
+    // FIX v31: solo grabar en la caché "Resueltas" si esta subida sigue
+    // siendo la vigente para esta clave (contenedor+tipo+índice). Si la
+    // foto fue borrada mientras esta petición seguía en vuelo
+    // (eliminarFoto -> _invalidarCacheFotosTipo_ ya sacó esta promesa de
+    // _subidasFotoEnCurso) y/o el índice reciclado ya tiene una subida
+    // NUEVA en curso, una respuesta tardía de ESTA subida (la de la foto
+    // YA BORRADA) no debe pisar con su URL la de la foto nueva — antes sí
+    // podía, porque esta escritura era incondicional y usaba la MISMA
+    // clave que la subida nueva.
+    if (_subidasFotoEnCurso[clave] === promesa) {
+      _subidasFotoResueltas[clave] = url;
+    }
     return url;
   })();
 
   _subidasFotoEnCurso[clave] = promesa;
-  promesa.finally(function () { delete _subidasFotoEnCurso[clave]; });
+  promesa.finally(function () {
+    // Ver comentario arriba: solo limpiar la entrada si sigue siendo esta
+    // misma promesa (no la de una subida nueva que reemplazó a esta).
+    if (_subidasFotoEnCurso[clave] === promesa) delete _subidasFotoEnCurso[clave];
+  });
   return promesa;
 }
 
