@@ -9511,10 +9511,10 @@ function scl_agregarLoteManual() {
   registros.push({
     lote,
     entrega,
-    reserva: data.reserva || '',
+    reserva: '',
     peso: Number(pesoRaw),
     volumen: _numFrontend_(volumenRaw),
-    nave: data.nave || datosCont.nave || '',
+    nave: datosCont.nave || '',
     cliente: datosCont.cliente || '',
     cantidad: Number(cantidadRaw),
     tipoBulto
@@ -9666,8 +9666,13 @@ async function cargarPendientesIndexedDB() {
     ]);
     if (resNube && resNube.ok && Array.isArray(resNube.parciales)) {
       _nubeListaOk = true; // FIX v352: la nube respondió, su lista es confiable
-      // Guardar set de contenedores que siguen como parcial en la nube
-      resNube.parciales.forEach(function(p) { contNubeSet.add(p.contenedor); });
+      // Guardar set de contenedores que siguen como parcial en la nube.
+      // Clave compuesta contenedor+operación cuando se conoce (ver
+      // _claveContOp_) para no confundir un contenedor reutilizado por
+      // una operación distinta.
+      resNube.parciales.forEach(function(p) {
+        contNubeSet.add(_claveContOp_(p.contenedor, p.operacion));
+      });
       // Filtrar los que YA están en local (para no duplicar)
       const contLocales = new Set(jobs.map(j => (j.datosCont && j.datosCont.contenedor) || ''));
       jobsNube = resNube.parciales.filter(p => !contLocales.has(p.contenedor));
@@ -9709,8 +9714,9 @@ async function cargarPendientesIndexedDB() {
       var c = (j.datosCont && j.datosCont.contenedor) || '';
       if (!c) return;
       if (j.status !== 'parcial') return;
-      if (sincronizados.indexOf(c) === -1) return; // nunca subió → no tocar
-      if (!contNubeSet.has(c)) { esFantasma[c] = true; _aEliminar.push(j); }
+      var opJ = (j.datosCont && j.datosCont.operacion) || '';
+      if (!_estaEnConjunto_(sincronizados, c, opJ)) return; // nunca subió (esta operación) → no tocar
+      if (!_estaEnConjunto_(contNubeSet, c, opJ)) { esFantasma[c] = true; _aEliminar.push(j); }
     });
   }
 
@@ -9722,10 +9728,11 @@ async function cargarPendientesIndexedDB() {
     for (var _e = 0; _e < _aEliminar.length; _e++) {
       var _jf = _aEliminar[_e];
       var _cf = _jf.datosCont.contenedor;
+      var _opf = (_jf.datosCont && _jf.datosCont.operacion) || '';
       try {
-        await _eliminarParcialLocalSilencioso(_cf);
-        _olvidarContenedorSincronizado(_cf);
-        console.log('[SYNC] Parcial eliminado en otro dispositivo, quitado de aquí:', _cf);
+        await _eliminarParcialLocalSilencioso(_cf, _opf);
+        _olvidarContenedorSincronizado(_cf, _opf);
+        console.log('[SYNC] Parcial eliminado en otro dispositivo, quitado de aquí:', _cf, _opf);
       } catch (e) {
         console.warn('[SYNC] No se pudo quitar el parcial:', _cf, e.message);
       }
@@ -9792,7 +9799,7 @@ div.innerHTML = `
 
   ${_fantasma ? `
   <button style="background:#e65100; color:white; margin-top:6px;"
-    onclick="eliminarJobLocal(${job.id}, decodeURIComponent('${encodeURIComponent(info.contenedor)}'), decodeURIComponent('${encodeURIComponent(info.cliente || '')}'))">
+    onclick="eliminarJobLocal(${job.id}, decodeURIComponent('${encodeURIComponent(info.contenedor)}'), decodeURIComponent('${encodeURIComponent(info.cliente || '')}'), decodeURIComponent('${encodeURIComponent((job.datosCont && job.datosCont.operacion) || '')}'))">
     🧹 Quitar de este dispositivo
   </button>` : `
   <button onclick="reanudarLocalConLoading('${info.contenedor}')">
@@ -9801,7 +9808,7 @@ div.innerHTML = `
 
   <button
   style="background:#c62828; color:white; margin-top:6px;"
-  onclick="eliminarJobLocal(${job.id}, decodeURIComponent('${encodeURIComponent(info.contenedor)}'), decodeURIComponent('${encodeURIComponent(info.cliente || '')}'))">
+  onclick="eliminarJobLocal(${job.id}, decodeURIComponent('${encodeURIComponent(info.contenedor)}'), decodeURIComponent('${encodeURIComponent(info.cliente || '')}'), decodeURIComponent('${encodeURIComponent((job.datosCont && job.datosCont.operacion) || '')}'))">
   🗑 Eliminar
 </button>`}
   ${job.status === "error" ? `
@@ -10402,7 +10409,18 @@ async function guardarEnIndexedDB(job, contenedor) {
     req.onsuccess = () => {
       const rows = req.result || [];
 
-      const existente = rows.find(j => j.datosCont?.contenedor === contenedor);
+      // Un mismo N° de contenedor físico puede reutilizarse en operaciones
+      // distintas con el tiempo. Si ambos jobs tienen operación conocida,
+      // exigimos que coincida también — si no, un contenedor reutilizado
+      // para una operación NUEVA heredaría el id del job VIEJO (de otra
+      // operación) y lo sobrescribiría, perdiendo sus lotes/fotos locales.
+      const opNueva = String(job.datosCont?.operacion || '').trim();
+      const existente = rows.find(j => {
+        if (j.datosCont?.contenedor !== contenedor) return false;
+        const opVieja = String(j.datosCont?.operacion || '').trim();
+        if (opNueva && opVieja) return opNueva === opVieja;
+        return true;
+      });
 
       if (existente) {
         job.id = existente.id;   // ← IMPORTANTE
@@ -10959,8 +10977,16 @@ async function autoGuardarConsolidado() {
   var totalVol  = registros.reduce(function(a,b){ return a+(b.volumen||0); }, 0);
   var fecha = new Date().toISOString();
   var jobs = await obtenerJobsPendientes();
+  // Mismo cuidado que en guardarEnIndexedDB(): un contenedor físico puede
+  // reutilizarse en una operación distinta. Si ambos jobs tienen operación
+  // conocida y no coinciden, NO es el mismo job — si no, esta operación
+  // NUEVA heredaría el id/envioId del job VIEJO y lo sobrescribiría.
+  var opActualCont = String(datosCont.operacion || '').trim();
   var existente = jobs.find(function(j) {
-    return j.datosCont && j.datosCont.contenedor === datosCont.contenedor;
+    if (!j.datosCont || j.datosCont.contenedor !== datosCont.contenedor) return false;
+    var opJob = String(j.datosCont.operacion || '').trim();
+    if (opActualCont && opJob) return opActualCont === opJob;
+    return true;
   });
   var job = {
     creado:      existente ? existente.creado : fecha,
@@ -11080,23 +11106,51 @@ function _leerContenedoresSincronizados() {
   } catch (e) { return []; }
 }
 
-function _marcarContenedorSincronizado(contenedor) {
+/* FIX: un mismo N° de contenedor físico puede reutilizarse en una operación
+   distinta con el tiempo. Si esto se registra por contenedor a secas, el
+   job VIEJO (ya cerrado, confirmado en la nube) deja marcado ese
+   contenedor como "sincronizado" para SIEMPRE — y la próxima vez que se
+   abre "Consolidados pendientes" con una operación NUEVA en curso para el
+   mismo contenedor (que aún no llegó a la nube), la detección de
+   "fantasma" lo confunde con el viejo y borra su única copia local. Por
+   eso se guarda contenedor+operación cuando se conoce la operación. */
+function _claveContOp_(contenedor, operacion) {
+  var op = String(operacion || '').trim();
+  return op ? (contenedor + '||OP:' + op) : contenedor;
+}
+
+function _marcarContenedorSincronizado(contenedor, operacion) {
   if (!contenedor) return;
   try {
+    var clave = _claveContOp_(contenedor, operacion);
     var arr = _leerContenedoresSincronizados();
-    if (arr.indexOf(contenedor) === -1) {
-      arr.push(contenedor);
+    if (arr.indexOf(clave) === -1) {
+      arr.push(clave);
       if (arr.length > 200) arr = arr.slice(-200); // no crecer indefinidamente
       localStorage.setItem(CB_KEY_SINCRONIZADOS, JSON.stringify(arr));
     }
   } catch (e) {}
 }
 
-function _olvidarContenedorSincronizado(contenedor) {
+function _olvidarContenedorSincronizado(contenedor, operacion) {
   try {
-    var arr = _leerContenedoresSincronizados().filter(function(c) { return c !== contenedor; });
+    var clave = _claveContOp_(contenedor, operacion);
+    var arr = _leerContenedoresSincronizados().filter(function(c) { return c !== clave && c !== contenedor; });
     localStorage.setItem(CB_KEY_SINCRONIZADOS, JSON.stringify(arr));
   } catch (e) {}
+}
+
+/* Coincidencia contra un conjunto (Set o array) de claves sincronizadas o
+   de la nube: si se conoce la operación de este job, exige la clave
+   compuesta contenedor+operación (estricto, evita el falso positivo de
+   contenedor reutilizado); si no se conoce, cae al comportamiento viejo
+   (solo contenedor) para no romper datos ya guardados antes de este fix. */
+function _estaEnConjunto_(conjunto, contenedor, operacion) {
+  var tiene = conjunto.has ? function(k) { return conjunto.has(k); }
+                           : function(k) { return conjunto.indexOf(k) !== -1; };
+  var op = String(operacion || '').trim();
+  if (op) return tiene(_claveContOp_(contenedor, op));
+  return tiene(contenedor);
 }
 
 /* Envía a la nube solo un "estado" liviano del contenedor en curso —
@@ -11178,7 +11232,7 @@ async function syncParcialANube(job) {
       var _syncBody = null;
       try { _syncBody = await _respSync.json(); } catch (eParse) { _syncBody = null; }
       if (_syncBody && _syncBody.ok && _syncBody.guardado === true) {
-        _marcarContenedorSincronizado(job.datosCont.contenedor);
+        _marcarContenedorSincronizado(job.datosCont.contenedor, job.datosCont.operacion);
       } else if (_syncBody && _syncBody.guardado === false) {
         console.warn('[SYNC] El servidor no guardó el parcial de', job.datosCont.contenedor,
           '(motivo:', _syncBody.motivo, ') — no se marca como sincronizado.');
@@ -11549,15 +11603,25 @@ function _programarGuardadoEscalar() {
    o cerrado en otro dispositivo — la autorización ya ocurrió allá.
    NO registra auditoría: el evento ya quedó registrado por el dispositivo
    que hizo la eliminación real. */
-async function _eliminarParcialLocalSilencioso(contenedor) {
+async function _eliminarParcialLocalSilencioso(contenedor, operacion) {
   var cont = String(contenedor || '').replace(/\s+/g, ' ').trim();
   if (!cont) return;
+  var op = String(operacion || '').trim();
 
   var db = await openDB();
   var todos = await obtenerJobsPendientes();
   var objetivos = todos.filter(function(j) {
     var c = j.datosCont && j.datosCont.contenedor;
-    return c && String(c).replace(/\s+/g, ' ').trim() === cont;
+    if (!c || String(c).replace(/\s+/g, ' ').trim() !== cont) return false;
+    // Si conocemos la operación a eliminar, exigir que coincida — si no,
+    // un contenedor reutilizado por una operación NUEVA (aún vigente)
+    // podría borrarse en lugar del job viejo que sí quedó confirmado
+    // fuera de la nube.
+    if (op) {
+      var opJob = String((j.datosCont && j.datosCont.operacion) || '').trim();
+      if (opJob && opJob !== op) return false;
+    }
+    return true;
   });
   if (!objetivos.length) return;
 
@@ -12908,12 +12972,19 @@ async function guardarConsolidadoFinal() {
     const cont = datosCont.contenedor.trim();
 
     // 1️⃣ Buscar si ya existe un job previo (parcial)
+    // Un mismo N° de contenedor físico puede reutilizarse en una operación
+    // distinta con el tiempo: si ambos jobs tienen operación conocida y no
+    // coinciden, NO es el mismo job (ver mismo criterio en guardarEnIndexedDB
+    // y autoGuardarConsolidado) — si no, este cierre heredaría el id/envioId
+    // de un job VIEJO de otra operación y lo sobrescribiría.
+    const opActualFinal = String(datosCont.operacion || '').trim();
     const jobs = await obtenerJobsPendientes();
-    const existente = jobs.find(j =>
-  j.datosCont &&
-  j.datosCont.contenedor &&
-  j.datosCont.contenedor.trim() === cont
-) || null;
+    const existente = jobs.find(j => {
+      if (!j.datosCont || !j.datosCont.contenedor || j.datosCont.contenedor.trim() !== cont) return false;
+      const opJob = String(j.datosCont.operacion || '').trim();
+      if (opActualFinal && opJob) return opActualFinal === opJob;
+      return true;
+    }) || null;
 
 
 const fotosBase64 = {
@@ -15730,13 +15801,15 @@ async function reintentarEnvioJob(id) {
   }
 }
 
-async function eliminarJobLocal(id, contenedor, cliente) {
+async function eliminarJobLocal(id, contenedor, cliente, operacion) {
 
   // 🔒 Normalizar contenedor (BLINDADO)
   const contOK = (contenedor || "").toString().replace(/\s+/g, " ").trim();
 
   // FIX v352: limpiar el registro de sincronizados para este contenedor
-  _olvidarContenedorSincronizado(contOK);
+  // (con operación, si se conoce, para no afectar otro job que reutilice
+  // el mismo N° de contenedor en una operación distinta)
+  _olvidarContenedorSincronizado(contOK, operacion);
 
   if (!contOK) {
     alert("❌ No se pudo determinar el contenedor a eliminar.");
