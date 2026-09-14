@@ -3549,9 +3549,9 @@ button:active {
     <div class="rcScanLabel">ESCANEE O INGRESE EL LOTE</div>
     <input type="text" id="lote" placeholder="Lote / código de barras" autofocus
            class="rcInputLote" oninput="this.value=this.value.toUpperCase();"
-           onkeydown="if(event.key==='Enter'){event.preventDefault(); if(this.value.trim()) document.getElementById('producto')?.focus();}">
+           onkeydown="if(event.key==='Enter'){event.preventDefault(); if(this.value.trim()) guardarRecepcion();}">
     <button type="button" title="Escanear con la cámara del celular"
-            onclick="abrirScanCamara(function(codigo){ document.getElementById('lote').value = codigo; document.getElementById('producto')?.focus(); })"
+            onclick="abrirScanCamara(function(codigo){ document.getElementById('lote').value = codigo; guardarRecepcion(); })"
             style="width:100%; margin-top:8px; background:#eef6ff; color:#1b6ca8; border:none;
                    border-radius:10px; padding:9px; font-size:13px; font-weight:800; cursor:pointer;">
       📷 Escanear con cámara (sin láser)
