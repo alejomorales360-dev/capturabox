@@ -4583,6 +4583,7 @@ button:active {
                      font-size:13px;font-weight:700;box-sizing:border-box;margin-bottom:12px;">
         <option value="ESTANDAR">Estándar — columnas exactas</option>
         <option value="JCE">Packing List JCE — tal como lo envía el cliente</option>
+        <option value="FORACTION_PACKING">Packing List FORACTION — tal como lo envía el cliente</option>
         <option value="JCE_STOCK">Stock JCE — planilla de stock (hoja STOCK)</option>
         <option value="FORACTION_STOCK">Stock FORACTION — planilla de stock (hoja STOCK)</option>
         <option value="ARAUCO">Stock Arauco (ZQUSTOCKHOY) — archivo .XLS/.DBF</option>
@@ -4746,6 +4747,19 @@ button:active {
           Si el archivo trae <b>varias hojas</b>, cada una se trata como un SCIP/OC
           independiente. El <b>peso total en KGS</b> que JCE deja al pie de cada hoja
           se reparte entre sus lotes a prorrata de m³ (mismo criterio que el VGM de Consolidado).
+        </div>
+      </div>
+
+      <div id="cb_avisoFORACTIONPacking" style="display:none;background:#fff8e1;border:1px solid #ffe0a3;
+           border-radius:10px;padding:10px 12px;margin-bottom:12px;font-size:12px;color:#7a5a10;">
+        <b>Modo Packing List FORACTION:</b> arrastra el archivo tal cual lo envía el
+        cliente. La app toma <b>Lote</b> → Lote, la columna sin nombre junto a
+        Lote → Material, <b>Volumen</b> → Volumen, <b>Nave</b> → Nave,
+        <b>Destino</b> → Destino, <b>Container</b> → Entrega, y de la cabecera
+        <b>Booking</b> → Reserva. Cliente queda como <b>FORACTION</b> automático.
+        <div style="margin-top:6px;">
+          El Peso de este archivo se ignora (queda en 0) — si el lote ya fue
+          recepcionado, se completa solo desde Recepción al cargar.
         </div>
       </div>
 
@@ -22034,6 +22048,7 @@ var CB_FORMATOS_POR_DESTINO = {
   LOTESDB: [
     { value: 'ESTANDAR', label: 'Estándar — columnas exactas' },
     { value: 'JCE', label: 'Packing List JCE — tal como lo envía el cliente' },
+    { value: 'FORACTION_PACKING', label: 'Packing List FORACTION — tal como lo envía el cliente' },
     { value: 'ZOOPP', label: 'Consolidado Arauco (ZOOPP) — planilla de embarque' }
   ],
   STOCK_CLIENTE: [
@@ -22283,6 +22298,16 @@ function cb_leerArchivo(file) {
         document.getElementById('cb_pegar').value = '';
         document.getElementById('cb_preview').innerHTML = '';
         cb_mostrarCabeceraJCE(res.hojas, cb_filas.length);
+        return;
+      }
+
+      // ---- Packing List FORACTION ----
+      if (formato === 'FORACTION_PACKING') {
+        var resFP = cb_parsearFORACTIONPacking_(wb);
+        cb_filas = resFP.filas;
+        document.getElementById('cb_pegar').value = '';
+        document.getElementById('cb_preview').innerHTML = '';
+        cb_mostrarCabeceraFORACTIONPacking_(resFP);
         return;
       }
 
@@ -23570,12 +23595,14 @@ function cb_cambiarFormato() {
   if (selCliReset && f !== 'ARAUCO' && f !== 'JCE_STOCK' && f !== 'FORACTION_STOCK' && f !== 'JCE_FOTO') selCliReset.disabled = false;
 
   var aviso = document.getElementById('cb_avisoJCE');
+  var avFORACTIONPacking = document.getElementById('cb_avisoFORACTIONPacking');
   var avArauco = document.getElementById('cb_avisoArauco');
   var avStockJCE = document.getElementById('cb_avisoStockJCE');
   var avStockFORACTION = document.getElementById('cb_avisoStockFORACTION');
   var avVol8 = document.getElementById('cb_avisoVol8');
   var avFotoJCE = document.getElementById('cb_avisoFotoJCE');
   if (aviso)    aviso.style.display    = (f === 'JCE')    ? 'block' : 'none';
+  if (avFORACTIONPacking) avFORACTIONPacking.style.display = (f === 'FORACTION_PACKING') ? 'block' : 'none';
   if (avArauco) avArauco.style.display = (f === 'ARAUCO') ? 'block' : 'none';
   if (avStockJCE) avStockJCE.style.display = (f === 'JCE_STOCK') ? 'block' : 'none';
   if (avStockFORACTION) avStockFORACTION.style.display = (f === 'FORACTION_STOCK') ? 'block' : 'none';
@@ -23597,6 +23624,17 @@ function cb_cambiarFormato() {
       cb_cambiarDestino();
       document.getElementById('cb_formatoArchivo').value = 'JCE';
       if (aviso) aviso.style.display = 'block';
+    }
+  }
+
+  // El Packing List de FORACTION también solo alimenta LotesDB
+  if (f === 'FORACTION_PACKING') {
+    var selFP = document.getElementById('cb_destino');
+    if (selFP && selFP.value !== 'LOTESDB') {
+      selFP.value = 'LOTESDB';
+      cb_cambiarDestino();
+      document.getElementById('cb_formatoArchivo').value = 'FORACTION_PACKING';
+      if (avFORACTIONPacking) avFORACTIONPacking.style.display = 'block';
     }
   }
 
@@ -24884,6 +24922,139 @@ function cb_mostrarCabeceraJCE(hojas, cantidad) {
       '<b style="color:#00695c;">' + cantidad + ' lotes</b> en <b>' + hojas.length + ' hoja' + (hojas.length === 1 ? '' : 's') +
       '</b>, leídos de <b>' + cb_archivo + '</b>' +
       filasHtml +
+    '</div>';
+
+  document.getElementById('cb_btnValidar').style.display = 'block';
+}
+
+
+/* ---------------------------------------------------------
+   PARSER: PACKING LIST FORACTION
+
+   Una sola hoja, con datos de cabecera arriba (Destination,
+   Booking) y la tabla de lotes más abajo. La tabla trae una
+   columna sin encabezado justo al lado de "Lote" que es la que
+   realmente trae el Material (la columna que sí dice "Material"
+   viene vacía en este archivo). Mapeo acordado con Jano:
+
+     Lote                    → Lote
+     (columna sin nombre)    → Material
+     Volumen                 → Volumen
+     Nave                    → Nave
+     Destino                 → Destino
+     Container               → Entrega
+     Booking (de cabecera)   → Reserva
+
+   Pedido, Peso, Esp/Anc/Lar, Marca y Pzas del archivo se
+   ignoran — el Peso queda en 0 (se completa después desde
+   Recepción si el lote ya fue recepcionado).
+--------------------------------------------------------- */
+function cb_hojaPackingFORACTION_(wb) {
+  for (var s = 0; s < wb.SheetNames.length; s++) {
+    var m = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[s]], { header: 1, raw: true, defval: '' });
+    if (!m.length) continue;
+    for (var f = 0; f < m.length; f++) {
+      var fila = m[f] || [];
+      for (var c = 0; c < fila.length; c++) {
+        if (String(fila[c] === undefined ? '' : fila[c]).trim().toUpperCase() === 'LOTE') {
+          return { nombre: wb.SheetNames[s], matriz: m, filaEnc: f, colLote: c };
+        }
+      }
+    }
+  }
+  return null;
+}
+
+function cb_parsearFORACTIONPacking_(wb) {
+  var hoja = cb_hojaPackingFORACTION_(wb);
+  if (!hoja) {
+    throw new Error('No se encontró la columna "Lote" en el archivo. ¿Es un packing list de FORACTION?');
+  }
+
+  var m = hoja.matriz;
+  var enc = m[hoja.filaEnc];
+  var colLote = hoja.colLote;
+  // La columna de Material real es la que sigue justo a "Lote" — en
+  // este formato viene sin nombre propio (la columna que sí dice
+  // "Material" queda vacía en todas las filas).
+  var colMaterial = colLote + 1;
+
+  var norm = function(x) { return String(x || '').replace(/[^A-Za-z0-9]/g, '').toLowerCase(); };
+  var limpios = enc.map(norm);
+  var colDe = function(nombres) {
+    for (var i = 0; i < nombres.length; i++) {
+      var idx = limpios.indexOf(norm(nombres[i]));
+      if (idx !== -1) return idx;
+    }
+    return -1;
+  };
+
+  var colVolumen   = colDe(['volumen']);
+  var colNave      = colDe(['nave']);
+  var colDestino   = colDe(['destino']);
+  var colContainer = colDe(['container']);
+
+  if (colVolumen === -1) {
+    throw new Error('No se encontró la columna "Volumen" en la hoja ' + hoja.nombre + '.');
+  }
+
+  var reserva = cb_buscarEtiqueta(m, ['BOOKING']);
+  var destinoCabecera = cb_buscarEtiqueta(m, ['DESTINATION']);
+
+  var filas = [];
+  for (var k = hoja.filaEnc + 1; k < m.length; k++) {
+    var r = m[k] || [];
+    var lote = String(r[colLote] === undefined ? '' : r[colLote]).trim();
+
+    if (!lote) {
+      // Una fila vacía DESPUÉS de haber leído al menos un lote marca
+      // el fin de la tabla — lo que sigue es el total/pie de página
+      // de la planilla, sin lotes reales.
+      if (filas.length) break;
+      continue;
+    }
+
+    filas.push({
+      Lote:     lote,
+      Entrega:  colContainer !== -1 ? String(r[colContainer] || '').trim() : '',
+      Material: String(r[colMaterial] || '').trim(),
+      Peso:     0,
+      Volumen:  cb_numeroCL(r[colVolumen]),
+      Nave:     colNave    !== -1 ? String(r[colNave]    || '').trim() : '',
+      Cliente:  'FORACTION',
+      Reserva:  reserva,
+      Destino:  colDestino !== -1 ? String(r[colDestino] || '').trim() : destinoCabecera,
+      'Puerto Embarque': ''
+    });
+  }
+
+  if (!filas.length) throw new Error('No se encontraron lotes en la hoja ' + hoja.nombre + '.');
+
+  return { filas: filas, hoja: hoja.nombre, reserva: reserva, destino: filas[0].Destino, nave: filas[0].Nave };
+}
+
+/* Muestra lo que se detectó, para confirmar antes de cargar. */
+function cb_mostrarCabeceraFORACTIONPacking_(res) {
+  var faltan = [];
+  if (!res.reserva) faltan.push('Booking/Reserva');
+  if (!res.nave)    faltan.push('Nave');
+  if (!res.destino) faltan.push('Destino');
+
+  var box = document.getElementById('cb_infoDatos');
+  box.innerHTML =
+    '<div style="background:#fff8e1;border-radius:9px;padding:10px 12px;">' +
+      '<b style="color:#7a5a10;">' + res.filas.length + ' lotes</b> leídos de la hoja ' +
+        '<b>' + res.hoja + '</b> (' + cb_archivo + ')' +
+      '<div style="font-size:11.5px;color:#7a5a10;margin-top:6px;line-height:1.6;">' +
+        '<b>Reserva (Booking):</b> ' + (res.reserva || '—') + ' &nbsp;·&nbsp; ' +
+        '<b>Nave:</b> ' + (res.nave || '—') + '<br>' +
+        '<b>Destino:</b> ' + (res.destino || '—') + ' &nbsp;·&nbsp; ' +
+        '<b>Cliente:</b> FORACTION' +
+      '</div>' +
+      (faltan.length
+        ? '<div style="background:#fff3e0;border-radius:6px;padding:5px 8px;margin-top:5px;' +
+          'font-size:10.5px;color:#b04a10;">⚠️ No se detectó: ' + faltan.join(', ') + '</div>'
+        : '') +
     '</div>';
 
   document.getElementById('cb_btnValidar').style.display = 'block';
