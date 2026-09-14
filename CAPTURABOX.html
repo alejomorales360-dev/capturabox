@@ -4596,13 +4596,32 @@ button:active {
         <div style="font-size:11px;font-weight:800;margin-bottom:4px;color:#7a5a10;">
           NAVE DE ESTE ARCHIVO <span style="color:#c62828;">*</span>
         </div>
-        <input id="cb_naveArchivo" placeholder="Ej: POLAR PERU V.634"
+        <input id="cb_naveArchivo" placeholder="Ej: POLAR PERU V.634" list="cb_naveHistorialList"
                style="width:100%;padding:9px 10px;border:1.5px solid #ffca28;border-radius:8px;
                       font-size:13px;font-weight:700;box-sizing:border-box;text-transform:uppercase;"
                oninput="this.value=this.value.toUpperCase();">
+        <datalist id="cb_naveHistorialList"></datalist>
         <div style="font-size:11px;margin-top:5px;color:#7a5a10;">
           Se usa para TODOS los lotes de este archivo, independiente de lo que traiga la
           columna Nave del archivo original.
+        </div>
+      </div>
+
+      <div id="cb_productoWrap" style="display:none;background:#fff8e1;border:1.5px solid #ffca28;
+           border-radius:10px;padding:10px 12px;margin-bottom:12px;">
+        <div style="font-size:11px;font-weight:800;margin-bottom:4px;color:#7a5a10;">
+          PRODUCTO DE ESTE ARCHIVO <span style="color:#c62828;">*</span>
+        </div>
+        <select id="cb_productoArchivo"
+                style="width:100%;padding:9px 10px;border:1.5px solid #ffca28;border-radius:8px;
+                       font-size:13px;font-weight:700;box-sizing:border-box;background:#fff;">
+          <option value="">Seleccione…</option>
+          <option value="BLANKS">BLANKS</option>
+          <option value="MADERA VERDE">MADERA VERDE</option>
+        </select>
+        <div style="font-size:11px;margin-top:5px;color:#7a5a10;">
+          Se usa para TODOS los lotes de este archivo, independiente de lo que traiga la
+          columna Producto del archivo original.
         </div>
       </div>
 
@@ -22119,6 +22138,7 @@ function cb_limpiar() {
   var f = document.getElementById('cb_file'); if (f) f.value = '';
   var fr = document.getElementById('cb_fileReserva'); if (fr) fr.value = '';
   var nv = document.getElementById('cb_naveArchivo'); if (nv) nv.value = '';
+  var pr = document.getElementById('cb_productoArchivo'); if (pr) pr.value = '';
   var p2 = document.getElementById('cb_paso2'); if (p2) p2.style.display = 'none';
   var b = document.getElementById('cb_btnValidar'); if (b) b.style.display = 'none';
   cb_pintarEstadoReservaExterna_();
@@ -22151,6 +22171,10 @@ function cb_cambiarDestino() {
 
   var naveWrap = document.getElementById('cb_naveWrap');
   if (naveWrap) naveWrap.style.display = (def.id === 'LOTESDB') ? 'block' : 'none';
+  if (def.id === 'LOTESDB') cb_pintarHistorialNaves_();
+
+  var productoWrap = document.getElementById('cb_productoWrap');
+  if (productoWrap) productoWrap.style.display = (def.id === 'LOTESDB') ? 'block' : 'none';
 
   // Solo se muestran los formatos de plantilla que de verdad alimentan
   // este destino (ESTANDAR siempre aparece: aplica a cualquier destino
@@ -22732,6 +22756,38 @@ function cb_confirmarFotoIA_() {
   document.getElementById('cb_infoDatos').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
 
+/* ---------------------------------------------------------
+   HISTORIAL DE NAVES RECIENTES (Cargar Bases → LotesDB)
+   Guarda las últimas 10 naves ingresadas a mano en localStorage
+   (por dispositivo) para que el campo "Nave de este archivo" las
+   sugiera con autocompletado nativo del navegador, sin tener que
+   volver a tipear el nombre completo cada vez.
+--------------------------------------------------------- */
+var CB_NAVES_RECIENTES_KEY = 'cb_navesRecientes';
+var CB_NAVES_RECIENTES_MAX = 10;
+
+function cb_pintarHistorialNaves_() {
+  var dl = document.getElementById('cb_naveHistorialList');
+  if (!dl) return;
+  var naves = [];
+  try { naves = JSON.parse(localStorage.getItem(CB_NAVES_RECIENTES_KEY) || '[]'); } catch (e) {}
+  dl.innerHTML = naves.map(function (n) {
+    return '<option value="' + String(n).replace(/"/g, '&quot;') + '"></option>';
+  }).join('');
+}
+
+function cb_guardarNaveReciente_(nave) {
+  nave = String(nave || '').trim().toUpperCase();
+  if (!nave) return;
+  var naves = [];
+  try { naves = JSON.parse(localStorage.getItem(CB_NAVES_RECIENTES_KEY) || '[]'); } catch (e) {}
+  naves = naves.filter(function (n) { return n !== nave; });
+  naves.unshift(nave);
+  if (naves.length > CB_NAVES_RECIENTES_MAX) naves = naves.slice(0, CB_NAVES_RECIENTES_MAX);
+  try { localStorage.setItem(CB_NAVES_RECIENTES_KEY, JSON.stringify(naves)); } catch (e) {}
+  cb_pintarHistorialNaves_();
+}
+
 /* ---- Validación en el servidor (no escribe nada) ---- */
 async function cb_validar() {
   var def = cb_destinoActual();
@@ -22748,6 +22804,18 @@ async function cb_validar() {
       return;
     }
     cb_filas.forEach(function (f) { f.Nave = naveVal; });
+    cb_guardarNaveReciente_(naveVal);
+
+    // El producto se pide obligatorio para LotesDB por el mismo motivo
+    // que la nave: reemplaza lo que haya traído la columna Producto del
+    // archivo (muchos packing list de proveedores no la traen) y
+    // garantiza que ningún lote quede sin producto.
+    var productoVal = String((document.getElementById('cb_productoArchivo') || {}).value || '').trim();
+    if (!productoVal) {
+      mostrarAlerta('⚠️ Falta el producto', 'Selecciona el producto de este archivo antes de continuar.');
+      return;
+    }
+    cb_filas.forEach(function (f) { f.Producto = productoVal; });
   }
 
   mostrarCargando('Revisando ' + cb_filas.length + ' filas...');
@@ -24993,6 +25061,10 @@ function cb_parsearFORACTIONPacking_(wb) {
   var colNave      = colDe(['nave']);
   var colDestino   = colDe(['destino']);
   var colContainer = colDe(['container']);
+  var colEsp       = colDe(['esp']);
+  var colAnc       = colDe(['anc']);
+  var colLar       = colDe(['lar']);
+  var colPzas      = colDe(['pzas']);
 
   if (colVolumen === -1) {
     throw new Error('No se encontró la columna "Volumen" en la hoja ' + hoja.nombre + '.');
@@ -25014,10 +25086,21 @@ function cb_parsearFORACTIONPacking_(wb) {
       continue;
     }
 
+    // Marca = combinación Esp x Anc x Lar - N pzas (mismo criterio que
+    // ya usa el parser de Stock JCE/FORACTION para armar la Marca).
+    var marcaCombinada = [
+      colEsp !== -1 ? cb_fmtNumJCE(r[colEsp]) : '',
+      colAnc !== -1 ? cb_fmtNumJCE(r[colAnc]) : '',
+      colLar !== -1 ? cb_fmtNumJCE(r[colLar]) : ''
+    ].filter(Boolean).join('x');
+    var piezasTxt = colPzas !== -1 ? cb_fmtNumJCE(r[colPzas]) : '';
+    if (piezasTxt) marcaCombinada += (marcaCombinada ? ' - ' : '') + piezasTxt + ' pzas';
+
     filas.push({
       Lote:     lote,
       Entrega:  colContainer !== -1 ? String(r[colContainer] || '').trim() : '',
       Material: String(r[colMaterial] || '').trim(),
+      Marca:    marcaCombinada,
       Peso:     0,
       Volumen:  cb_numeroCL(r[colVolumen]),
       Nave:     colNave    !== -1 ? String(r[colNave]    || '').trim() : '',
