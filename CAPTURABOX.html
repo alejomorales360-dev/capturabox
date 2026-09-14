@@ -22173,8 +22173,12 @@ function cb_cambiarDestino() {
   if (naveWrap) naveWrap.style.display = (def.id === 'LOTESDB') ? 'block' : 'none';
   if (def.id === 'LOTESDB') cb_pintarHistorialNaves_();
 
+  // El producto manual obligatorio es solo para el Packing List de
+  // FORACTION (su archivo no trae Producto) — se muestra/oculta según
+  // el FORMATO elegido, no según el destino (ver cb_cambiarFormato);
+  // acá solo se resetea al cambiar de destino.
   var productoWrap = document.getElementById('cb_productoWrap');
-  if (productoWrap) productoWrap.style.display = (def.id === 'LOTESDB') ? 'block' : 'none';
+  if (productoWrap) productoWrap.style.display = 'none';
 
   // Solo se muestran los formatos de plantilla que de verdad alimentan
   // este destino (ESTANDAR siempre aparece: aplica a cualquier destino
@@ -22806,16 +22810,20 @@ async function cb_validar() {
     cb_filas.forEach(function (f) { f.Nave = naveVal; });
     cb_guardarNaveReciente_(naveVal);
 
-    // El producto se pide obligatorio para LotesDB por el mismo motivo
-    // que la nave: reemplaza lo que haya traído la columna Producto del
-    // archivo (muchos packing list de proveedores no la traen) y
-    // garantiza que ningún lote quede sin producto.
-    var productoVal = String((document.getElementById('cb_productoArchivo') || {}).value || '').trim();
-    if (!productoVal) {
-      mostrarAlerta('⚠️ Falta el producto', 'Selecciona el producto de este archivo antes de continuar.');
-      return;
+    // El producto manual obligatorio es SOLO para el Packing List de
+    // FORACTION: su archivo no trae columna Producto. Los demás
+    // formatos de LotesDB (ZOOPP, JCE, Estándar) ya resuelven su
+    // propio Producto desde el archivo y no deben quedar bloqueados
+    // pidiéndolo de nuevo.
+    var formatoActual = document.getElementById('cb_formatoArchivo')?.value || '';
+    if (formatoActual === 'FORACTION_PACKING') {
+      var productoVal = String((document.getElementById('cb_productoArchivo') || {}).value || '').trim();
+      if (!productoVal) {
+        mostrarAlerta('⚠️ Falta el producto', 'Selecciona el producto de este archivo antes de continuar.');
+        return;
+      }
+      cb_filas.forEach(function (f) { f.Producto = productoVal; });
     }
-    cb_filas.forEach(function (f) { f.Producto = productoVal; });
   }
 
   mostrarCargando('Revisando ' + cb_filas.length + ' filas...');
@@ -23677,6 +23685,12 @@ function cb_cambiarFormato() {
   if (avVol8) avVol8.style.display = (f === 'VOL8') ? 'block' : 'none';
   if (avFotoJCE) avFotoJCE.style.display = (f === 'JCE_FOTO') ? 'block' : 'none';
 
+  // El producto manual obligatorio es solo para FORACTION — los demás
+  // formatos/clientes (ZOOPP, JCE, Estándar) ya traen o resuelven su
+  // propio Producto y no deben quedar bloqueados pidiéndolo.
+  var productoWrap = document.getElementById('cb_productoWrap');
+  if (productoWrap) productoWrap.style.display = (f === 'FORACTION_PACKING') ? 'block' : 'none';
+
   // Foto JCE usa un bloque de carga distinto (fotos en vez de
   // archivo/pegado), así que se intercambian los bloques enteros.
   var bloqueNormal = document.getElementById('cb_bloqueArchivoNormal');
@@ -23703,6 +23717,7 @@ function cb_cambiarFormato() {
       cb_cambiarDestino();
       document.getElementById('cb_formatoArchivo').value = 'FORACTION_PACKING';
       if (avFORACTIONPacking) avFORACTIONPacking.style.display = 'block';
+      if (productoWrap) productoWrap.style.display = 'block';
     }
   }
 
