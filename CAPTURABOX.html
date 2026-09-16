@@ -2092,6 +2092,10 @@ button:active {
         <span class="dbModRowDot" style="background:#c9a24b;"></span>
         <span class="dbModRowTxt">Trazabilidad de lote</span><span class="dbModRowArrow">&#8250;</span>
       </div>
+      <div class="dbModRow" data-permiso="DESAUTORIZAR_LOTES" onclick="deslote_abrir()">
+        <span class="dbModRowDot" style="background:#c9a24b;"></span>
+        <span class="dbModRowTxt">Desautorizar Lotes</span><span class="dbModRowArrow">&#8250;</span>
+      </div>
       <div class="dbModRow" data-permiso="INFORME_GENERAL" onclick="infGen_abrir()">
         <span class="dbModRowDot" style="background:#c9a24b;"></span>
         <span class="dbModRowTxt">Informe General</span><span class="dbModRowArrow">&#8250;</span>
@@ -10166,7 +10170,7 @@ function _fechaAyerLocal() {
     String(d.getDate()).padStart(2,'0');
 }
 
-const URL_GAS = "https://script.google.com/macros/s/AKfycbzkWZuUznLPFs8z_T_kTX9F6mpJpxyDrCXsGHyf7mv3zKnvdOyQEaWMJT29vmJIyN5K/exec";
+const URL_GAS = "https://script.google.com/macros/s/AKfycbxx5U7igwokjlp631UNI1HeF_7JOofpYfgId5tjrKAcCvpIzej-UKBK3iAzlPupnVF9/exec";
 
 // ─── LICENCIA Y DISPOSITIVO ──────────────────────────────────────
 const APP_LICENCIA = "CBOX-2026-ARAUCO-PROD-001"; // Cambiar por tu clave única
@@ -14503,6 +14507,7 @@ const MODULOS_APP = [
   { id: "METAS_NAVE", label: "🚢 Metas de nave" },
   { id: "PACKING_LIST", label: "📋 Packing List General" },
   { id: "TRAZABILIDAD", label: "🔎 Trazabilidad de lote" },
+  { id: "DESAUTORIZAR_LOTES", label: "🚫 Desautorizar Lotes" },
   { id: "INFORME_GENERAL", label: "📊 Informe General" },
   { id: "GATE_CONTROL", label: "🚧 Gate Control (registrar movimiento)" },
   { id: "GATE_CONTROL_INFORME", label: "📋 Informe de Gate Control" },
@@ -18127,6 +18132,219 @@ function pklg_css() {
     '.totales{margin-top:10px;background:#0b3c5d;color:#fff;border-radius:8px;padding:10px 14px;display:flex;justify-content:space-around;text-align:center;}' +
     '.totales .item .l{font-size:9px;letter-spacing:.06em;text-transform:uppercase;opacity:.75;}' +
     '.totales .item .v{font-size:16px;font-weight:800;margin-top:2px;}';
+}
+
+/* =========================================================
+   DESAUTORIZAR LOTES (Herramientas)
+   Un lote que está en LotesDB queda autorizado para pistolearse en
+   Consolidado. Cuando un lote (o toda una Entrega) se baja de la
+   nave antes de zarpar, hay que sacarlo de LotesDB para que
+   Consolidado no lo acepte por error. Se busca por Lote (1
+   resultado) o por Entrega (todos sus lotes), se eligen cuáles
+   desautorizar (checkbox, todos marcados por defecto) y se pide
+   autorización (RUT + clave) antes de eliminar.
+========================================================= */
+
+var deslote_modo = 'lote';
+var deslote_resultados = [];
+
+function deslote_abrir() {
+  var contenido =
+    '<div style="display:flex; gap:8px; margin-bottom:14px;">' +
+      '<button id="deslote_btnLote" onclick="deslote_setModo(\'lote\')" ' +
+        'style="flex:1;padding:10px;border-radius:9px;border:1.5px solid #0b3c5d;background:#0b3c5d;color:#fff;font-weight:700;font-size:13px;cursor:pointer;">Por lote</button>' +
+      '<button id="deslote_btnEntrega" onclick="deslote_setModo(\'entrega\')" ' +
+        'style="flex:1;padding:10px;border-radius:9px;border:1.5px solid #cfd8dc;background:#fff;color:#5a6b77;font-weight:700;font-size:13px;cursor:pointer;">Por entrega</button>' +
+    '</div>' +
+    '<label id="deslote_label" style="font-size:12px;font-weight:700;color:#5a6b77;">LOTE</label>' +
+    '<input id="deslote_valor" type="text" placeholder="Ej: LP80960" ' +
+      'style="width:100%;margin-top:6px;padding:12px;border:1.5px solid #cfd8dc;border-radius:10px;font-size:15px;box-sizing:border-box;" ' +
+      'autocapitalize="characters" oninput="this.value=this.value.toUpperCase();">';
+
+  mostrarModalForm('Desautorizar Lotes', contenido, deslote_buscar);
+  var btn = document.getElementById('adminModalConfirmar');
+  if (btn) btn.textContent = 'Buscar';
+
+  deslote_modo = 'lote';
+}
+
+function deslote_setModo(modo) {
+  deslote_modo = modo;
+  var bL = document.getElementById('deslote_btnLote');
+  var bE = document.getElementById('deslote_btnEntrega');
+  var lbl = document.getElementById('deslote_label');
+  var input = document.getElementById('deslote_valor');
+  if (!bL || !bE) return;
+
+  if (modo === 'lote') {
+    bL.style.background = '#0b3c5d'; bL.style.color = '#fff'; bL.style.borderColor = '#0b3c5d';
+    bE.style.background = '#fff';    bE.style.color = '#5a6b77'; bE.style.borderColor = '#cfd8dc';
+    if (lbl) lbl.textContent = 'LOTE';
+    if (input) input.placeholder = 'Ej: LP80960';
+  } else {
+    bE.style.background = '#0b3c5d'; bE.style.color = '#fff'; bE.style.borderColor = '#0b3c5d';
+    bL.style.background = '#fff';    bL.style.color = '#5a6b77'; bL.style.borderColor = '#cfd8dc';
+    if (lbl) lbl.textContent = 'N° DE ENTREGA';
+    if (input) input.placeholder = 'Ej: 819377314';
+  }
+}
+
+async function deslote_buscar() {
+  var valor = String((document.getElementById('deslote_valor') || {}).value || '').trim();
+  if (!valor) {
+    mostrarAlerta('Falta el valor', 'Escribe un ' + (deslote_modo === 'lote' ? 'lote' : 'número de entrega') + ' para buscar.');
+    return false;
+  }
+
+  mostrarCargando('Buscando...');
+  try {
+    var res = await fetch(URL_GAS, {
+      method: 'POST',
+      body: JSON.stringify({ accion: 'buscarLotesParaDesautorizar', modo: deslote_modo, valor: valor })
+    });
+    var data = await res.json();
+    ocultarCargando();
+
+    if (!data.ok) {
+      mostrarAlerta('❌ Error', data.msg || 'No se pudo buscar.');
+      return false;
+    }
+    if (!data.lotes || !data.lotes.length) {
+      mostrarAlerta('Sin resultados', 'No se encontró ningún lote en LotesDB para "' + valor + '".');
+      return false;
+    }
+
+    deslote_resultados = data.lotes;
+    deslote_mostrarResultados();
+    return true;
+  } catch (e) {
+    ocultarCargando();
+    mostrarAlerta('❌ Sin conexión', 'No se pudo buscar. Intenta de nuevo.');
+    return false;
+  }
+}
+
+function deslote_mostrarResultados() {
+  var filas = deslote_resultados.map(function (l, i) {
+    var bloq = l.bloqueado;
+    var disabled = bloq ? 'disabled' : '';
+    var checked = bloq ? '' : 'checked';
+    var avisoBloq = bloq
+      ? '<div style="font-size:10px;color:#c62828;font-weight:700;margin-top:2px;">⚠️ Ya ' +
+        (bloq.motivo === 'DESPACHADO' ? 'despachado' : 'consolidado') +
+        (bloq.ref ? ' (' + pklg_esc(bloq.ref) + ')' : '') + ' — no se puede desautorizar aquí</div>'
+      : '';
+    return '<tr style="' + (bloq ? 'opacity:.55;' : '') + '">' +
+      '<td style="padding:8px 6px;border-bottom:1px solid #eef2f5;text-align:center;">' +
+        '<input type="checkbox" id="deslote_chk' + i + '" ' + checked + ' ' + disabled + ' style="width:18px;height:18px;">' +
+      '</td>' +
+      '<td style="padding:8px 6px;border-bottom:1px solid #eef2f5;">' +
+        '<b>' + pklg_esc(l.lote) + '</b>' + avisoBloq +
+      '</td>' +
+      '<td style="padding:8px 6px;border-bottom:1px solid #eef2f5;font-size:12.5px;">' + pklg_esc(l.entrega) + '</td>' +
+      '<td style="padding:8px 6px;border-bottom:1px solid #eef2f5;font-size:12.5px;">' + pklg_esc(l.nave) + '</td>' +
+      '<td style="padding:8px 6px;border-bottom:1px solid #eef2f5;font-size:12.5px;">' + pklg_esc(l.cliente) + '</td>' +
+    '</tr>';
+  }).join('');
+
+  var html = '<div id="deslotResultModal" style="position:fixed;inset:0;width:100vw;height:100vh;overflow-y:auto;' +
+    'background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;z-index:1000000;padding:16px;box-sizing:border-box;">' +
+    '<div style="background:#fff;border-radius:14px;width:100%;max-width:680px;max-height:85vh;overflow-y:auto;box-shadow:0 8px 28px rgba(0,0,0,.28);">' +
+      '<div style="background:#0b3c5d;color:#fff;padding:14px 16px;border-radius:14px 14px 0 0;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;">' +
+        '<div style="font-size:15px;font-weight:800;">Desautorizar Lotes — ' + deslote_resultados.length + ' encontrado(s)</div>' +
+        '<button onclick="document.getElementById(\'deslotResultModal\').remove()" ' +
+          'style="background:rgba(255,255,255,.15);color:#fff;border:none;width:28px;height:28px;' +
+          'border-radius:7px;font-size:16px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;">&times;</button>' +
+      '</div>' +
+      '<div style="padding:14px 16px;">' +
+        '<table style="width:100%;border-collapse:collapse;font-size:13px;">' +
+          '<tr style="text-align:left;color:#7a8b95;font-size:11px;">' +
+            '<th style="padding:4px 6px;"></th><th style="padding:4px 6px;">Lote</th>' +
+            '<th style="padding:4px 6px;">Entrega</th><th style="padding:4px 6px;">Nave</th>' +
+            '<th style="padding:4px 6px;">Cliente</th></tr>' +
+          filas +
+        '</table>' +
+        '<button onclick="deslote_confirmarYEjecutar()" ' +
+          'style="width:100%;margin-top:16px;background:#c62828;color:#fff;border:none;border-radius:10px;' +
+          'padding:13px;font-size:14px;font-weight:800;cursor:pointer;">🚫 Desautorizar seleccionados</button>' +
+      '</div>' +
+    '</div>' +
+  '</div>';
+
+  var prev = document.getElementById('deslotResultModal');
+  if (prev) prev.remove();
+  var wrap = document.createElement('div');
+  wrap.innerHTML = html;
+  document.body.appendChild(wrap.firstChild);
+}
+
+async function deslote_confirmarYEjecutar() {
+  var seleccionados = [];
+  deslote_resultados.forEach(function (l, i) {
+    var chk = document.getElementById('deslote_chk' + i);
+    if (chk && chk.checked && !chk.disabled) seleccionados.push(l);
+  });
+
+  if (!seleccionados.length) {
+    mostrarAlerta('Nada seleccionado', 'Marca al menos un lote para desautorizar.');
+    return;
+  }
+
+  // 🔐 AUTORIZACIÓN
+  var cred = await pedirAutorizacion(
+    '⚠️ Desautorizar lotes',
+    seleccionados.length + ' lote(s) se quitarán de LotesDB'
+  );
+  if (!cred) return;
+
+  var autorizado = await validarCredenciales(cred.rut, cred.clave);
+  if (!autorizado) {
+    mostrarAlerta('❌ Credenciales inválidas', 'No tiene autorización para desautorizar lotes.');
+    return;
+  }
+
+  var listaLotes = seleccionados.map(function (l) { return l.lote; });
+  var nombreQuien = (autorizado && autorizado.nombre) || '';
+
+  var okFinal = await mostrarConfirm(
+    '⚠️ Confirmación final',
+    '¿Desautorizar estos ' + listaLotes.length + ' lote(s)? Dejarán de estar disponibles para pistolear en Consolidado.' +
+    '<br><br>' + listaLotes.map(pklg_esc).join(', ') +
+    '<br><br>Autoriza: <b>' + (nombreQuien || cred.rut) + '</b>' +
+    '<br><br><span style="color:#c62828;">Esta acción no se puede deshacer.</span>',
+    'Sí, desautorizar', 'Cancelar'
+  );
+  if (!okFinal) return;
+
+  mostrarCargando('Desautorizando...');
+  try {
+    var res = await fetch(URL_GAS, {
+      method: 'POST',
+      body: JSON.stringify({ accion: 'desautorizarLotes', rut: cred.rut, lotes: listaLotes })
+    });
+    var data = await res.json();
+    ocultarCargando();
+
+    if (!data.ok) {
+      mostrarAlerta('❌ Error', data.msg || 'No se pudo desautorizar.');
+      return;
+    }
+
+    var msgRechazados = (data.rechazados && data.rechazados.length)
+      ? '<br><br><span style="color:#c62828;">' + data.rechazados.length +
+        ' no se pudo(pudieron) desautorizar por ya estar consolidado(s)/despachado(s): ' +
+        data.rechazados.map(function (r) { return pklg_esc(r.lote); }).join(', ') + '</span>'
+      : '';
+
+    var modal = document.getElementById('deslotResultModal');
+    if (modal) modal.remove();
+
+    mostrarAlerta('✅ Lotes desautorizados',
+      data.eliminados + ' lote(s) quitado(s) de LotesDB.' + msgRechazados);
+  } catch (e) {
+    ocultarCargando();
+    mostrarAlerta('❌ Sin conexión', 'No se pudo desautorizar. Intenta de nuevo.');
+  }
 }
 
 /* =========================================================
