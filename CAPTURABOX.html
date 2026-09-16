@@ -10170,7 +10170,7 @@ function _fechaAyerLocal() {
     String(d.getDate()).padStart(2,'0');
 }
 
-const URL_GAS = "https://script.google.com/macros/s/AKfycbz1j3AvmNCdwrjEtEBqxgUwfEg2v7pHd2-sB3Rffs813KPOr1JF9p1gpssYjDIb4Dnp/exec";
+const URL_GAS = "https://script.google.com/macros/s/AKfycbzkWZuUznLPFs8z_T_kTX9F6mpJpxyDrCXsGHyf7mv3zKnvdOyQEaWMJT29vmJIyN5K/exec";
 
 // ─── LICENCIA Y DISPOSITIVO ──────────────────────────────────────
 const APP_LICENCIA = "CBOX-2026-ARAUCO-PROD-001"; // Cambiar por tu clave única
@@ -17884,12 +17884,52 @@ async function pklg_generar() {
    necesita pasar a la hoja física siguiente (thead con
    display:table-header-group). En modo masivo, antepone una hoja
    resumen (esa sí cuadriculada) con todas las entregas numeradas. */
+/* Cuando 2+ Entregas distintas comparten el mismo GrupoEntr (columna del
+   Programa de Entregas), van en el MISMO contenedor físico — no se deben
+   contar ni numerar como despachos separados en el packing list masivo.
+   Devuelve { [entrega]: { numero, companeras: [otrasEntregasDelGrupo] } }
+   y totalContenedores = cantidad de números distintos asignados. */
+function pklg_agruparPorGrupoEntr_(entregas) {
+  var numPorGrupo = {};
+  var siguiente = 1;
+  var info = {};
+
+  entregas.forEach(function (e) {
+    var g = String(e.grupoEntr || '').trim();
+    var numero;
+    if (g && numPorGrupo[g] !== undefined) {
+      numero = numPorGrupo[g];
+    } else {
+      numero = siguiente++;
+      if (g) numPorGrupo[g] = numero;
+    }
+    info[e.entrega] = { numero: numero, grupoEntr: g, companeras: [] };
+  });
+
+  var porGrupo = {};
+  entregas.forEach(function (e) {
+    var g = String(e.grupoEntr || '').trim();
+    if (!g) return;
+    (porGrupo[g] = porGrupo[g] || []).push(e.entrega);
+  });
+  entregas.forEach(function (e) {
+    var g = String(e.grupoEntr || '').trim();
+    if (g && porGrupo[g].length > 1) {
+      info[e.entrega].companeras = porGrupo[g].filter(function (x) { return x !== e.entrega; });
+    }
+  });
+
+  return { info: info, totalContenedores: siguiente - 1 };
+}
+
 function pklg_construirDocumento(entregas, esMasivo) {
   var fechaEmision = new Date().toLocaleString('es-CL', { hour12: false });
-  var bloques = esMasivo ? pklg_plantillaResumen(entregas, fechaEmision) : '';
+  var agrupado = esMasivo ? pklg_agruparPorGrupoEntr_(entregas) : null;
+  var bloques = esMasivo ? pklg_plantillaResumen(entregas, fechaEmision, agrupado) : '';
 
   entregas.forEach(function (ent, idxEntrega) {
     var lotes = ent.lotes || [];
+    var infoEnt = agrupado ? agrupado.info[ent.entrega] : null;
 
     var filas = lotes.map(function (l, i) {
       return '<tr><td>' + (i + 1) + '</td><td>' + pklg_esc(l.lote) + '</td>' +
@@ -17906,7 +17946,8 @@ function pklg_construirDocumento(entregas, esMasivo) {
       filasHtml: filas, fechaEmision: fechaEmision,
       totales: { lotes: ent.totalLotes, m3: ent.totalM3, peso: ent.totalPeso },
       saltoDeHoja: idxEntrega > 0 || esMasivo,
-      numeroCorrelativo: esMasivo ? (idxEntrega + 1) : null
+      numeroCorrelativo: esMasivo ? (infoEnt ? infoEnt.numero : (idxEntrega + 1)) : null,
+      companeras: infoEnt ? infoEnt.companeras : []
     });
   });
 
@@ -17930,21 +17971,30 @@ function pklg_esc(v) {
 /* Hoja resumen SOLO para el modo masivo: entregas numeradas con
    su cantidad de lotes, m³ y producto(s), y un encabezado con la
    nave (o naves, si el filtro no fue por una sola). */
-function pklg_plantillaResumen(entregas, fechaEmision) {
+function pklg_plantillaResumen(entregas, fechaEmision, agrupado) {
   var navesUnicas = pklg_unicos(entregas.map(function (e) { return e.nave; }));
   var clientesUnicos = pklg_unicos(entregas.map(function (e) { return e.cliente; }));
 
   var totalLotes = 0, totalM3 = 0;
-  var filas = entregas.map(function (e, i) {
+  var filas = entregas.map(function (e) {
     var productos = pklg_unicos((e.lotes || []).map(function (l) { return l.producto; })).join(' / ');
     totalLotes += e.totalLotes || 0;
     totalM3 += e.totalM3 || 0;
-    return '<tr><td>' + (i + 1) + '</td><td>' + pklg_esc(e.entrega) + '</td>' +
+    var infoEnt = agrupado ? agrupado.info[e.entrega] : null;
+    var numero = infoEnt ? infoEnt.numero : '\u2014';
+    var enGrupo = infoEnt && infoEnt.companeras && infoEnt.companeras.length;
+    var notaGrupo = enGrupo
+      ? '<br><span class="nota-grupo">\ud83d\udd17 junto con Entrega ' + infoEnt.companeras.map(pklg_esc).join(', ') + '</span>'
+      : '';
+    return '<tr' + (enGrupo ? ' class="fila-agrupada"' : '') + '>' +
+      '<td>' + numero + '</td><td>' + pklg_esc(e.entrega) + notaGrupo + '</td>' +
       '<td>' + (e.totalLotes || 0) + '</td>' +
       '<td>' + (e.totalM3 || 0).toLocaleString('es-CL', {minimumFractionDigits:3}) + '</td>' +
       '<td>' + pklg_esc(productos) + '</td>' +
       '<td>' + pklg_esc(e.destino) + '</td></tr>';
   }).join('');
+
+  var totalContenedores = agrupado ? agrupado.totalContenedores : entregas.length;
 
   return (
     '<div class="hoja-resumen">' +
@@ -17956,6 +18006,7 @@ function pklg_plantillaResumen(entregas, fechaEmision) {
         '<div class="info-item"><div class="l">Nave</div><div class="v">' + pklg_esc(navesUnicas.join(' / ')) + '</div></div>' +
         '<div class="info-item"><div class="l">Cliente</div><div class="v">' + pklg_esc(clientesUnicos.join(' / ')) + '</div></div>' +
         '<div class="info-item"><div class="l">Entregas incluidas</div><div class="v">' + entregas.length + '</div></div>' +
+        '<div class="info-item"><div class="l">Contenedores</div><div class="v">' + totalContenedores + '</div></div>' +
       '</div>' +
       '<table class="tabla-detalle"><thead><tr>' +
         '<th style="width:26px;">N\u00b0</th><th style="width:18%;">Entrega</th>' +
@@ -17964,6 +18015,7 @@ function pklg_plantillaResumen(entregas, fechaEmision) {
       '</tr></thead><tbody>' + filas + '</tbody></table>' +
       '<div class="totales">' +
         '<div class="item"><div class="l">Total entregas</div><div class="v">' + entregas.length + '</div></div>' +
+        '<div class="item"><div class="l">Total contenedores</div><div class="v">' + totalContenedores + '</div></div>' +
         '<div class="item"><div class="l">Total lotes</div><div class="v">' + totalLotes + '</div></div>' +
         '<div class="item"><div class="l">Total m\u00b3</div><div class="v">' + totalM3.toLocaleString('es-CL', {minimumFractionDigits:3}) + '</div></div>' +
       '</div>' +
@@ -17985,7 +18037,12 @@ function pklg_unicos(arr) {
 function pklg_plantillaEntrega(d) {
   var t = d.totales || { lotes: 0, m3: 0, peso: 0 };
   var badge = d.numeroCorrelativo
-    ? '<div class="badge-correlativo">N\u00b0 ' + d.numeroCorrelativo + '</div>'
+    ? '<div class="badge-correlativo">N\u00b0 ' + d.numeroCorrelativo +
+      ((d.companeras && d.companeras.length)
+        ? '<div class="badge-grupo">\ud83d\udd17 mismo contenedor que Entrega ' +
+          d.companeras.map(pklg_esc).join(', ') + '</div>'
+        : '') +
+      '</div>'
     : '';
 
   return (
@@ -18032,6 +18089,11 @@ function pklg_css() {
     '.bloque-entrega.salto{page-break-before:always;}' +
     '.bloque-entrega{position:relative;}' +
     '.badge-correlativo{text-align:right;font-size:15px;font-weight:800;color:#0b3c5d;margin-bottom:4px;}' +
+    '.badge-grupo{font-size:9.5px;font-weight:700;color:#e65100;background:#fff3e0;' +
+      'border-radius:5px;padding:2px 7px;margin-top:2px;display:inline-block;}' +
+    '.nota-grupo{font-size:9px;font-weight:700;color:#e65100;}' +
+    'table.tabla-detalle tbody tr.fila-agrupada{background:#fff3e0;}' +
+    'table.tabla-detalle tbody tr.fila-agrupada:nth-child(even){background:#ffe9cc;}' +
 
     '.encabezado-top{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #0b3c5d;padding-bottom:6px;margin-bottom:8px;}' +
     '.titulo-doc{font-size:14.5px;font-weight:800;color:#0b3c5d;letter-spacing:.03em;}' +
@@ -22794,6 +22856,9 @@ function cb_pintarEstadoReservaExterna_() {
     '<div style="background:#e8f5e9;border-radius:8px;padding:7px 9px;font-size:11px;color:#1b5e20;">' +
       '\u2705 <b>' + r.archivo + '</b> \u2014 ' + r.conReserva + ' de ' + r.total +
       ' entregas con Reserva (hoja: ' + r.hoja + ')' +
+      (r.conGrupo
+        ? '<br>' + r.conGrupo + ' entregas con Grupo de Entregas (van con otra Entrega en el mismo contenedor).'
+        : '') +
       (cb_ultimoResZoopp && cb_ultimoResZoopp.reservasCompletadas
         ? '<br>' + cb_ultimoResZoopp.reservasCompletadas + ' lotes del ZOOPP completados con esta Reserva.'
         : '') +
@@ -22812,6 +22877,9 @@ function cb_quitarReservaExterna_() {
       if (cb_ultimoResZoopp._reservaOriginal && cb_ultimoResZoopp._reservaOriginal[i] !== undefined) {
         f.Reserva = cb_ultimoResZoopp._reservaOriginal[i];
       }
+      // El ZOOPP nunca trae GrupoEntr por su cuenta: al quitar el
+      // archivo externo, no queda ningún origen para ese dato.
+      delete f.GrupoEntr;
     });
     cb_ultimoResZoopp.reservasCompletadas = 0;
     cb_filas = cb_ultimoResZoopp.filas;
@@ -25006,9 +25074,15 @@ function cb_hojaReservaPorEntrega_(wb) {
       var iRes = enc.indexOf('reserva');
       if (iEnt === -1 || iRes === -1) continue;
 
+      // GrupoEntr (opcional): entregas distintas con el mismo valor acá
+      // van juntas en un mismo contenedor. Puede venir como "GrupoEntr"
+      // o "Grupo Entrega" según la planilla.
+      var iGrupo = enc.indexOf('grupoentr');
+      if (iGrupo === -1) iGrupo = enc.indexOf('grupoentrega');
+
       var filasDatos = m.length - f - 1;
       if (!mejor || filasDatos > mejor.filasDatos) {
-        mejor = { nombre: nombre, matriz: m, filaEnc: f, iEnt: iEnt, iRes: iRes, filasDatos: filasDatos };
+        mejor = { nombre: nombre, matriz: m, filaEnc: f, iEnt: iEnt, iRes: iRes, iGrupo: iGrupo, filasDatos: filasDatos };
       }
       break;
     }
@@ -25024,7 +25098,8 @@ function cb_parsearReservaPorEntrega(wb) {
   }
 
   var mapa = {};
-  var total = 0, conReserva = 0;
+  var mapaGrupo = {};
+  var total = 0, conReserva = 0, conGrupo = 0;
 
   for (var k = hoja.filaEnc + 1; k < hoja.matriz.length; k++) {
     var r = hoja.matriz[k] || [];
@@ -25035,13 +25110,17 @@ function cb_parsearReservaPorEntrega(wb) {
     total++;
 
     var reserva = String(r[hoja.iRes] === undefined ? '' : r[hoja.iRes]).trim();
-    if (!reserva) continue;
-    if (!mapa[entrega]) { mapa[entrega] = reserva; conReserva++; }
+    if (reserva && !mapa[entrega]) { mapa[entrega] = reserva; conReserva++; }
+
+    if (hoja.iGrupo !== -1) {
+      var grupo = String(r[hoja.iGrupo] === undefined ? '' : r[hoja.iGrupo]).trim();
+      if (grupo && !mapaGrupo[entrega]) { mapaGrupo[entrega] = grupo; conGrupo++; }
+    }
   }
 
   if (!total) throw new Error('No se encontraron filas de Entrega en el archivo.');
 
-  return { mapa: mapa, hoja: hoja.nombre, total: total, conReserva: conReserva };
+  return { mapa: mapa, mapaGrupo: mapaGrupo, hoja: hoja.nombre, total: total, conReserva: conReserva, conGrupo: conGrupo };
 }
 
 /* Rellena la Reserva de los lotes del ZOOPP que vinieron sin ella,
@@ -25063,6 +25142,11 @@ function cb_aplicarReservaExterna_(resZ) {
     if (!f.Reserva && cb_reservaExterna.mapa[f.Entrega]) {
       f.Reserva = cb_reservaExterna.mapa[f.Entrega];
       aplicadas++;
+    }
+    // GrupoEntr: el ZOOPP nunca la trae, así que se toma siempre del
+    // Programa de Entregas cuando este archivo la tiene para esa Entrega.
+    if (cb_reservaExterna.mapaGrupo && cb_reservaExterna.mapaGrupo[f.Entrega]) {
+      f.GrupoEntr = cb_reservaExterna.mapaGrupo[f.Entrega];
     }
   });
   resZ.reservasCompletadas = aplicadas;
