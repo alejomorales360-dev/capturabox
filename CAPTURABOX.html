@@ -10740,8 +10740,14 @@ function pedirAutorizacion(titulo, subtitulo) {
       el.style.cssText = 'position:fixed;inset:0;width:100vw;height:100vh;overflow-y:auto;' +
         'background:rgba(0,0,0,.6);display:flex;align-items:center;' +
         'justify-content:center;z-index:1000000;padding:20px;box-sizing:border-box;';
-      document.body.appendChild(el);
     }
+    // FIX: si este modal ya existía en el DOM de una llamada anterior,
+    // NO se volvía a mover al final del <body> — un modal más nuevo
+    // (ej. resultados de "Desautorizar Lotes") quedaba pintado ENCIMA
+    // aunque compartieran el mismo z-index, porque a igual z-index gana
+    // el que está más adelante en el DOM. Mismo criterio ya aplicado en
+    // mostrarAlerta()/mostrarConfirm(): reinsertarlo siempre al final.
+    document.body.appendChild(el);
 
     el.innerHTML =
       '<div style="background:#fff;border-radius:18px;padding:0;max-width:380px;width:100%;' +
@@ -18297,7 +18303,9 @@ async function deslote_confirmarYEjecutar() {
   );
   if (!cred) return;
 
+  mostrarCargando('Validando...');
   var autorizado = await validarCredenciales(cred.rut, cred.clave);
+  ocultarCargando();
   if (!autorizado) {
     mostrarAlerta('❌ Credenciales inválidas', 'No tiene autorización para desautorizar lotes.');
     return;
