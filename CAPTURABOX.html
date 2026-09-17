@@ -10243,7 +10243,7 @@ function _fechaAyerLocal() {
     String(d.getDate()).padStart(2,'0');
 }
 
-const URL_GAS = "https://script.google.com/macros/s/AKfycbx0QwhR_UnRfEkzZj-ZIdv3v8lhWm-DwmRUC2J64DRSEstrS9_rO8KSF_PkpHpy7A-t/exec";
+const URL_GAS = "https://script.google.com/macros/s/AKfycbz2IyT3Tjvg8GWUKno8wssMvOpDJxEo1q1ueJYMilbXrMlQC095LqGaQ3xVcLVu9mMA/exec";
 
 // ─── LICENCIA Y DISPOSITIVO ──────────────────────────────────────
 const APP_LICENCIA = "CBOX-2026-ARAUCO-PROD-001"; // Cambiar por tu clave única
@@ -17875,7 +17875,11 @@ function pklg_abrir() {
       '<label style="font-size:12px;font-weight:700;color:#5a6b77;">NAVE (opcional)</label>' +
       '<input id="pklg_nave" type="text" placeholder="Ej: POLAR COLOMBIA V.631" ' +
         'style="width:100%;margin-top:6px;padding:12px;border:1.5px solid #cfd8dc;border-radius:10px;font-size:15px;box-sizing:border-box;">' +
-    '</div>';
+    '</div>' +
+    '<label style="display:flex;align-items:center;gap:8px;margin-top:14px;font-size:13px;color:#3a4a57;cursor:pointer;">' +
+      '<input id="pklg_soloPendientes" type="checkbox" style="width:18px;height:18px;">' +
+      'Solo saldo pendiente (excluir lotes ya consolidados)' +
+    '</label>';
 
   mostrarModalForm('Packing List General', contenido, pklg_generar);
 
@@ -17924,6 +17928,8 @@ async function pklg_generar() {
     filtros.cliente = cliente;
     filtros.nave = nave;
   }
+
+  filtros.soloPendientes = !!(document.getElementById('pklg_soloPendientes') || {}).checked;
 
   // La ventana se abre AQUÍ, de forma sincrónica dentro del mismo clic,
   // ANTES del fetch — si se abre después de un await, el navegador la
@@ -18043,19 +18049,26 @@ function pklg_construirDocumento(entregas, esMasivo) {
     var infoEnt = agrupado ? agrupado.info[ent.entrega] : null;
 
     var filas = lotes.map(function (l, i) {
+      var estado = l.consolidado
+        ? '<span style="color:#1b7a3d;font-weight:700;">✅ ' + pklg_esc(l.contenedorAsignado) + '</span>'
+        : '<span style="color:#b45309;font-weight:700;">⏳ Pendiente</span>';
       return '<tr><td>' + (i + 1) + '</td><td>' + pklg_esc(l.lote) + '</td>' +
         '<td>' + pklg_esc(l.material) + '</td>' +
         '<td>' + pklg_esc(l.marca) + '</td><td>' + pklg_esc(l.producto) + '</td>' +
         '<td class="num">' + (Number(l.volumen) || 0).toFixed(3) + '</td>' +
         '<td class="num">' + Math.round(Number(l.peso) || 0).toLocaleString('es-CL') + '</td>' +
-        '<td>' + pklg_esc(l.ubicacion) + '</td></tr>';
+        '<td>' + pklg_esc(l.ubicacion) + '</td>' +
+        '<td>' + estado + '</td></tr>';
     }).join('');
 
     bloques += pklg_plantillaEntrega({
       cliente: ent.cliente, nave: ent.nave, reserva: ent.reserva,
       entrega: ent.entrega, puertoEmbarque: ent.puertoEmbarque, puertoDestino: ent.destino,
       filasHtml: filas, fechaEmision: fechaEmision,
-      totales: { lotes: ent.totalLotes, m3: ent.totalM3, peso: ent.totalPeso },
+      totales: {
+        lotes: ent.totalLotes, m3: ent.totalM3, peso: ent.totalPeso,
+        consolidados: ent.totalConsolidados, pendientes: ent.totalPendientes
+      },
       saltoDeHoja: idxEntrega > 0 || esMasivo,
       numeroCorrelativo: esMasivo ? (infoEnt ? infoEnt.numero : (idxEntrega + 1)) : null,
       companeras: infoEnt ? infoEnt.companeras : []
@@ -18173,12 +18186,17 @@ function pklg_plantillaEntrega(d) {
         '<div class="info-item"><div class="l">Total lotes</div><div class="v">' + t.lotes + '</div></div>' +
         '<div class="info-item"><div class="l">Total m\u00b3</div><div class="v">' + (t.m3 || 0).toLocaleString('es-CL', {minimumFractionDigits:3}) + '</div></div>' +
         '<div class="info-item"><div class="l">Total peso</div><div class="v">' + Math.round(t.peso || 0).toLocaleString('es-CL') + ' kg</div></div>' +
+        (t.consolidados != null
+          ? '<div class="info-item"><div class="l">Consolidados</div><div class="v" style="color:#1b7a3d;">' + t.consolidados + '</div></div>' +
+            '<div class="info-item"><div class="l">Pendientes</div><div class="v" style="color:#b45309;">' + t.pendientes + '</div></div>'
+          : '') +
       '</div>' +
       '<table class="tabla-lotes"><thead><tr>' +
-        '<th style="width:26px;">N\u00b0</th><th style="width:11%;">Lote</th><th style="width:11%;">Material</th>' +
-        '<th style="width:26%;">Marca</th><th style="width:16%;">Producto</th>' +
+        '<th style="width:24px;">N\u00b0</th><th style="width:10%;">Lote</th><th style="width:10%;">Material</th>' +
+        '<th style="width:22%;">Marca</th><th style="width:14%;">Producto</th>' +
         '<th class="num" style="width:7%;">m\u00b3</th>' +
-        '<th class="num" style="width:9%;">Peso (kg)</th><th style="width:17%;">Ubicaci\u00f3n</th>' +
+        '<th class="num" style="width:9%;">Peso (kg)</th><th style="width:14%;">Ubicaci\u00f3n</th>' +
+        '<th style="width:14%;">Estado</th>' +
       '</tr></thead><tbody>' + d.filasHtml + '</tbody></table>' +
     '</div>'
   );
