@@ -10243,7 +10243,7 @@ function _fechaAyerLocal() {
     String(d.getDate()).padStart(2,'0');
 }
 
-const URL_GAS = "https://script.google.com/macros/s/AKfycbxlHfqmszgF27CnaZvllME4juuWiHsL4vqSZfDlRHE03KUYNX_5ozkOXptoGtRQVben/exec";
+const URL_GAS = "https://script.google.com/macros/s/AKfycbx0QwhR_UnRfEkzZj-ZIdv3v8lhWm-DwmRUC2J64DRSEstrS9_rO8KSF_PkpHpy7A-t/exec";
 
 // ─── LICENCIA Y DISPOSITIVO ──────────────────────────────────────
 const APP_LICENCIA = "CBOX-2026-ARAUCO-PROD-001"; // Cambiar por tu clave única
@@ -14039,38 +14039,48 @@ function dc_vgm_actualizarDisponibilidad() {
   var aviso = document.getElementById('dc_avisoVGMBloqueado');
   if (!box) return;
 
-  var esAdmin = localStorage.getItem("usuario_esadmin") === "1";
   var arr = Array.isArray(registros) ? registros : [];
   var conPeso = arr.filter(function(l){ return Number(l && l.peso) > 0; }).length;
 
-  if (conPeso > 0 && !esAdmin) {
-    box.style.display = 'none';
-    if (aviso) aviso.style.display = 'block';
-    var elInput = document.getElementById('vgm_cierre_input');
-    if (elInput) elInput.value = '';
-  } else {
-    box.style.display = '';
-    if (aviso) aviso.style.display = 'none';
+  // FIX: antes esto ocultaba el campo VGM para siempre si algún lote
+  // ya tenía peso capturado (solo un admin podía seguir usándolo).
+  // Siempre se debe poder corregir el VGM — ahora queda disponible
+  // para cualquier usuario, y solo se avisa (sin bloquear) que
+  // ingresarlo sobrescribirá esos pesos.
+  box.style.display = '';
+  if (aviso) {
+    if (conPeso > 0) {
+      aviso.innerHTML = '⚠️ <b>Atención:</b> ' + conPeso + ' de ' + arr.length +
+        ' lote(s) ya tienen peso capturado. Si ingresas un VGM, se sobrescribirá ese peso.';
+      aviso.style.display = 'block';
+    } else {
+      aviso.style.display = 'none';
+    }
   }
 }
 
-/* Muestra u oculta el botón de VGM según si los lotes ya traen peso.
-   Se llama al pintar el detalle del consolidado. */
+/* Aviso (ya NO bloqueo) sobre el botón de VGM según si los lotes ya
+   traen peso. Se llama al pintar el detalle del consolidado. */
 function vgm_actualizarDisponibilidad(lotes) {
   var btn   = document.getElementById('btnIngresarVGM');
   var aviso = document.getElementById('avisoVGMBloqueado');
   if (!btn) return;
 
-  var esAdmin = localStorage.getItem("usuario_esadmin") === "1";
   var arr = Array.isArray(lotes) ? lotes : [];
   var conPeso = arr.filter(function(l){ return Number(l && l.peso) > 0; }).length;
 
-  if (conPeso > 0 && !esAdmin) {
-    btn.style.display = 'none';
-    if (aviso) aviso.style.display = 'block';
-  } else {
-    btn.style.display = '';
-    if (aviso) aviso.style.display = 'none';
+  // FIX: el botón ya no se oculta nunca — antes solo un admin podía
+  // corregir el VGM de un contenedor con peso ya capturado, y el resto
+  // de los usuarios se quedaba sin ninguna forma de arreglarlo.
+  btn.style.display = '';
+  if (aviso) {
+    if (conPeso > 0) {
+      aviso.innerHTML = '⚠️ <b>Atención:</b> ' + conPeso + ' de ' + arr.length +
+        ' lote(s) ya tienen peso capturado. Ingresar un VGM sobrescribirá ese peso.';
+      aviso.style.display = 'block';
+    } else {
+      aviso.style.display = 'none';
+    }
   }
 }
 
@@ -14084,27 +14094,21 @@ function vgm_abrirModal() {
   const esLocal = raw.fotos && !Array.isArray(raw.fotos);
   const datos = esLocal ? raw.datosCont : raw;
 
-  // BLOQUEO: si los lotes ya traen peso real del paquete, el VGM
-  // los sobrescribiría con un prorrateo por m³ y se perdería el
-  // dato original. En ese caso no se permite ingresar VGM.
+  // FIX: antes, si los lotes ya traían peso real del paquete, esto
+  // bloqueaba el ingreso de VGM por completo para cualquiera que no
+  // fuera admin — sin ninguna forma de corregirlo después. Ahora
+  // SIEMPRE se puede abrir; solo se avisa (dentro del modal, sin
+  // bloquear) cuántos lotes ya tienen peso, y vgm_confirmar() pide una
+  // confirmación explícita antes de sobrescribirlos.
   const _lotesVGM = esLocal ? (raw.registros || []) : (Array.isArray(raw.lotes) ? raw.lotes : []);
   const _conPeso = _lotesVGM.filter(function(l){ return Number(l && l.peso) > 0; }).length;
-  const _esAdmin = localStorage.getItem("usuario_esadmin") === "1";
-
-  if (_conPeso > 0 && !_esAdmin) {
-    mostrarAlerta('\ud83d\udd12 VGM no disponible',
-      'Este contenedor ya tiene <b>' + _conPeso + ' de ' + _lotesVGM.length +
-      ' lotes con peso registrado</b>.' +
-      '<br><br>El VGM reparte el peso entre los lotes a prorrata de m\u00b3, ' +
-      'lo que <b>sobrescribir\u00eda los pesos reales</b> ya capturados.' +
-      '<br><br>El VGM solo se usa cuando la carga viene <b>sin peso por paquete</b>.');
-    return;
-  }
 
   _vgmContexto = {
     operacion: datos.operacion || raw.operacion || "",
     contenedor: datos.contenedor || raw.contenedor || "",
-    tara: Number(datos.tara) || 0
+    tara: Number(datos.tara) || 0,
+    conPeso: _conPeso,
+    totalLotes: _lotesVGM.length
   };
 
   const elTara = document.getElementById('vgm_tara');
@@ -14114,8 +14118,18 @@ function vgm_abrirModal() {
   if (elInput) elInput.value = '';
   const elPeso = document.getElementById('vgm_pesoCarga');
   if (elPeso) elPeso.innerText = '— kg';
+
   const elErr = document.getElementById('vgm_error');
-  if (elErr) { elErr.style.display = 'none'; elErr.innerText = ''; }
+  if (elErr) {
+    if (_conPeso > 0) {
+      elErr.innerHTML = '⚠️ Este contenedor ya tiene <b>' + _conPeso + ' de ' + _lotesVGM.length +
+        ' lote(s) con peso registrado</b>. Si confirmas, el VGM sobrescribirá esos pesos (en Lotes y LotesDB).';
+      elErr.style.display = 'block';
+    } else {
+      elErr.style.display = 'none';
+      elErr.innerText = '';
+    }
+  }
 
   const modal = document.getElementById('vgm_modal');
   if (modal) modal.style.display = 'flex';
@@ -14178,6 +14192,22 @@ async function vgm_confirmar() {
     return;
   }
 
+  // Si ya hay lotes con peso capturado, confirmar explicitamente que
+  // se quiere sobrescribir ese peso antes de mandar la peticion al
+  // servidor (en vez del bloqueo total de antes, que no dejaba ninguna
+  // forma de corregir el VGM).
+  if (_vgmContexto.conPeso > 0) {
+    const _okSobrescribir = await mostrarConfirm(
+      '⚠️ Sobrescribir pesos',
+      'Este contenedor ya tiene <b>' + _vgmContexto.conPeso + ' de ' + _vgmContexto.totalLotes +
+      ' lote(s) con peso registrado</b>. Si continuas, el VGM va a <b>sobrescribir esos pesos</b> ' +
+      '(en Lotes y LotesDB) con el prorrateo por m³.' +
+      '<br><br>¿Confirmas que quieres sobrescribirlos?',
+      'Sí, sobrescribir', 'Cancelar'
+    );
+    if (!_okSobrescribir) return;
+  }
+
   const btn = document.getElementById('vgm_btnConfirmar');
   if (btn) { btn.disabled = true; btn.innerText = 'Guardando...'; }
 
@@ -14208,7 +14238,8 @@ async function vgm_confirmar() {
     mostrarAlerta
       ? mostrarAlerta('✅ VGM registrado',
           'Peso Carga: <b>' + data.pesoCarga + ' kg</b><br>' +
-          'Lotes actualizados: <b>' + data.lotesActualizados + '</b>')
+          'Lotes actualizados: <b>' + data.lotesActualizados + '</b>' +
+          (data.pesosSobrescritos > 0 ? '<br>Pesos sobrescritos: <b>' + data.pesosSobrescritos + '</b>' : ''))
       : alert('VGM registrado. Peso Carga: ' + data.pesoCarga + ' kg');
 
     // Refrescar el detalle en pantalla con los nuevos valores.
