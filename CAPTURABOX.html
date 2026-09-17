@@ -5097,6 +5097,7 @@ function ub_prefillAll(prefix) {
 let registrosRecepcion = [];
 let camionCerrado = false;
 let rc_jobActualId = null; // id del job de recepción activo
+let rc_numOperacionEnCurso = {}; // jobId -> Promise en vuelo pidiendo el N° de operación en 2º plano
 let rc_guardandoItem = false;
 let rc_cerrandoCamion = false;
 let rc_dbReady = false;
@@ -5699,13 +5700,26 @@ async function cerrarCamion() {
     // motivo quedó vacío al iniciar el camión (mala conexión, etc.):
     // sin esto, la recepción se guarda sin N° de operación para
     // siempre y después no se puede editar ni ordenar en reportes.
+    // Normalmente esto NO dispara una petición nueva: rc_ensureJobActual()
+    // ya lanzó una en 2º plano al crear el job (ver
+    // rc_generarNumeroOperacionEnSegundoPlano_); si sigue en vuelo, nos
+    // unimos a ESA misma promesa en vez de pedir un segundo número
+    // (evitaría que el camión terminara con dos N° de operación
+    // distintos asignados por dos llamadas en paralelo).
     if (job && !job.operacion && !job.editando) {
-      const numOp = await rc_generarNumeroOperacion_();
-      if (numOp) {
-        job.operacion = numOp;
-        await rc_putJob(job);
-        const _opEl = document.getElementById("datoOperacion");
-        if (_opEl) _opEl.innerText = numOp;
+      const _enCurso = rc_numOperacionEnCurso[rc_jobActualId];
+      if (_enCurso) {
+        await _enCurso.catch(() => {}); // ya deja el número guardado en el job si tuvo éxito
+        job = await rc_getJob(rc_jobActualId) || job;
+      }
+      if (!job.operacion) {
+        const numOp = await rc_generarNumeroOperacion_();
+        if (numOp) {
+          job.operacion = numOp;
+          await rc_putJob(job);
+          const _opEl = document.getElementById("datoOperacion");
+          if (_opEl) _opEl.innerText = numOp;
+        }
       }
     }
 
@@ -8123,18 +8137,26 @@ async function rc_ensureJobActual() {
   const supervisor = localStorage.getItem("usuario") || "";
   const hoyISO = _fechaHoyLocal();
 
-  // N° de operación correlativo (REC-000001). Si falla acá (varios
-  // intentos), el camión igual se crea: se vuelve a intentar generar
-  // el número justo antes de cerrar el camión (ver cerrarCamion()).
-  const numOperacion = await rc_generarNumeroOperacion_();
-
+  // ✅ FIX rendimiento: el N° de operación (REC-000001) se pide al
+  // backend en 2º plano (ver rc_generarNumeroOperacionEnSegundoPlano_),
+  // SIN bloquear la creación del job ni el guardado del primer lote.
+  // Antes se hacía `await rc_generarNumeroOperacion_()` aquí mismo, y
+  // esa llamada compite por el mismo LockService global que usan ~29
+  // funciones más del backend: si alguien más tenía el lock tomado,
+  // cada uno de los 3 reintentos podía esperar hasta 10s por el lock
+  // antes de fallar, sumando 1-2 minutos SOLO en el primer lote del
+  // camión (los siguientes lotes ya encuentran rc_jobActualId puesto
+  // y ni siquiera pasan por acá). El job se crea y guarda localmente
+  // de inmediato con operacion:"" y se completa después; si el
+  // camión se cierra antes de que responda, cerrarCamion() ya tiene
+  // su propio fallback para completar el número (ver más abajo).
   const job = {
     id: rc_uid(),
     tipo,
     cliente,
     patente,
     guias,
-    operacion: numOperacion,
+    operacion: "",
     supervisor,
     fechaISO: hoyISO,
     proteccion: (document.getElementById("rc_proteccion_camion")?.value || "").trim(),
@@ -8149,9 +8171,13 @@ async function rc_ensureJobActual() {
   await rc_putJob(job);
   rc_jobActualId = job.id;
 
-  // Pintar el N° de operación recién generado en la pantalla de captura
+  // Pintar placeholder mientras llega el N° real desde el backend
   var _opNew = document.getElementById("datoOperacion");
   if (_opNew) _opNew.innerText = job.operacion || "—";
+
+  // 🔄 Disparar en 2º plano (NO se espera): guarda el número en el
+  // job apenas responde el backend, sin bloquear la UI.
+  rc_generarNumeroOperacionEnSegundoPlano_(job.id);
 
   // ✅ FIX: asegurar que registrosRecepcion esté inicializado
   if (!Array.isArray(window.registrosRecepcion)) {
@@ -8159,6 +8185,49 @@ async function rc_ensureJobActual() {
   }
 
   return rc_jobActualId;
+}
+
+/* Pide el N° de operación en 2º plano y lo guarda en el job cuando
+   llega, sin bloquear a quien llamó a rc_ensureJobActual(). "Single
+   flight" por jobId: si ya hay una petición en vuelo para ESE job
+   (p.ej. cerrarCamion() se llama mientras esto sigue esperando),
+   cerrarCamion() se une a esta MISMA promesa en vez de disparar una
+   segunda petición — así nunca se le asignan dos N° de operación
+   distintos al mismo camión. */
+function rc_generarNumeroOperacionEnSegundoPlano_(jobId) {
+  if (rc_numOperacionEnCurso[jobId]) return rc_numOperacionEnCurso[jobId];
+
+  const p = (async () => {
+    try {
+      const numero = await rc_generarNumeroOperacion_();
+      if (!numero) return; // no se pudo tras los reintentos: cerrarCamion() reintentará al cerrar
+
+      // Releer el job: puede haber cambiado (más lotes, volumen, etc.)
+      // o incluso ya no existir (camión descartado mientras tanto).
+      const job = await rc_getJob(jobId);
+      if (!job) return;
+      // Nunca pisar un número ya asignado (p.ej. por el fallback de
+      // cerrarCamion si corrió justo antes de que esto resolviera).
+      if (job.operacion) return;
+
+      job.operacion = numero;
+      job.updatedAt = Date.now();
+      await rc_putJob(job);
+
+      // Reflejar en pantalla solo si seguimos mirando ese mismo camión
+      if (rc_jobActualId === jobId) {
+        const _op = document.getElementById("datoOperacion");
+        if (_op) _op.innerText = numero;
+      }
+    } catch (e) {
+      console.warn("[RC] generación N° operación en 2º plano falló:", e && e.message);
+    } finally {
+      delete rc_numOperacionEnCurso[jobId];
+    }
+  })();
+
+  rc_numOperacionEnCurso[jobId] = p;
+  return p;
 }
 
 /* ═══════════════════════════════════════════════════
