@@ -2096,6 +2096,10 @@ button:active {
         <span class="dbModRowDot" style="background:#c9a24b;"></span>
         <span class="dbModRowTxt">Desautorizar Lotes</span><span class="dbModRowArrow">&#8250;</span>
       </div>
+      <div class="dbModRow" data-permiso="RESUMEN_NAVE" onclick="resNave_abrir()">
+        <span class="dbModRowDot" style="background:#c9a24b;"></span>
+        <span class="dbModRowTxt">Resumen por Nave</span><span class="dbModRowArrow">&#8250;</span>
+      </div>
       <div class="dbModRow" data-permiso="INFORME_GENERAL" onclick="infGen_abrir()">
         <span class="dbModRowDot" style="background:#c9a24b;"></span>
         <span class="dbModRowTxt">Informe General</span><span class="dbModRowArrow">&#8250;</span>
@@ -10170,7 +10174,7 @@ function _fechaAyerLocal() {
     String(d.getDate()).padStart(2,'0');
 }
 
-const URL_GAS = "https://script.google.com/macros/s/AKfycbxx5U7igwokjlp631UNI1HeF_7JOofpYfgId5tjrKAcCvpIzej-UKBK3iAzlPupnVF9/exec";
+const URL_GAS = "https://script.google.com/macros/s/AKfycbxlHfqmszgF27CnaZvllME4juuWiHsL4vqSZfDlRHE03KUYNX_5ozkOXptoGtRQVben/exec";
 
 // ─── LICENCIA Y DISPOSITIVO ──────────────────────────────────────
 const APP_LICENCIA = "CBOX-2026-ARAUCO-PROD-001"; // Cambiar por tu clave única
@@ -14514,6 +14518,7 @@ const MODULOS_APP = [
   { id: "PACKING_LIST", label: "📋 Packing List General" },
   { id: "TRAZABILIDAD", label: "🔎 Trazabilidad de lote" },
   { id: "DESAUTORIZAR_LOTES", label: "🚫 Desautorizar Lotes" },
+  { id: "RESUMEN_NAVE", label: "🚢 Resumen por Nave" },
   { id: "INFORME_GENERAL", label: "📊 Informe General" },
   { id: "GATE_CONTROL", label: "🚧 Gate Control (registrar movimiento)" },
   { id: "GATE_CONTROL_INFORME", label: "📋 Informe de Gate Control" },
@@ -18138,6 +18143,213 @@ function pklg_css() {
     '.totales{margin-top:10px;background:#0b3c5d;color:#fff;border-radius:8px;padding:10px 14px;display:flex;justify-content:space-around;text-align:center;}' +
     '.totales .item .l{font-size:9px;letter-spacing:.06em;text-transform:uppercase;opacity:.75;}' +
     '.totales .item .v{font-size:16px;font-weight:800;margin-top:2px;}';
+}
+
+/* =========================================================
+   RESUMEN POR NAVE (Herramientas)
+   Informe imprimible: para cada Nave, cuántos contenedores salieron,
+   con cuántos lotes/m³/peso cada uno, su Entrega, Reserva, Destino y
+   Sello (Línea/SAG). Filtrable por Cliente y/o Nave. Sale de la hoja
+   "Consolidado" (una fila por contenedor ya cerrado), igual fuente
+   que usa Packing List General — reutiliza su mismo lenguaje visual
+   (pklg_css/pklg_esc) y el patrón de pestaña nueva para imprimir.
+========================================================= */
+
+function resNave_abrir() {
+  var contenido =
+    '<label style="font-size:12px;font-weight:700;color:#5a6b77;">CLIENTE (opcional)</label>' +
+    '<select id="resNave_cliente" style="width:100%;margin-top:6px;margin-bottom:12px;padding:12px;border:1.5px solid #cfd8dc;border-radius:10px;font-size:15px;box-sizing:border-box;">' +
+      '<option value="">Todos los clientes</option>' +
+      '<option value="ARAUCO">ARAUCO</option>' +
+      '<option value="JCE">JCE</option>' +
+      '<option value="CMPC">CMPC</option>' +
+      '<option value="MASISA">MASISA</option>' +
+      '<option value="FORACTION">FORACTION</option>' +
+    '</select>' +
+    '<label style="font-size:12px;font-weight:700;color:#5a6b77;">NAVE (opcional)</label>' +
+    '<input id="resNave_nave" type="text" list="resNave_naveHistorialList" placeholder="Ej: POLAR COLOMBIA V.631" ' +
+      'style="width:100%;margin-top:6px;padding:12px;border:1.5px solid #cfd8dc;border-radius:10px;font-size:15px;box-sizing:border-box;" ' +
+      'autocapitalize="characters" oninput="this.value=this.value.toUpperCase();">' +
+    // Mismo historial de "últimas naves" que ya usa Cargar Bases
+    // (CB_NAVES_RECIENTES_KEY) — así lo que se consulta acá también
+    // queda disponible ahí, y viceversa.
+    '<datalist id="resNave_naveHistorialList"></datalist>';
+
+  mostrarModalForm('Resumen por Nave', contenido, resNave_generar);
+  var btn = document.getElementById('adminModalConfirmar');
+  if (btn) btn.textContent = 'Generar';
+  resNave_pintarHistorialNaves_();
+}
+
+function resNave_pintarHistorialNaves_() {
+  var dl = document.getElementById('resNave_naveHistorialList');
+  if (!dl) return;
+  var naves = [];
+  try { naves = JSON.parse(localStorage.getItem(CB_NAVES_RECIENTES_KEY) || '[]'); } catch (e) {}
+  dl.innerHTML = naves.map(function (n) {
+    return '<option value="' + String(n).replace(/"/g, '&quot;') + '"></option>';
+  }).join('');
+}
+
+async function resNave_generar() {
+  var cliente = String((document.getElementById('resNave_cliente') || {}).value || '').trim();
+  var nave = String((document.getElementById('resNave_nave') || {}).value || '').trim();
+  // Recordar la nave consultada para la próxima vez (mismo historial
+  // compartido con Cargar Bases).
+  if (nave) cb_guardarNaveReciente_(nave);
+
+  // La ventana se abre AQUÍ, de forma sincrónica dentro del mismo clic
+  // (ver mismo criterio en pklg_generar): si se abre después de un
+  // await, el navegador la trata como popup no solicitado y la bloquea.
+  var ventana = window.open('', '_blank');
+  if (!ventana) {
+    mostrarAlerta('Ventana bloqueada', 'El navegador bloqueó la pestaña nueva. Habilita ventanas emergentes para este sitio e intenta de nuevo.');
+    return false;
+  }
+  ventana.document.write(
+    '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Resumen por Nave</title></head>' +
+    '<body style="font-family:\'Segoe UI\',Arial,sans-serif;display:flex;align-items:center;' +
+    'justify-content:center;height:100vh;margin:0;color:#5a6b77;font-size:15px;">' +
+    'Generando resumen…</body></html>'
+  );
+
+  function conTiempoLimite(promesa, ms) {
+    return Promise.race([
+      promesa,
+      new Promise(function (_, reject) { setTimeout(function () { reject(new Error('timeout')); }, ms); })
+    ]);
+  }
+
+  try {
+    const res = await conTiempoLimite(
+      fetch(URL_GAS, { method: 'POST', body: JSON.stringify({ accion: 'resumenPorNave', filtros: { cliente: cliente, nave: nave } }) }),
+      25000
+    );
+    const data = await res.json();
+
+    if (!data.ok || !data.naves || !data.naves.length) {
+      const msg = (!data.ok) ? (data.msg || 'No se pudo generar el resumen.') : 'No se encontraron contenedores consolidados para ese filtro.';
+      ventana.document.open();
+      ventana.document.write('<p style="font-family:\'Segoe UI\',Arial,sans-serif;padding:24px;color:#c62828;">' + msg + '</p>');
+      ventana.document.close();
+      return true;
+    }
+
+    var html = resNave_construirDocumento(data.naves);
+    ventana.document.open();
+    ventana.document.write(html);
+    ventana.document.close();
+
+    setTimeout(function () {
+      try { ventana.focus(); ventana.print(); } catch (e) { /* el botón visible sigue disponible */ }
+    }, 500);
+
+    return true;
+  } catch (e) {
+    var mensaje = (e && e.message === 'timeout')
+      ? 'El servidor demoró demasiado en responder. Intenta de nuevo o acota el filtro.'
+      : 'Sin conexión al generar el resumen.';
+    try {
+      ventana.document.open();
+      ventana.document.write('<p style="font-family:\'Segoe UI\',Arial,sans-serif;padding:24px;color:#c62828;">' + mensaje + '</p>');
+      ventana.document.close();
+    } catch (e2) { /* si ni eso funciona, no hay más que hacer aquí */ }
+    return true;
+  }
+}
+
+/* Arma el documento HTML: un bloque por Nave (salto de página entre
+   naves), con sus totales y una tabla con el detalle de cada
+   contenedor. Reutiliza pklg_css()/pklg_esc() — mismo lenguaje visual
+   que Packing List General. */
+function resNave_construirDocumento(naves) {
+  var fechaEmision = new Date().toLocaleString('es-CL', { hour12: false });
+
+  var bloques = naves.map(function (n, idxNave) {
+    var filas = (n.contenedores || []).map(function (c, i) {
+      return '<tr><td>' + (i + 1) + '</td><td>' + pklg_esc(c.fecha) + '</td>' +
+        '<td>' + pklg_esc(c.contenedor) + '</td><td>' + pklg_esc(c.cliente) + '</td>' +
+        '<td>' + pklg_esc(c.tipo) + '</td><td>' + pklg_esc(c.entrega) + '</td>' +
+        '<td>' + pklg_esc(c.reserva) + '</td><td>' + pklg_esc(c.destino) + '</td>' +
+        '<td>' + pklg_esc(c.selloLinea) + '</td><td>' + pklg_esc(c.selloSAG) + '</td>' +
+        '<td class="num">' + (c.totalLotes || 0) + '</td>' +
+        '<td class="num">' + (Number(c.totalVolumen) || 0).toFixed(3) + '</td>' +
+        '<td class="num">' + Math.round(Number(c.pesoCarga) || 0).toLocaleString('es-CL') + '</td></tr>';
+    }).join('');
+
+    return '<div class="bloque-entrega' + (idxNave > 0 ? ' salto' : '') + '">' +
+      '<div class="encabezado-top">' +
+        '<div><div class="titulo-doc">RESUMEN POR NAVE</div><div class="subtitulo-doc">CapturaBox — Bodega Cervantes · ' + pklg_esc(n.nave) + '</div></div>' +
+        '<div class="meta-doc">Emitido: <b>' + pklg_esc(fechaEmision) + '</b></div>' +
+      '</div>' +
+      '<div class="info-grid">' +
+        '<div class="info-item"><div class="l">Contenedores</div><div class="v">' + n.totalContenedores + '</div></div>' +
+        '<div class="info-item"><div class="l">Entregas</div><div class="v">' + n.totalEntregas + '</div></div>' +
+        '<div class="info-item"><div class="l">Total lotes</div><div class="v">' + n.totalLotes + '</div></div>' +
+        '<div class="info-item"><div class="l">Total m³</div><div class="v">' + (n.totalVolumen || 0).toLocaleString('es-CL', {minimumFractionDigits:3}) + '</div></div>' +
+        '<div class="info-item"><div class="l">Total peso</div><div class="v">' + Math.round(n.totalPeso || 0).toLocaleString('es-CL') + ' kg</div></div>' +
+      '</div>' +
+      '<table class="tabla-detalle"><thead><tr>' +
+        '<th style="width:24px;">N°</th><th>Fecha</th><th>Contenedor</th><th>Cliente</th><th>Tipo</th>' +
+        '<th>Entrega</th><th>Reserva</th><th>Destino</th><th>Sello Línea</th><th>Sello SAG</th>' +
+        '<th>Lotes</th><th>m³</th><th>Peso (kg)</th>' +
+      '</tr></thead><tbody>' + filas + '</tbody></table>' +
+    '</div>';
+  }).join('');
+
+  // El documento vive en su propia pestaña (window.open), así que
+  // lleva su PROPIA copia de la librería XLSX y de los datos (NAVES)
+  // para poder armar el Excel ahí mismo, sin depender de la ventana
+  // que lo abrió.
+  return '<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">' +
+    '<title>Resumen por Nave</title><style>' + pklg_css() +
+    '.barra-imprimir{position:sticky;top:0;z-index:9;background:#0b3c5d;color:#fff;' +
+    'padding:10px 14px;display:flex;justify-content:center;gap:10px;flex-wrap:wrap;box-shadow:0 2px 8px rgba(0,0,0,.2);}' +
+    '.barra-imprimir button{background:#fff;color:#0b3c5d;border:none;border-radius:8px;' +
+    'padding:10px 22px;font-size:14px;font-weight:800;cursor:pointer;}' +
+    '@media print{.barra-imprimir{display:none;}}' +
+    '</style>' +
+    '<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"><\/script>' +
+    '</head><body>' +
+    '<div class="barra-imprimir">' +
+      '<button onclick="window.print()">🖶️ Imprimir / Guardar como PDF</button>' +
+      '<button onclick="resNave_exportarExcel_()">📊 Descargar Excel</button>' +
+      '<button onclick="resNave_pantallaCompleta_()">⛶ Pantalla completa</button>' +
+    '</div>' +
+    bloques +
+    '<script>' +
+      'var NAVES_RESUMEN_ = ' + JSON.stringify(naves) + ';' +
+      'function resNave_pantallaCompleta_() {' +
+        'var el = document.documentElement;' +
+        'if (!document.fullscreenElement) {' +
+          '(el.requestFullscreen || el.webkitRequestFullscreen || el.msRequestFullscreen).call(el);' +
+        '} else {' +
+          '(document.exitFullscreen || document.webkitExitFullscreen || document.msExitFullscreen).call(document);' +
+        '}' +
+      '}' +
+      'function resNave_exportarExcel_() {' +
+        'var wb = XLSX.utils.book_new();' +
+        'var filasResumen = NAVES_RESUMEN_.map(function (n) {' +
+          'return { "Nave": n.nave, "Contenedores": n.totalContenedores, "Entregas": n.totalEntregas,' +
+            '"Lotes": n.totalLotes, "m3": n.totalVolumen, "Peso (kg)": n.totalPeso };' +
+        '});' +
+        'XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(filasResumen), "Resumen por Nave");' +
+        'var filasDetalle = [];' +
+        'NAVES_RESUMEN_.forEach(function (n) {' +
+          '(n.contenedores || []).forEach(function (c) {' +
+            'filasDetalle.push({' +
+              '"Nave": n.nave, "Fecha": c.fecha, "Contenedor": c.contenedor, "Cliente": c.cliente,' +
+              '"Tipo": c.tipo, "Entrega": c.entrega, "Reserva": c.reserva, "Destino": c.destino,' +
+              '"Sello Linea": c.selloLinea, "Sello SAG": c.selloSAG,' +
+              '"Lotes": c.totalLotes, "m3": c.totalVolumen, "Peso (kg)": c.pesoCarga' +
+            '});' +
+          '});' +
+        '});' +
+        'XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(filasDetalle), "Detalle");' +
+        'XLSX.writeFile(wb, "Resumen_por_Nave_" + new Date().toISOString().slice(0,10) + ".xlsx");' +
+      '}' +
+    '<\/script>' +
+    '</body></html>';
 }
 
 /* =========================================================
