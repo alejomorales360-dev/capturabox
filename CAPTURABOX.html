@@ -5196,6 +5196,18 @@ function normKeyCont_(c) {
   return String(c || "").trim().toUpperCase().replace(/\s+/g, " ");
 }
 
+// FIX (defensivo — esta función no tiene ningún llamador activo hoy, pero
+// el código muerto puede volver a usarse más adelante): la comparación
+// original usaba SOLO el número de contenedor (normKeyCont_), sin
+// Operación — el mismo tipo de bug de "reutilización de N° de contenedor
+// entre operaciones distintas" ya corregido en guardarEnIndexedDB,
+// autoGuardarConsolidado, guardarConsolidadoFinal y la detección de
+// parciales "fantasma" (ver _claveContOp_/_estaEnConjunto_). Si esta
+// función se invocara con `enviadosSet` conteniendo solo contenedores de
+// UNA operación ya enviada, cualquier job local de OTRA operación que
+// reutilice ese mismo N° de contenedor sería borrado por completo. Ahora
+// usa la misma comparación con clave compuesta contenedor+operación
+// (con reserva de compatibilidad hacia atrás vía _estaEnConjunto_).
 async function syncJobsLocalesConEnviados_(enviadosSet) {
   const jobs = await obtenerJobsPendientes();
 
@@ -5205,7 +5217,7 @@ async function syncJobsLocalesConEnviados_(enviadosSet) {
 
     if (!key) continue;
 
-    if (enviadosSet.has(key)) {
+    if (_estaEnConjunto_(enviadosSet, key, info.operacion)) {
       try {
         await borrarJobDeCola(job.id); // ✅ borra el rojo
       } catch (e) {
@@ -10486,17 +10498,36 @@ async function guardarEnIndexedDB(job, contenedor) {
     req.onsuccess = () => {
       const rows = req.result || [];
 
+      // Si el job que se está guardando YA tiene un id conocido (viene de
+      // una fila existente que el propio llamador ya identificó, p.ej. al
+      // cargar un job desde IndexedDB para cambiarle el status), ese id es
+      // inequívoco: usarlo directo, sin depender de heurísticas de
+      // contenedor/operación que pueden confundirse con datos ambiguos.
+      //
       // Un mismo N° de contenedor físico puede reutilizarse en operaciones
       // distintas con el tiempo. Si ambos jobs tienen operación conocida,
       // exigimos que coincida también — si no, un contenedor reutilizado
       // para una operación NUEVA heredaría el id del job VIEJO (de otra
       // operación) y lo sobrescribiría, perdiendo sus lotes/fotos locales.
+      //
+      // FIX: si CUALQUIERA de los dos (el job nuevo o el existente en
+      // IndexedDB) tiene la operación vacía/desconocida, YA NO se asume
+      // que es el mismo trabajo (antes el "else" caía a `return true` y
+      // los fusionaba). Dos contenedores distintos que reutilizan el mismo
+      // número, ambos sin operación asignada todavía (p. ej. datos
+      // antiguos guardados antes de que existiera este campo), terminaban
+      // compartiendo la misma fila y el segundo sobrescribía por completo
+      // los lotes/fotos del primero. Ante la duda, es preferible quedar
+      // con un registro local duplicado (visible, se puede limpiar a mano
+      // desde "Consolidados pendientes") a sobrescribir en silencio datos
+      // que nunca se confirmaron guardados en el servidor.
       const opNueva = String(job.datosCont?.operacion || '').trim();
       const existente = rows.find(j => {
+        if (job.id !== undefined && job.id !== null) return j.id === job.id;
         if (j.datosCont?.contenedor !== contenedor) return false;
         const opVieja = String(j.datosCont?.operacion || '').trim();
         if (opNueva && opVieja) return opNueva === opVieja;
-        return true;
+        return false;
       });
 
       if (existente) {
@@ -11064,12 +11095,15 @@ async function autoGuardarConsolidado() {
   // reutilizarse en una operación distinta. Si ambos jobs tienen operación
   // conocida y no coinciden, NO es el mismo job — si no, esta operación
   // NUEVA heredaría el id/envioId del job VIEJO y lo sobrescribiría.
+  // FIX: si la operación es desconocida de CUALQUIERA de los dos lados, ya
+  // no se asume que es el mismo job (antes "return true" los fusionaba
+  // igual) — ver el mismo fix y su razón en guardarEnIndexedDB().
   var opActualCont = String(datosCont.operacion || '').trim();
   var existente = jobs.find(function(j) {
     if (!j.datosCont || j.datosCont.contenedor !== datosCont.contenedor) return false;
     var opJob = String(j.datosCont.operacion || '').trim();
     if (opActualCont && opJob) return opActualCont === opJob;
-    return true;
+    return false;
   });
   var job = {
     creado:      existente ? existente.creado : fecha,
@@ -13060,13 +13094,16 @@ async function guardarConsolidadoFinal() {
     // coinciden, NO es el mismo job (ver mismo criterio en guardarEnIndexedDB
     // y autoGuardarConsolidado) — si no, este cierre heredaría el id/envioId
     // de un job VIEJO de otra operación y lo sobrescribiría.
+    // FIX: si la operación es desconocida de cualquiera de los dos lados,
+    // ya no se asume que es el mismo job (antes "return true" los
+    // fusionaba igual) — ver el mismo fix y su razón en guardarEnIndexedDB().
     const opActualFinal = String(datosCont.operacion || '').trim();
     const jobs = await obtenerJobsPendientes();
     const existente = jobs.find(j => {
       if (!j.datosCont || !j.datosCont.contenedor || j.datosCont.contenedor.trim() !== cont) return false;
       const opJob = String(j.datosCont.operacion || '').trim();
       if (opActualFinal && opJob) return opActualFinal === opJob;
-      return true;
+      return false;
     }) || null;
 
 
@@ -13414,19 +13451,44 @@ async function enviarJobAlServidor(job) {
      grabado igual y el reintento duplicaba los lotes.
      Antes de reenviar, se pregunta si ese envioId ya quedo registrado. */
   if (job.envioId && job.intentos > 0) {
+    let yaEstabaGrabado = false;
     try {
       const resChk = await fetch(URL_GAS, {
         method: "POST",
         body: JSON.stringify({ accion: "verificarEnvio", envioId: job.envioId })
       });
       const chk = await resChk.json();
-      if (chk && chk.ok && chk.existe) {
-        console.log("✅ El envio", job.envioId, "YA estaba grabado — no se reenvia");
-        return;   // se borra de la cola sin duplicar
-      }
+      yaEstabaGrabado = !!(chk && chk.ok && chk.existe);
     } catch(e) {
       console.warn("No se pudo verificar el envio previo:", e.message);
       // Si no se puede verificar, el GAS igual bloquea por envioId
+    }
+    if (yaEstabaGrabado) {
+      // FIX: el consolidado y los lotes YA están grabados, pero si un
+      // intento anterior dejó constancia de fotos que no se pudieron
+      // subir (ver más abajo, resultado.fotosConError), este job NO está
+      // completo. Antes, este atajo "ya estaba grabado" devolvía éxito
+      // sin condiciones y el llamador (procesarColaEnvio/reintentarEnvioJob)
+      // borraba el job de IndexedDB igual, perdiendo para siempre el
+      // aviso de que faltan fotos por resolver — esto pasaba SIEMPRE a
+      // partir del segundo intento, aunque se corrigiera el primero.
+      // En vez de rendirse, se deja caer el flujo hacia abajo para
+      // REINTENTAR de verdad: guardarConsolidado()/guardarLotes() son
+      // idempotentes (por envioId / por contenedor respectivamente, ver
+      // sus comentarios en el GAS), así que reenviar no duplica nada, y
+      // el paso de subida de fotos vuelve a intentar cualquier foto que
+      // todavía no tenga url — cumpliendo "si hay un error de subida se
+      // reintenta hasta que se logre guardar". Esta comprobación está
+      // FUERA del try/catch de arriba a propósito: no debe quedar
+      // atrapada por ese catch genérico como si fuera un simple fallo de
+      // verificación.
+      if (Array.isArray(job.fotosConError) && job.fotosConError.length) {
+        console.log("♻️ El envio", job.envioId, "ya estaba grabado, pero siguen faltando " +
+          job.fotosConError.length + " foto(s) — se reintenta el envio completo.");
+      } else {
+        console.log("✅ El envio", job.envioId, "YA estaba grabado — no se reenvia");
+        return;   // se borra de la cola sin duplicar
+      }
     }
   }
 
@@ -13563,7 +13625,16 @@ async function enviarJobAlServidor(job) {
   // pudo haber fallado al subir en el respaldo del servidor — avisar
   // en vez de que se pierda en silencio (antes ni siquiera llegaba
   // este dato, una foto fallida hacía fallar el envío completo).
-  if (Array.isArray(resultado.fotosConError) && resultado.fotosConError.length) {
+  const huboFotosConError = Array.isArray(resultado.fotosConError) && resultado.fotosConError.length;
+  if (huboFotosConError) {
+    // FIX: se guarda en el job (el llamador persiste este mismo objeto en
+    // IndexedDB al capturar el error que se lanza más abajo) para que el
+    // atajo "ya estaba grabado" del chequeo anti-duplicado, arriba, sepa
+    // en el PRÓXIMO intento que este envío sigue incompleto y no lo trate
+    // como éxito. Antes esta información se perdía apenas terminaba esta
+    // función (solo se mostraba un alert), así que ni este intento ni
+    // ningún reintento futuro impedían borrar el job de la cola local.
+    job.fotosConError = resultado.fotosConError;
     setTimeout(function () {
       mostrarAlerta('⚠️ Foto(s) no subida(s)',
         (resultado.msg || 'Algunas fotos no se pudieron subir.') +
@@ -13597,6 +13668,20 @@ async function enviarJobAlServidor(job) {
     } catch (eVGM) {
       console.warn("⚠️ Error registrando VGM al cerrar:", eVGM.message);
     }
+  }
+
+  // FIX: NUNCA se debe borrar el job de la cola local (ver llamadores:
+  // procesarColaEnvio/reintentarEnvioJob solo llaman a borrarJobDeCola
+  // cuando esta función retorna SIN lanzar) mientras se sepa que hay
+  // fotos sin subir. El consolidado y los lotes ya están a salvo en el
+  // servidor, pero se lanza igual para que el job quede en estado
+  // "error", visible en Consolidados pendientes, en vez de desaparecer
+  // en silencio — el próximo intento (automático o manual) vuelve a
+  // pasar por aquí y reintenta subir la(s) foto(s) que falten.
+  if (huboFotosConError) {
+    throw new Error('FOTOS_PENDIENTES: el contenedor y los lotes quedaron grabados, ' +
+      'pero ' + resultado.fotosConError.length + ' foto(s) no se pudieron subir: ' +
+      resultado.fotosConError.join(' | '));
   }
 }
 /* =========================================================
