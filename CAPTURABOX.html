@@ -27796,16 +27796,25 @@ function _mostrarAvisoNuevaVersion() {
   // una "x" para esconderla (vuelve a aparecer en el próximo chequeo
   // automático, como recordatorio, mientras la versión siga sin
   // actualizarse).
+  // FIX 2: en pantallas angostas el texto se cortaba a mitad de palabra
+  // y el botón de cerrar quedaba totalmente fuera de la vista — los
+  // hijos del flex nunca se achicaban (min-width:auto por defecto) así
+  // que, si no entraban todos, se desbordaban del contenedor en vez de
+  // acomodarse. Ahora el texto decorativo ("Nueva versión") es el único
+  // que puede achicarse con "..." si hace falta (min-width:0 +
+  // text-overflow:ellipsis); los botones "Actualizar" y "×" tienen
+  // flex-shrink:0 así que SIEMPRE se ven completos, sin importar el
+  // ancho de pantalla.
   var el = document.createElement("div");
   el.id = "avisoNuevaVersion";
   el.style.cssText = "position:fixed;right:10px;bottom:10px;z-index:3000000;" +
     "background:#0b3c5d;color:#fff;padding:7px 8px 7px 12px;display:flex;align-items:center;" +
-    "gap:8px;font-size:12px;font-weight:700;border-radius:999px;" +
-    "box-shadow:0 3px 14px rgba(0,0,0,.35);max-width:calc(100vw - 20px);white-space:nowrap;";
+    "gap:8px;font-size:12px;font-weight:700;border-radius:999px;box-sizing:border-box;" +
+    "box-shadow:0 3px 14px rgba(0,0,0,.35);max-width:calc(100vw - 20px);overflow:hidden;";
   el.innerHTML =
-    "<span>🔄 Versión nueva</span>" +
+    "<span style=\"min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;\">🔄 Nueva versión</span>" +
     "<button onclick=\"location.reload()\" style=\"background:#11a06b;color:#fff;border:none;" +
-    "border-radius:999px;padding:6px 12px;font-weight:800;cursor:pointer;font-size:12px;flex-shrink:0;\">" +
+    "border-radius:999px;padding:6px 12px;font-weight:800;cursor:pointer;font-size:12px;flex-shrink:0;white-space:nowrap;\">" +
     "Actualizar</button>" +
     "<button onclick=\"document.getElementById('avisoNuevaVersion').remove()\" " +
     "aria-label=\"Cerrar\" style=\"background:transparent;color:rgba(255,255,255,.65);border:none;" +
