@@ -18167,17 +18167,36 @@ function resNave_abrir() {
       '<option value="FORACTION">FORACTION</option>' +
     '</select>' +
     '<label style="font-size:12px;font-weight:700;color:#5a6b77;">NAVE (opcional)</label>' +
-    '<input id="resNave_nave" type="text" placeholder="Ej: POLAR COLOMBIA V.631" ' +
-      'style="width:100%;margin-top:6px;padding:12px;border:1.5px solid #cfd8dc;border-radius:10px;font-size:15px;box-sizing:border-box;">';
+    '<input id="resNave_nave" type="text" list="resNave_naveHistorialList" placeholder="Ej: POLAR COLOMBIA V.631" ' +
+      'style="width:100%;margin-top:6px;padding:12px;border:1.5px solid #cfd8dc;border-radius:10px;font-size:15px;box-sizing:border-box;" ' +
+      'autocapitalize="characters" oninput="this.value=this.value.toUpperCase();">' +
+    // Mismo historial de "últimas naves" que ya usa Cargar Bases
+    // (CB_NAVES_RECIENTES_KEY) — así lo que se consulta acá también
+    // queda disponible ahí, y viceversa.
+    '<datalist id="resNave_naveHistorialList"></datalist>';
 
   mostrarModalForm('Resumen por Nave', contenido, resNave_generar);
   var btn = document.getElementById('adminModalConfirmar');
   if (btn) btn.textContent = 'Generar';
+  resNave_pintarHistorialNaves_();
+}
+
+function resNave_pintarHistorialNaves_() {
+  var dl = document.getElementById('resNave_naveHistorialList');
+  if (!dl) return;
+  var naves = [];
+  try { naves = JSON.parse(localStorage.getItem(CB_NAVES_RECIENTES_KEY) || '[]'); } catch (e) {}
+  dl.innerHTML = naves.map(function (n) {
+    return '<option value="' + String(n).replace(/"/g, '&quot;') + '"></option>';
+  }).join('');
 }
 
 async function resNave_generar() {
   var cliente = String((document.getElementById('resNave_cliente') || {}).value || '').trim();
   var nave = String((document.getElementById('resNave_nave') || {}).value || '').trim();
+  // Recordar la nave consultada para la próxima vez (mismo historial
+  // compartido con Cargar Bases).
+  if (nave) cb_guardarNaveReciente_(nave);
 
   // La ventana se abre AQUÍ, de forma sincrónica dentro del mismo clic
   // (ver mismo criterio en pklg_generar): si se abre después de un
@@ -18278,16 +18297,58 @@ function resNave_construirDocumento(naves) {
     '</div>';
   }).join('');
 
+  // El documento vive en su propia pestaña (window.open), así que
+  // lleva su PROPIA copia de la librería XLSX y de los datos (NAVES)
+  // para poder armar el Excel ahí mismo, sin depender de la ventana
+  // que lo abrió.
   return '<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">' +
     '<title>Resumen por Nave</title><style>' + pklg_css() +
     '.barra-imprimir{position:sticky;top:0;z-index:9;background:#0b3c5d;color:#fff;' +
-    'padding:10px 14px;display:flex;justify-content:center;gap:10px;box-shadow:0 2px 8px rgba(0,0,0,.2);}' +
+    'padding:10px 14px;display:flex;justify-content:center;gap:10px;flex-wrap:wrap;box-shadow:0 2px 8px rgba(0,0,0,.2);}' +
     '.barra-imprimir button{background:#fff;color:#0b3c5d;border:none;border-radius:8px;' +
     'padding:10px 22px;font-size:14px;font-weight:800;cursor:pointer;}' +
     '@media print{.barra-imprimir{display:none;}}' +
-    '</style></head><body>' +
-    '<div class="barra-imprimir"><button onclick="window.print()">🖶️ Imprimir / Guardar como PDF</button></div>' +
+    '</style>' +
+    '<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"><\/script>' +
+    '</head><body>' +
+    '<div class="barra-imprimir">' +
+      '<button onclick="window.print()">🖶️ Imprimir / Guardar como PDF</button>' +
+      '<button onclick="resNave_exportarExcel_()">📊 Descargar Excel</button>' +
+      '<button onclick="resNave_pantallaCompleta_()">⛶ Pantalla completa</button>' +
+    '</div>' +
     bloques +
+    '<script>' +
+      'var NAVES_RESUMEN_ = ' + JSON.stringify(naves) + ';' +
+      'function resNave_pantallaCompleta_() {' +
+        'var el = document.documentElement;' +
+        'if (!document.fullscreenElement) {' +
+          '(el.requestFullscreen || el.webkitRequestFullscreen || el.msRequestFullscreen).call(el);' +
+        '} else {' +
+          '(document.exitFullscreen || document.webkitExitFullscreen || document.msExitFullscreen).call(document);' +
+        '}' +
+      '}' +
+      'function resNave_exportarExcel_() {' +
+        'var wb = XLSX.utils.book_new();' +
+        'var filasResumen = NAVES_RESUMEN_.map(function (n) {' +
+          'return { "Nave": n.nave, "Contenedores": n.totalContenedores, "Entregas": n.totalEntregas,' +
+            '"Lotes": n.totalLotes, "m3": n.totalVolumen, "Peso (kg)": n.totalPeso };' +
+        '});' +
+        'XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(filasResumen), "Resumen por Nave");' +
+        'var filasDetalle = [];' +
+        'NAVES_RESUMEN_.forEach(function (n) {' +
+          '(n.contenedores || []).forEach(function (c) {' +
+            'filasDetalle.push({' +
+              '"Nave": n.nave, "Fecha": c.fecha, "Contenedor": c.contenedor, "Cliente": c.cliente,' +
+              '"Tipo": c.tipo, "Entrega": c.entrega, "Reserva": c.reserva, "Destino": c.destino,' +
+              '"Sello Linea": c.selloLinea, "Sello SAG": c.selloSAG,' +
+              '"Lotes": c.totalLotes, "m3": c.totalVolumen, "Peso (kg)": c.pesoCarga' +
+            '});' +
+          '});' +
+        '});' +
+        'XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(filasDetalle), "Detalle");' +
+        'XLSX.writeFile(wb, "Resumen_por_Nave_" + new Date().toISOString().slice(0,10) + ".xlsx");' +
+      '}' +
+    '<\/script>' +
     '</body></html>';
 }
 
