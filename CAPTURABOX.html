@@ -8745,9 +8745,9 @@ async function volverDesdeLotesRecepcion() {
   setTimeout(() => document.getElementById("lote")?.focus(), 150);
 }
 
-async function reanudarLocalConLoading(contenedor) {
+async function reanudarLocalConLoading(id) {
   return conCargando(async () => {
-    await reanudarLocal(contenedor);
+    await reanudarLocal(id);
   }, "Reanudando contenedor...");
 }
 
@@ -9891,7 +9891,7 @@ div.innerHTML = `
     onclick="eliminarJobLocal(${job.id}, decodeURIComponent('${encodeURIComponent(info.contenedor)}'), decodeURIComponent('${encodeURIComponent(info.cliente || '')}'), decodeURIComponent('${encodeURIComponent((job.datosCont && job.datosCont.operacion) || '')}'))">
     🧹 Quitar de este dispositivo
   </button>` : `
-  <button onclick="reanudarLocalConLoading('${info.contenedor}')">
+  <button onclick="reanudarLocalConLoading(${job.id})">
     ▶ Reanudar
   </button>
 
@@ -9947,13 +9947,19 @@ div.innerHTML = `
 }
 
 
-function reanudarLocal(contenedor) {
+function reanudarLocal(id) {
 
-  // Normalizar contenedor (quitar espacios repetidos)
-  const cont = contenedor.replace(/\s+/g, " ").trim();
-
-  // Devolver la promesa para que el loading espere a que termine
-  return buscarEnLocal(cont).then(info => {
+  // FIX: antes esto recibia el numero de contenedor y buscaba con
+  // buscarEnLocal(contenedor), que solo compara por contenedor. Un mismo
+  // contenedor fisico puede tener dos filas locales (dos Operaciones
+  // distintas, p. ej. una vieja en estado "error" y otra recien abierta) --
+  // buscarEnLocal siempre devuelve la primera fila (la mas antigua), asi
+  // que el boton "Reanudar" de CUALQUIER tarjeta con ese contenedor cargaba
+  // siempre la misma Operacion vieja, sin forma de llegar a la otra desde
+  // la UI. Ahora se identifica el job exacto por su id (igual que ya hacen
+  // los botones "Eliminar" y "Reintentar envio" en la misma tarjeta).
+  return obtenerJobsPendientes().then(jobs => {
+    const info = jobs.find(j => j.id === id) || null;
     if (!info) {
       mostrarAlerta('\u274c Error', 'No se encontr\u00f3 el contenedor local.');
       return;
