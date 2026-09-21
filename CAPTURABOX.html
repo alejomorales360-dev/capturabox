@@ -26562,13 +26562,18 @@ function bo_pintar() {
 
   var botonAgregarLote = puedeAgregarLotes
     ? '<div style="margin-top:10px;display:flex;gap:8px;">' +
+        // FIX: el CSS global "input, button, select { width:100% }" (pensado
+        // para el login, de una columna) le gana al flex del contenedor si no
+        // se pisa acá -- el <button> quedaba con flex-basis:auto resuelto a
+        // ese 100%, así que se comía casi todo el ancho de la fila y el input
+        // del N° de lote quedaba reducido a una cajita casi invisible.
         '<input type="text" id="bo_codigoNuevoLote" placeholder="Escanea o escribe el N° de lote" ' +
-          'style="flex:1;min-width:0;padding:10px 12px;border:1.5px solid #a5c8e0;border-radius:10px;' +
-          'font-size:13px;box-sizing:border-box;" ' +
+          'style="flex:1 1 0%;width:auto;min-width:0;padding:10px 12px;border:1.5px solid #a5c8e0;' +
+          'border-radius:10px;font-size:13px;box-sizing:border-box;margin-top:0;" ' +
           'onkeydown="if(event.key===\'Enter\'){event.preventDefault();bo_agregarLotePorCodigo();}">' +
-        '<button onclick="bo_agregarLotePorCodigo()" style="background:#1b6ca8;color:#fff;border:none;' +
-          'border-radius:10px;padding:10px 16px;font-size:12px;font-weight:800;cursor:pointer;' +
-          'white-space:nowrap;">+ Agregar</button>' +
+        '<button onclick="bo_agregarLotePorCodigo()" style="flex:0 0 auto;width:auto;background:#1b6ca8;' +
+          'color:#fff;border:none;border-radius:10px;padding:10px 16px;font-size:12px;font-weight:800;' +
+          'cursor:pointer;white-space:nowrap;margin-top:0;">+ Agregar</button>' +
       '</div>' +
       '<div style="font-size:10.5px;color:#7a8b95;margin-top:4px;">' +
         'Se busca en LotesDB: entrega, peso, m³ y producto se completan solos.</div>'
