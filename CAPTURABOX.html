@@ -26307,12 +26307,14 @@ function rx_exportarDetalleExcel(key) {
 var bo_data = null;          // resultado actual { modulo, cabecera, detalle }
 var bo_modoEdicion = false;
 var bo_eliminados = [];      // filas marcadas para borrar
+var bo_nuevos = [];          // lotes nuevos a agregar (solo Consolidado)
 
 function abrirBuscadorOperaciones() {
   ir('pantallaBuscarOperacion');
   bo_data = null;
   bo_modoEdicion = false;
   bo_eliminados = [];
+  bo_nuevos = [];
   var res = document.getElementById('bo_resultado');
   if (res) res.innerHTML = '';
   setTimeout(function(){
@@ -26349,6 +26351,7 @@ async function bo_buscar() {
 
   bo_modoEdicion = false;
   bo_eliminados = [];
+  bo_nuevos = [];
   res.innerHTML = '<p style="text-align:center;color:#7a8b95;">Buscando...</p>';
 
   try {
@@ -26508,6 +26511,44 @@ function bo_pintar() {
         (i + 1) + '</td>' + celdas + btnDel + '</tr>';
   }).join('');
 
+  /* ---- Filas nuevas (solo Consolidado, en modo edición): lotes que
+     todavía no existen en la hoja "Lotes" para este contenedor. Se
+     agregan por N° de lote -- igual que al pistolear en el flujo normal
+     -- y el resto de los datos (entrega, peso, m³, producto) se
+     completan solos desde LotesDB, así el lote queda "autorizado" de la
+     misma forma que en cualquier otro ingreso. No se mandan al servidor
+     hasta "Guardar cambios". ---- */
+  var puedeAgregarLotes = ed && mod === 'CONSOLIDADO';
+  var tbodyNuevos = puedeAgregarLotes ? bo_nuevos.map(function(n, i) {
+    var celdas = cols.map(function(c) {
+      var campo = c[0];
+      var val = n[campo] === undefined || n[campo] === null || n[campo] === '' ? '—' : n[campo];
+      return '<td style="padding:7px 8px;border:1px solid #e6ebee;font-size:12px;">' + val + '</td>';
+    }).join('');
+    return '<tr style="background:#f0f7fc;">' +
+      '<td style="padding:7px 6px;border:1px solid #e6ebee;text-align:center;color:#1b6ca8;font-size:12px;font-weight:800;">+</td>' +
+      celdas +
+      '<td style="padding:4px;border:1px solid #e6ebee;text-align:center;">' +
+        '<button onclick="bo_quitarNuevo(' + i + ')" ' +
+        'style="background:#7a8b95;color:#fff;border:none;border-radius:6px;padding:5px 9px;' +
+        'font-size:11px;font-weight:800;cursor:pointer;">✕</button></td>' +
+      '</tr>';
+  }).join('') : '';
+
+  var botonAgregarLote = puedeAgregarLotes
+    ? '<div style="margin-top:10px;display:flex;gap:8px;">' +
+        '<input type="text" id="bo_codigoNuevoLote" placeholder="Escanea o escribe el N° de lote" ' +
+          'style="flex:1;min-width:0;padding:10px 12px;border:1.5px solid #a5c8e0;border-radius:10px;' +
+          'font-size:13px;box-sizing:border-box;" ' +
+          'onkeydown="if(event.key===\'Enter\'){event.preventDefault();bo_agregarLotePorCodigo();}">' +
+        '<button onclick="bo_agregarLotePorCodigo()" style="background:#1b6ca8;color:#fff;border:none;' +
+          'border-radius:10px;padding:10px 16px;font-size:12px;font-weight:800;cursor:pointer;' +
+          'white-space:nowrap;">+ Agregar</button>' +
+      '</div>' +
+      '<div style="font-size:10.5px;color:#7a8b95;margin-top:4px;">' +
+        'Se busca en LotesDB: entrega, peso, m³ y producto se completan solos.</div>'
+    : '';
+
   /* ---- Botones ---- */
   var botones;
   if (ed) {
@@ -26569,11 +26610,13 @@ function bo_pintar() {
         '<div style="overflow-x:auto;">' +
           '<table style="width:100%;border-collapse:collapse;min-width:520px;">' +
             '<thead>' + thead + '</thead>' +
-            '<tbody>' + (tbody ||
+            '<tbody>' + ((tbody || tbodyNuevos) ? (tbody + tbodyNuevos) :
               '<tr><td colspan="' + (cols.length + 1) + '" style="padding:16px;text-align:center;' +
               'color:#7a8b95;border:1px solid #e6ebee;">Sin lotes</td></tr>') + '</tbody>' +
           '</table>' +
         '</div>' +
+
+        botonAgregarLote +
 
         (mod === 'RECEPCION' && ed ? bo_bloqueFotos(det) : '') +
 
@@ -26703,12 +26746,82 @@ function bo_editar() {
   }
   bo_modoEdicion = true;
   bo_eliminados = [];
+  bo_nuevos = [];
   bo_pintar();
 }
 
 function bo_cancelarEdicion() {
   bo_modoEdicion = false;
   bo_eliminados = [];
+  bo_nuevos = [];
+  bo_pintar();
+}
+
+/* Agrega un lote nuevo a un Consolidado ya cerrado, busc\u00e1ndolo por N\u00b0 en
+   LotesDB -- misma fuente y mismo criterio de "autorizado" que al
+   pistolear un lote en el flujo normal (procesarLoteEscaneado). Si el
+   lote no existe en LotesDB no se agrega: as\u00ed nunca se puede inventar un
+   lote a mano. Entrega, peso, m\u00b3 y producto se toman directo de LotesDB,
+   nunca se piden a mano. No se manda al servidor hasta "Guardar
+   cambios". */
+async function bo_agregarLotePorCodigo() {
+  var input = document.getElementById('bo_codigoNuevoLote');
+  var codigo = String((input && input.value) || '').trim().toUpperCase();
+  if (!codigo) return;
+
+  var det = bo_data.detalle || [];
+  var yaExiste = det.some(function (d) { return String(d.lote || '').trim().toUpperCase() === codigo; }) ||
+                 bo_nuevos.some(function (n) { return String(n.lote || '').trim().toUpperCase() === codigo; });
+  if (yaExiste) {
+    mostrarAlerta('\u26a0\ufe0f Lote duplicado', 'El lote <b>' + codigo + '</b> ya est\u00e1 en este contenedor.');
+    return;
+  }
+
+  mostrarCargando('Buscando lote ' + codigo + '...');
+  var data;
+  try {
+    data = await buscarLoteConCache(codigo);
+  } catch (e) {
+    ocultarCargando();
+    mostrarAlerta('\u274c Error', 'No se pudo consultar LotesDB.<br>' + (e.message || e));
+    return;
+  }
+  ocultarCargando();
+
+  if (!data || !data.ok) {
+    mostrarAlerta('\u274c Lote no autorizado',
+      'El lote <b>' + codigo + '</b> no existe en LotesDB.<br><br>Verifique el c\u00f3digo.');
+    return;
+  }
+
+  var clienteLote = String(data.cliente || '').trim().toUpperCase();
+  var clienteOp = String((bo_data.cabecera || {}).cliente || '').trim().toUpperCase();
+  if (clienteLote && clienteOp && clienteLote !== clienteOp) {
+    mostrarAlerta('\u274c Cliente incorrecto \u2014 no se agrega',
+      'El lote <b>' + codigo + '</b> pertenece a <b>' + (data.cliente || '') + '</b>,' +
+      '<br>y esta operaci\u00f3n es de <b>' + ((bo_data.cabecera || {}).cliente || '') + '</b>.');
+    return;
+  }
+
+  bo_nuevos.push({
+    lote: data.lote || codigo,
+    entrega: data.entrega || '',
+    peso: data.peso || '',
+    volumen: data.volumen || '',
+    cantidad: '',
+    tipoBulto: ''
+  });
+
+  if (input) input.value = '';
+  bo_pintar();
+  setTimeout(function () {
+    var el = document.getElementById('bo_codigoNuevoLote');
+    if (el) el.focus();
+  }, 50);
+}
+
+function bo_quitarNuevo(idx) {
+  bo_nuevos.splice(idx, 1);
   bo_pintar();
 }
 
@@ -26756,7 +26869,13 @@ async function bo_guardarCambios() {
 
   var detCambios = Object.keys(porFila).map(function(k){ return porFila[k]; });
 
-  if (detCambios.length === 0 && Object.keys(cabNueva).length === 0 && bo_eliminados.length === 0) {
+  /* Lotes nuevos: ya vienen completos desde bo_agregarLotePorCodigo()
+     (buscados y autorizados contra LotesDB), no hay campos que leer del
+     DOM. Se descarta cualquiera que igual haya quedado sin N\u00b0 de lote. */
+  var detNuevos = bo_nuevos.filter(function (n) { return String(n.lote || '').trim() !== ''; });
+
+  if (detCambios.length === 0 && Object.keys(cabNueva).length === 0 &&
+      bo_eliminados.length === 0 && detNuevos.length === 0) {
     mostrarAlerta('\u2139\ufe0f Sin cambios', 'No se modific\u00f3 ning\u00fan dato.');
     return;
   }
@@ -26764,6 +26883,7 @@ async function bo_guardarCambios() {
   var resumen = [];
   if (Object.keys(cabNueva).length) resumen.push(Object.keys(cabNueva).length + ' campo(s) de cabecera');
   if (detCambios.length) resumen.push(detCambios.length + ' lote(s) editado(s)');
+  if (detNuevos.length) resumen.push('<b style="color:#1b6ca8;">' + detNuevos.length + ' lote(s) agregado(s)</b>');
   if (bo_eliminados.length) resumen.push('<b style="color:#c62828;">' + bo_eliminados.length + ' lote(s) eliminado(s)</b>');
 
   var ok = await mostrarConfirm('\u26a0\ufe0f Confirmar cambios',
@@ -26783,7 +26903,8 @@ async function bo_guardarCambios() {
         modulo: mod,
         cabecera: cabNueva,
         detalle: detCambios,
-        eliminar: bo_eliminados
+        eliminar: bo_eliminados,
+        agregar: detNuevos
       }) });
     var d = await r.json();
     ocultarCargando();
@@ -26795,10 +26916,12 @@ async function bo_guardarCambios() {
 
     mostrarAlerta('\u2705 Cambios guardados',
       '<b>' + (d.cambios || 0) + '</b> campo(s) actualizado(s)' +
+      (d.agregados ? ' , <b>' + d.agregados + '</b> lote(s) agregado(s)' : '') +
       (d.eliminados ? ' y <b>' + d.eliminados + '</b> lote(s) eliminado(s)' : '') + '.');
 
     bo_modoEdicion = false;
     bo_eliminados = [];
+    bo_nuevos = [];
     await bo_buscar();   // recargar desde la hoja
 
   } catch (e) {
