@@ -13488,9 +13488,18 @@ async function enviarJobAlServidor(job) {
       // FUERA del try/catch de arriba a propósito: no debe quedar
       // atrapada por ese catch genérico como si fuera un simple fallo de
       // verificación.
-      if (Array.isArray(job.fotosConError) && job.fotosConError.length) {
-        console.log("♻️ El envio", job.envioId, "ya estaba grabado, pero siguen faltando " +
-          job.fotosConError.length + " foto(s) — se reintenta el envio completo.");
+      // FIX: el VGM ingresado al cerrar (ver más abajo) tampoco puede
+      // saltarse este atajo. Si quedó pendiente de un intento anterior
+      // (falló el registro pero el consolidado ya estaba grabado), hay
+      // que dejar caer el flujo igual que con fotosConError — si no, el
+      // job se marca como resuelto y el VGM nunca se vuelve a intentar.
+      const vgmPendienteAlVerificar =
+        Number(job.datosCont && job.datosCont.vgmIngresoCierre) > 0 && !job.vgmRegistrado;
+
+      if ((Array.isArray(job.fotosConError) && job.fotosConError.length) || vgmPendienteAlVerificar) {
+        console.log("♻️ El envio", job.envioId, "ya estaba grabado, pero sigue pendiente:",
+          (job.fotosConError && job.fotosConError.length ? job.fotosConError.length + " foto(s)" : ""),
+          (vgmPendienteAlVerificar ? "VGM" : ""), "— se reintenta el envio completo.");
       } else {
         console.log("✅ El envio", job.envioId, "YA estaba grabado — no se reenvia");
         return;   // se borra de la cola sin duplicar
@@ -13653,8 +13662,21 @@ async function enviarJobAlServidor(job) {
   // Si el usuario ingresó VGM al momento de cerrar el contenedor,
   // registrarlo ahora que el consolidado y los lotes YA están
   // guardados en el servidor (registrarVGM necesita encontrarlos).
+  //
+  // FIX GRAVE: este registro se intentaba UNA sola vez, sin quedar
+  // nunca en la cola de reintentos — si fallaba (por ejemplo el
+  // servidor lento/congestionado porque hay varios contenedores
+  // cerrándose en cola y compitiendo por el mismo LockService), el
+  // único rastro era un console.warn invisible en producción, y el job
+  // se borraba igual de la cola porque el resto del envío sí había sido
+  // exitoso: el VGM quedaba perdido para siempre sin que nadie se
+  // enterara. Ahora, si falla, se lanza un error (mismo criterio que
+  // fotosConError más abajo) para que el job NO se borre de la cola: el
+  // próximo reintento — automático o manual — lo vuelve a intentar,
+  // sabiendo que ya está pendiente gracias a job.vgmRegistrado (el
+  // atajo "ya estaba grabado", más arriba, también revisa este flag).
   const vgmCierre = Number(job.datosCont && job.datosCont.vgmIngresoCierre);
-  if (vgmCierre && vgmCierre > 0) {
+  if (vgmCierre && vgmCierre > 0 && !job.vgmRegistrado) {
     try {
       const resVGM = await fetch(URL_GAS, {
         method: "POST",
@@ -13666,13 +13688,16 @@ async function enviarJobAlServidor(job) {
         })
       });
       const dataVGM = await resVGM.json();
-      if (dataVGM.ok) {
-        console.log("✅ VGM registrado al cerrar:", dataVGM.pesoCarga, "kg | lotes:", dataVGM.lotesActualizados);
-      } else {
-        console.warn("⚠️ No se pudo registrar VGM al cerrar:", dataVGM.msg);
-      }
+      if (!dataVGM.ok) throw new Error(dataVGM.msg || "el servidor rechazó el VGM");
+
+      console.log("✅ VGM registrado al cerrar:", dataVGM.pesoCarga, "kg | lotes:", dataVGM.lotesActualizados);
+      job.vgmRegistrado = true;
+      await guardarEnIndexedDB(job, job.datosCont.contenedor);
+
     } catch (eVGM) {
-      console.warn("⚠️ Error registrando VGM al cerrar:", eVGM.message);
+      throw new Error('VGM_PENDIENTE: el contenedor y los lotes quedaron grabados, ' +
+        'pero el VGM (' + vgmCierre + ' kg) no se pudo registrar: ' + (eVGM.message || eVGM) +
+        '. Se reintentará automáticamente.');
     }
   }
 
