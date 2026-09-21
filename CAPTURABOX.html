@@ -26794,7 +26794,17 @@ function bo_cancelarEdicion() {
    lote a mano. Entrega, peso, m\u00b3 y producto se toman directo de LotesDB,
    nunca se piden a mano. No se manda al servidor hasta "Guardar
    cambios". */
+var bo_agregandoLote = false; // evita doble envio si se toca "+ Agregar" dos veces mientras busca en LotesDB
+
 async function bo_agregarLotePorCodigo() {
+  // FIX: sin este candado, un doble tap (impaciencia con la red lenta,
+  // muy comun cerrando contenedores en cola) disparaba DOS busquedas en
+  // paralelo para el mismo codigo. Como el chequeo de "ya existe" se
+  // hace ANTES del await a LotesDB, las dos pasaban esa validacion con
+  // el estado limpio (ninguna habia alcanzado a empujar el lote todavia)
+  // y las dos terminaban agregando el mismo lote -- duplicandolo.
+  if (bo_agregandoLote) return;
+
   var input = document.getElementById('bo_codigoNuevoLote');
   var codigo = String((input && input.value) || '').trim().toUpperCase();
   if (!codigo) return;
@@ -26807,47 +26817,52 @@ async function bo_agregarLotePorCodigo() {
     return;
   }
 
-  mostrarCargando('Buscando lote ' + codigo + '...');
-  var data;
+  bo_agregandoLote = true;
   try {
-    data = await buscarLoteConCache(codigo);
-  } catch (e) {
+    mostrarCargando('Buscando lote ' + codigo + '...');
+    var data;
+    try {
+      data = await buscarLoteConCache(codigo);
+    } catch (e) {
+      ocultarCargando();
+      mostrarAlerta('\u274c Error', 'No se pudo consultar LotesDB.<br>' + (e.message || e));
+      return;
+    }
     ocultarCargando();
-    mostrarAlerta('\u274c Error', 'No se pudo consultar LotesDB.<br>' + (e.message || e));
-    return;
+
+    if (!data || !data.ok) {
+      mostrarAlerta('\u274c Lote no autorizado',
+        'El lote <b>' + codigo + '</b> no existe en LotesDB.<br><br>Verifique el c\u00f3digo.');
+      return;
+    }
+
+    var clienteLote = String(data.cliente || '').trim().toUpperCase();
+    var clienteOp = String((bo_data.cabecera || {}).cliente || '').trim().toUpperCase();
+    if (clienteLote && clienteOp && clienteLote !== clienteOp) {
+      mostrarAlerta('\u274c Cliente incorrecto \u2014 no se agrega',
+        'El lote <b>' + codigo + '</b> pertenece a <b>' + (data.cliente || '') + '</b>,' +
+        '<br>y esta operaci\u00f3n es de <b>' + ((bo_data.cabecera || {}).cliente || '') + '</b>.');
+      return;
+    }
+
+    bo_nuevos.push({
+      lote: data.lote || codigo,
+      entrega: data.entrega || '',
+      peso: data.peso || '',
+      volumen: data.volumen || '',
+      cantidad: '',
+      tipoBulto: ''
+    });
+
+    if (input) input.value = '';
+    bo_pintar();
+    setTimeout(function () {
+      var el = document.getElementById('bo_codigoNuevoLote');
+      if (el) el.focus();
+    }, 50);
+  } finally {
+    bo_agregandoLote = false;
   }
-  ocultarCargando();
-
-  if (!data || !data.ok) {
-    mostrarAlerta('\u274c Lote no autorizado',
-      'El lote <b>' + codigo + '</b> no existe en LotesDB.<br><br>Verifique el c\u00f3digo.');
-    return;
-  }
-
-  var clienteLote = String(data.cliente || '').trim().toUpperCase();
-  var clienteOp = String((bo_data.cabecera || {}).cliente || '').trim().toUpperCase();
-  if (clienteLote && clienteOp && clienteLote !== clienteOp) {
-    mostrarAlerta('\u274c Cliente incorrecto \u2014 no se agrega',
-      'El lote <b>' + codigo + '</b> pertenece a <b>' + (data.cliente || '') + '</b>,' +
-      '<br>y esta operaci\u00f3n es de <b>' + ((bo_data.cabecera || {}).cliente || '') + '</b>.');
-    return;
-  }
-
-  bo_nuevos.push({
-    lote: data.lote || codigo,
-    entrega: data.entrega || '',
-    peso: data.peso || '',
-    volumen: data.volumen || '',
-    cantidad: '',
-    tipoBulto: ''
-  });
-
-  if (input) input.value = '';
-  bo_pintar();
-  setTimeout(function () {
-    var el = document.getElementById('bo_codigoNuevoLote');
-    if (el) el.focus();
-  }, 50);
 }
 
 function bo_quitarNuevo(idx) {
@@ -26947,7 +26962,9 @@ async function bo_guardarCambios() {
     mostrarAlerta('\u2705 Cambios guardados',
       '<b>' + (d.cambios || 0) + '</b> campo(s) actualizado(s)' +
       (d.agregados ? ' , <b>' + d.agregados + '</b> lote(s) agregado(s)' : '') +
-      (d.eliminados ? ' y <b>' + d.eliminados + '</b> lote(s) eliminado(s)' : '') + '.');
+      (d.eliminados ? ' y <b>' + d.eliminados + '</b> lote(s) eliminado(s)' : '') + '.' +
+      (d.omitidosPorDuplicado ? '<br><br>\u26a0\ufe0f <b>' + d.omitidosPorDuplicado +
+        '</b> lote(s) no se agregaron porque ya estaban en el contenedor.' : ''));
 
     bo_modoEdicion = false;
     bo_eliminados = [];
