@@ -15450,8 +15450,30 @@ async function cargarUsuariosAdmin() {
   }
 }
 
-/** Guarda UN solo permiso al hacer tick (agregar o quitar). */
+/** Guarda UN solo permiso al hacer tick (agregar o quitar).
+    FIX: dar "acceso completo" implica tildar ~20 casillas seguidas muy
+    rápido. Cada tick disparaba su propio fetch inmediato e independiente
+    -- con varias peticiones para el MISMO rut viajando en paralelo, el
+    backend puede leer el arreglo de permisos, agregar SU módulo y
+    grabar, pisando el resultado de otra petición hermana que hizo lo
+    mismo con una copia más vieja del arreglo (el clásico "lost update").
+    Eso es justo lo reportado: casillas que se ven tildadas al momento,
+    pero que aparecen destildadas después porque en el servidor nunca
+    quedaron todas grabadas. Ahora las peticiones de un mismo usuario se
+    encolan y se envían de a una, esperando la respuesta de la anterior
+    antes de mandar la siguiente -- así nunca hay dos peticiones para el
+    mismo rut en vuelo al mismo tiempo desde este dispositivo. */
+window._colaPermisos = window._colaPermisos || {};
 async function guardarPermisoIndividual(checkbox, rut, modulo) {
+  const previa = window._colaPermisos[rut] || Promise.resolve();
+  const tarea = previa
+    .catch(function () {})
+    .then(function () { return _guardarPermisoIndividualReal(checkbox, rut, modulo); });
+  window._colaPermisos[rut] = tarea;
+  return tarea;
+}
+
+async function _guardarPermisoIndividualReal(checkbox, rut, modulo) {
   const accion = checkbox.checked ? "agregarPermisoUsuario" : "quitarPermisoUsuario";
   const label = checkbox.parentElement;
   const originalBg = label.style.background;
