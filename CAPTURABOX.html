@@ -9762,9 +9762,15 @@ async function cargarPendientesIndexedDB() {
       resNube.parciales.forEach(function(p) {
         contNubeSet.add(_claveContOp_(p.contenedor, p.operacion));
       });
-      // Filtrar los que YA están en local (para no duplicar)
-      const contLocales = new Set(jobs.map(j => (j.datosCont && j.datosCont.contenedor) || ''));
-      jobsNube = resNube.parciales.filter(p => !contLocales.has(p.contenedor));
+      // Filtrar los que YA están en local (para no duplicar).
+      // FIX: comparaba solo por N° de contenedor -- un parcial nuevo y
+      // legítimo en la nube (Operación B) quedaba oculto de "en proceso"
+      // si había un job local viejo (Operación A, por ejemplo con error)
+      // para el mismo N° de contenedor reutilizado. Misma clave
+      // compuesta contenedor+operación usada un poco más arriba.
+      const clavesLocales = new Set(jobs.map(j =>
+        _claveContOp_((j.datosCont && j.datosCont.contenedor) || '', (j.datosCont && j.datosCont.operacion) || '')));
+      jobsNube = resNube.parciales.filter(p => !clavesLocales.has(_claveContOp_(p.contenedor, p.operacion)));
     }
   } catch (e) {
     console.warn('No se pudieron cargar parciales de la nube:', e.message);
@@ -11736,13 +11742,19 @@ async function _eliminarParcialLocalSilencioso(contenedor, operacion) {
   var objetivos = todos.filter(function(j) {
     var c = j.datosCont && j.datosCont.contenedor;
     if (!c || String(c).replace(/\s+/g, ' ').trim() !== cont) return false;
-    // Si conocemos la operación a eliminar, exigir que coincida — si no,
-    // un contenedor reutilizado por una operación NUEVA (aún vigente)
-    // podría borrarse en lugar del job viejo que sí quedó confirmado
-    // fuera de la nube.
+    // FIX GRAVE: si conocemos la Operación a eliminar pero el job local
+    // NO tiene Operación registrada (opJob vacío), la condición de abajo
+    // NO lo excluía -- así que un parcial local vigente y sin relación
+    // (por ejemplo, capturado offline antes de que se le asignara
+    // Operación) para un contenedor reutilizado se borraba igual, en
+    // silencio y sin poder deshacerse, solo porque la nube confirmó el
+    // cierre de una Operación DISTINTA con el mismo N° de contenedor.
+    // Ahora, si no se puede confirmar que es el MISMO job (ambas
+    // Operaciones conocidas e iguales), se conserva -- mejor un
+    // duplicado local visible que un borrado irreversible equivocado.
     if (op) {
       var opJob = String((j.datosCont && j.datosCont.operacion) || '').trim();
-      if (opJob && opJob !== op) return false;
+      if (!opJob || opJob !== op) return false;
     }
     return true;
   });
@@ -12286,7 +12298,25 @@ const fotosBase64 = {
 
       req.onsuccess = () => {
         const rows = req.result || [];
-        existente = rows.find(j => j.datosCont?.contenedor === cont);
+        // FIX GRAVE: buscaba SOLO por número de contenedor. Un contenedor
+        // físico se reutiliza con normalidad en despachos distintos con el
+        // tiempo (misma clase de bug ya corregida en guardarEnIndexedDB,
+        // reanudarLocal, etc.) -- guardar un parcial nuevo para una
+        // Operación reciente heredaba en silencio el id de un parcial
+        // VIEJO de otra Operación que compartía el mismo N° de
+        // contenedor, y el "put" de más abajo lo sobrescribía por
+        // completo (lotes, fotos, totales), perdiéndolo para siempre. Se
+        // exige que la Operación también coincida cuando ambas se
+        // conocen -- si no, se trata como un parcial distinto (mejor un
+        // duplicado local visible que perder en silencio uno ya en
+        // curso).
+        const opNueva = String(datosCont.operacion || '').trim();
+        existente = rows.find(j => {
+          if (j.datosCont?.contenedor !== cont) return false;
+          const opVieja = String(j.datosCont?.operacion || '').trim();
+          if (opNueva && opVieja) return opNueva === opVieja;
+          return false;
+        });
         resolve();
       };
       req.onerror = reject;
@@ -13449,6 +13479,18 @@ function ocultarCargando() {
 
 let procesandoCola = false;
 
+// FIX: `procesandoCola` solo evita que procesarColaEnvio() se solape
+// CONSIGO MISMO (el setInterval de 15s / evento "online"), pero el botón
+// manual "Reintentar envío" (reintentarEnvioJob) llama a
+// enviarJobAlServidor() por su cuenta, sin mirar ese candado. Con la red
+// lenta ya conocida, es muy fácil que el operador toque "Reintentar" justo
+// cuando el reintento automático dispara sobre el MISMO job -- ambas
+// corridas de enviarJobAlServidor (incluida la llamada a registrarVGM)
+// corren en paralelo sin que nada lo impida. Este set de ids "en vuelo" lo
+// evita: cualquiera de los dos caminos que encuentre un id ya en vuelo lo
+// deja pasar de largo en vez de reintentarlo de nuevo.
+var _jobsEnVuelo = new Set();
+
 async function enviarJobAlServidor(job) {
   console.log("🚚 Enviando job ID:", job.id, "| envioId:", job.envioId);
 
@@ -13769,6 +13811,12 @@ async function procesarColaEnvio() {
           continue;
         }
 
+        if (_jobsEnVuelo.has(job.id)) {
+          console.log("⏭️ Job", job.id, "ya se está enviando (reintento manual en curso), se omite esta pasada.");
+          continue;
+        }
+        _jobsEnVuelo.add(job.id);
+
         // Si quedó sin número de operación (se abrió sin conexión),
         // ahora que hay señal se le pide el correlativo real antes
         // de enviar, en vez de inventar uno local.
@@ -13798,6 +13846,8 @@ async function procesarColaEnvio() {
         job.status = "error";
         job.errorMsg = String(err && err.message ? err.message : err);
         await guardarEnIndexedDB(job, job.datosCont.contenedor);
+      } finally {
+        _jobsEnVuelo.delete(job.id);
       }
     }
 
@@ -13824,14 +13874,31 @@ async function buscarEnLocal(contenedor) {
 
   const jobs = await obtenerJobsPendientes();
 
-  const job = jobs.find(j => {
+  // Esta función se usa para ofrecer "reanudar localmente" justo al
+  // volver a escanear un contenedor -- en ese momento SIEMPRE se acaba de
+  // pedir una Operación nueva, así que no sirve exigir que coincida con
+  // la del job guardado (nunca coincidiría, se rompería el rescate real).
+  // Lo que sí se puede corregir: si un contenedor reutilizado dejó MÁS DE
+  // UN job local (por ejemplo uno viejo abandonado de una Operación
+  // anterior que nunca se limpió, y otro reciente), tomar el primero que
+  // aparezca en IndexedDB es arbitrario. Se prefiere el más reciente
+  // (por "actualizado", con "creado" de respaldo), que es el que
+  // probablemente el usuario quiere seguir llenando.
+  const candidatos = jobs.filter(j => {
     if (!j.datosCont?.contenedor) return false;
-
     const localCont = j.datosCont.contenedor.replace(/\s+/g, " ").trim();
     return localCont === cont;
   });
 
-  return job || null;
+  if (!candidatos.length) return null;
+  if (candidatos.length === 1) return candidatos[0];
+
+  candidatos.sort(function (a, b) {
+    var fa = Date.parse(a.actualizado || a.creado || 0) || 0;
+    var fb = Date.parse(b.actualizado || b.creado || 0) || 0;
+    return fb - fa; // mas reciente primero
+  });
+  return candidatos[0];
 }
 
 
@@ -16016,6 +16083,15 @@ function imprimirFotosConsolidado() {
 }
 
 async function reintentarEnvioJob(id) {
+  // FIX: si el reintento automático (procesarColaEnvio, cada 15s / al
+  // volver la señal) ya está enviando este mismo job, no lanzar un
+  // segundo envío en paralelo -- ver comentario junto a _jobsEnVuelo.
+  if (_jobsEnVuelo.has(id)) {
+    alert("Este contenedor ya se está reintentando automáticamente. Espera unos segundos.");
+    return;
+  }
+  _jobsEnVuelo.add(id);
+
   mostrarCargando("Reintentando envío...");
 
   try {
@@ -16052,6 +16128,8 @@ async function reintentarEnvioJob(id) {
 
     alert("❌ Error al enviar:\n" + (err && err.message ? err.message : err));
     await cargarPendientesIndexedDB();
+  } finally {
+    _jobsEnVuelo.delete(id);
   }
 }
 
@@ -17093,6 +17171,23 @@ async function prep_procesarCola() {
         const data = await res.json();
 
         if (data && data.ok) {
+          // FIX GRAVE: igual que guardarConsolidadoCompleto, el guardado
+          // puede responder ok:true (la preparación en sí se guardó) y
+          // aun así traer fotosConError si alguna foto de daño falló al
+          // subir a Drive. Antes esto se ignoraba por completo: el
+          // payload se sacaba de la cola igual, y como esa era la única
+          // copia local del base64 de la foto, se perdía para siempre
+          // sin ningún rastro (ni consola, ni aviso). Ahora, si vienen
+          // fotos con error, NO se saca de la cola -- se sale del loop
+          // (se reintenta en el próximo ciclo de 15s) para no martillar
+          // el servidor reintentando este mismo payload sin pausa.
+          if (Array.isArray(data.fotosConError) && data.fotosConError.length) {
+            console.warn('Preparación guardada, pero fotos de daño pendientes:', data.fotosConError);
+            mostrarAlerta('⚠️ Foto(s) de daño no subida(s)',
+              (data.msg || 'Algunas fotos de daño no se pudieron subir.') +
+              '\n\nSe reintentará automáticamente.');
+            break;
+          }
           prep_colaPendiente.shift();
           prep_guardarColaLocal();
           prep_actualizarIndicadorCola();
