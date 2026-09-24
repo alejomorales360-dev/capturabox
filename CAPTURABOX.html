@@ -21288,6 +21288,31 @@ function infoCons_render(data) {
   }
   html += infoPanelColapsable('Por nave', COLOR_CONS, htmlNave, true);
 
+  // Por cliente — Producto (madera verde, moldura, plywood, etc.):
+  // expandible por cliente, mismo patrón que "Por nave".
+  var htmlClienteProducto = '';
+  if (!data.porClienteProducto || !data.porClienteProducto.length) {
+    htmlClienteProducto = '<div style="color:#7a8b95; font-size:13px;">Sin datos.</div>';
+  } else {
+    data.porClienteProducto.forEach(function (c, i) {
+      var detId = 'infoCons_cliProd_' + i;
+      htmlClienteProducto += '<div style="border-top:1px solid #eef2f5; padding:10px 0;">' +
+        '<div onclick="event.stopPropagation(); document.getElementById(\'' + detId + '\').style.display = document.getElementById(\'' + detId + '\').style.display===\'none\'?\'block\':\'none\';" ' +
+             'style="cursor:pointer; display:flex; justify-content:space-between; align-items:baseline;">' +
+          '<b style="color:#0b3c5d; font-size:14px;">' + c.cliente + '</b>' +
+          '<span style="font-size:13px; color:#3a4a57;">' + c.contenedores + ' box &middot; ' + c.m3.toLocaleString('es-CL', {maximumFractionDigits:2}) + ' m³</span>' +
+        '</div>' +
+        '<div id="' + detId + '" style="display:none; margin-top:8px; padding-left:8px;">' +
+          c.porProducto.map(function (p) {
+            return '<div style="display:flex; justify-content:space-between; font-size:12px; color:#5a6b77; padding:3px 0;">' +
+              '<span>' + p.producto + '</span><span>' + p.contenedores + ' box &middot; ' + p.m3.toLocaleString('es-CL', {maximumFractionDigits:2}) + ' m³</span></div>';
+          }).join('') +
+        '</div>' +
+      '</div>';
+    });
+  }
+  html += infoPanelColapsable('Por cliente — Producto', COLOR_CONS, htmlClienteProducto, true);
+
   // Uso de trineo
   var totalTrineo = data.trineo.si.contenedores + data.trineo.no.contenedores;
   var pctSi = totalTrineo ? (data.trineo.si.contenedores / totalTrineo * 100) : 0;
@@ -21325,6 +21350,14 @@ function infoCons_exportarExcel() {
     });
   });
   XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(hojaNave), 'Por Nave');
+
+  var hojaClienteProducto = [];
+  (data.porClienteProducto || []).forEach(function (c) {
+    c.porProducto.forEach(function (p) {
+      hojaClienteProducto.push({ Cliente: c.cliente, Producto: p.producto, Contenedores: p.contenedores, 'm³': p.m3 });
+    });
+  });
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(hojaClienteProducto), 'Por Cliente-Producto');
 
   XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(data.detalle.map(function (d) {
     return {
