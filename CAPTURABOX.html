@@ -21473,6 +21473,13 @@ function infoCons_exportarPDF() {
       '<td style="text-align:right;">' + (n.trineos || 0) + '</td>' +
       '<td>' + barraPct(pct, colorPor(i)) + '</td></tr>';
   };
+  var filasProducto = (data.porClienteProducto || []).map(function (c) {
+    return (c.porProducto || []).map(function (p) {
+      return '<tr><td>' + c.cliente + '</td><td>' + p.producto + '</td>' +
+        '<td style="text-align:right;">' + p.contenedores + '</td>' +
+        '<td style="text-align:right;">' + p.m3.toLocaleString('es-CL', {maximumFractionDigits:2}) + '</td></tr>';
+    }).join('');
+  }).join('');
 
   var html = '<!DOCTYPE html><htm' + 'l><hea' + 'd><meta charset="utf-8">' +
     '<title>Informe de Consolidado ' + fecha + '</title>' +
@@ -21505,6 +21512,8 @@ function infoCons_exportarPDF() {
     data.porCliente.map(filaCliente).join('') + '</table>' +
     '<h3>Naves consolidadas</h3><table><tr><th>Nave</th><th>Box</th><th>m³</th><th>Trineos</th><th></th></tr>' +
     data.porNave.map(filaNave).join('') + '</table>' +
+    (filasProducto ? ('<h3>Por cliente — Producto</h3><table><tr><th>Cliente</th><th>Producto</th><th>Box</th><th>m³</th></tr>' +
+    filasProducto + '</table>') : '') +
     '</bod' + 'y></htm' + 'l>';
 
   w.document.open(); w.document.write(html); w.document.close();
