@@ -2104,6 +2104,10 @@ button:active {
         <span class="dbModRowDot" style="background:#c9a24b;"></span>
         <span class="dbModRowTxt">Informe General</span><span class="dbModRowArrow">&#8250;</span>
       </div>
+      <div class="dbModRow" data-permiso="EXTENSIONES_TURNO" onclick="extTurno_abrir()">
+        <span class="dbModRowDot" style="background:#c9a24b;"></span>
+        <span class="dbModRowTxt">Extensiones de Turno</span><span class="dbModRowArrow">&#8250;</span>
+      </div>
     </div>
   </div>
 
@@ -2190,6 +2194,115 @@ button:active {
     <div class="dbBarChart" id="chartRecepciones"></div>
   </div>
 
+</div>
+
+<!-- ===================== EXTENSIONES DE TURNO ===================== -->
+<div id="pantallaExtensionesTurno" class="pantalla rcPantalla">
+
+  <div class="rcCabecera">
+    <button class="rcBtnBack" onclick="ir('pantallaMenu')">&#8592;</button>
+    <div>
+      <div class="rcCabTxt">Extensiones de Turno</div>
+      <div class="rcCabSub">Horario normal 08:30–17:00 · extensión hasta 19:00</div>
+    </div>
+  </div>
+
+  <div style="padding:14px;">
+
+    <!-- NUEVO REGISTRO -->
+    <div style="background:#fff; border-radius:12px; padding:14px; margin-bottom:16px; box-shadow:0 1px 3px rgba(0,0,0,.06); border:1px solid #e6ebee;">
+      <div class="dbSecLabel" style="margin-bottom:10px;">NUEVO REGISTRO</div>
+
+      <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:10px;">
+        <div style="flex:1; min-width:130px;">
+          <label style="font-size:11px; color:#5a6b77; font-weight:700;">FECHA</label>
+          <input type="date" id="extTurno_fecha" style="width:100%; padding:8px; border:1px solid #d5dde5; border-radius:7px; font-size:13px; box-sizing:border-box;">
+        </div>
+        <div style="flex:1; min-width:130px;">
+          <label style="font-size:11px; color:#5a6b77; font-weight:700;">AUTORIZADO POR</label>
+          <select id="extTurno_autorizadoPor" style="width:100%; padding:8px; border:1px solid #d5dde5; border-radius:7px; font-size:13px; box-sizing:border-box;">
+            <option value="NOSOTROS">Nosotros</option>
+            <option value="CLIENTE">Cliente</option>
+          </select>
+        </div>
+        <div style="flex:1; min-width:140px;">
+          <label style="font-size:11px; color:#5a6b77; font-weight:700;">CLIENTE</label>
+          <select id="extTurno_cliente" style="width:100%; padding:8px; border:1px solid #d5dde5; border-radius:7px; font-size:13px; box-sizing:border-box;"><option value="">— Sin cliente específico —</option></select>
+        </div>
+        <div style="flex:1; min-width:140px;">
+          <label style="font-size:11px; color:#5a6b77; font-weight:700;">SUPERVISOR A CARGO</label>
+          <input id="extTurno_supervisor" placeholder="Nombre" style="width:100%; padding:8px; border:1px solid #d5dde5; border-radius:7px; font-size:13px; box-sizing:border-box;">
+        </div>
+      </div>
+
+      <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:10px;">
+        <div style="flex:1; min-width:130px;">
+          <label style="font-size:11px; color:#5a6b77; font-weight:700;">HORA FIN TURNO NORMAL</label>
+          <input type="time" id="extTurno_horaFinNormal" value="17:00" style="width:100%; padding:8px; border:1px solid #d5dde5; border-radius:7px; font-size:13px; box-sizing:border-box;">
+        </div>
+        <div style="flex:1; min-width:130px;">
+          <label style="font-size:11px; color:#5a6b77; font-weight:700;">HORA FIN EXTENSIÓN</label>
+          <input type="time" id="extTurno_horaFinExtension" value="19:00" style="width:100%; padding:8px; border:1px solid #d5dde5; border-radius:7px; font-size:13px; box-sizing:border-box;">
+        </div>
+      </div>
+
+      <div style="margin-bottom:10px;">
+        <label style="font-size:11px; color:#5a6b77; font-weight:700;">MOTIVO DE LA EXTENSIÓN</label>
+        <textarea id="extTurno_motivo" placeholder="Ej: nave cierra hoy, atraso en llegada de camiones..." style="width:100%; padding:8px; border:1px solid #d5dde5; border-radius:7px; font-size:13px; min-height:44px; resize:vertical; box-sizing:border-box;"></textarea>
+      </div>
+
+      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:6px;">
+        <label style="font-size:11px; color:#5a6b77; font-weight:700;">DOTACIÓN</label>
+        <span id="extTurno_resumen" style="font-size:11px; color:#0b3c5d; font-weight:700;">Turno normal: 0 · En extensión: 0</span>
+      </div>
+      <div style="overflow-x:auto;">
+        <table style="width:100%; border-collapse:collapse; font-size:12px; min-width:380px;">
+          <thead><tr>
+            <th style="text-align:left; padding:4px 6px; color:#7a8b95; font-size:10px; text-transform:uppercase;">Nombre</th>
+            <th style="text-align:left; padding:4px 6px; color:#7a8b95; font-size:10px; text-transform:uppercase;">Cargo</th>
+            <th style="padding:4px 6px; color:#7a8b95; font-size:10px; text-transform:uppercase;">Extensión</th>
+            <th style="padding:4px 6px;"></th>
+          </tr></thead>
+          <tbody id="extTurno_dotacionBody"></tbody>
+        </table>
+      </div>
+      <button type="button" onclick="extTurno_agregarPersona()" style="width:auto; margin-top:8px; background:#eef2f5; color:#0b3c5d; border:none; border-radius:7px; padding:7px 14px; font-size:12px; font-weight:700; cursor:pointer;">+ Agregar persona</button>
+
+      <div style="margin-top:12px;">
+        <label style="font-size:11px; color:#5a6b77; font-weight:700;">OBSERVACIONES (opcional)</label>
+        <textarea id="extTurno_observaciones" style="width:100%; padding:8px; border:1px solid #d5dde5; border-radius:7px; font-size:13px; min-height:36px; resize:vertical; box-sizing:border-box;"></textarea>
+      </div>
+
+      <button id="extTurno_btnGuardar" onclick="extTurno_guardar()" style="width:100%; margin-top:14px; background:#0b3c5d; color:#fff; border:none; border-radius:9px; padding:12px; font-size:14px; font-weight:800; cursor:pointer;">Guardar registro</button>
+    </div>
+
+    <!-- HISTORIAL -->
+    <div style="background:#fff; border-radius:12px; padding:14px; box-shadow:0 1px 3px rgba(0,0,0,.06); border:1px solid #e6ebee;">
+      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;">
+        <div class="dbSecLabel" style="margin:0;">HISTORIAL</div>
+        <div style="display:flex; gap:6px;">
+          <button onclick="extTurno_cargarHistorial()" style="width:auto; margin-top:0; background:#eef2f5; color:#0b3c5d; border:none; border-radius:6px; padding:5px 11px; font-size:11px; font-weight:700; cursor:pointer;">Actualizar</button>
+          <button onclick="extTurno_exportarExcel()" style="width:auto; margin-top:0; background:#1c6b41; color:#fff; border:none; border-radius:6px; padding:5px 11px; font-size:11px; font-weight:700; cursor:pointer;">Excel</button>
+        </div>
+      </div>
+      <div style="overflow-x:auto; -webkit-overflow-scrolling:touch;">
+        <table style="width:100%; border-collapse:collapse; font-size:12px; min-width:560px;">
+          <thead><tr>
+            <th style="text-align:left; padding:6px 8px; color:#7a8b95; font-size:10px; text-transform:uppercase; border-bottom:2px solid #e6ebee;">Fecha</th>
+            <th style="text-align:left; padding:6px 8px; color:#7a8b95; font-size:10px; text-transform:uppercase; border-bottom:2px solid #e6ebee;">Autorizó</th>
+            <th style="text-align:left; padding:6px 8px; color:#7a8b95; font-size:10px; text-transform:uppercase; border-bottom:2px solid #e6ebee;">Cliente</th>
+            <th style="text-align:right; padding:6px 8px; color:#7a8b95; font-size:10px; text-transform:uppercase; border-bottom:2px solid #e6ebee;">Turno normal</th>
+            <th style="text-align:right; padding:6px 8px; color:#7a8b95; font-size:10px; text-transform:uppercase; border-bottom:2px solid #e6ebee;">En extensión</th>
+            <th style="text-align:left; padding:6px 8px; color:#7a8b95; font-size:10px; text-transform:uppercase; border-bottom:2px solid #e6ebee;">Hasta</th>
+            <th style="text-align:left; padding:6px 8px; color:#7a8b95; font-size:10px; text-transform:uppercase; border-bottom:2px solid #e6ebee;">Supervisor</th>
+          </tr></thead>
+          <tbody id="extTurno_historialBody"></tbody>
+        </table>
+      </div>
+      <div style="font-size:10px; color:#7a8b95; margin-top:6px;">Toca una fila para ver el detalle completo.</div>
+    </div>
+
+  </div>
 </div>
 
 <!-- ===================== STOCK EN BODEGA ===================== -->
@@ -14806,7 +14919,8 @@ const MODULOS_APP = [
   { id: "GATE_CONTROL", label: "🚧 Gate Control (registrar movimiento)" },
   { id: "GATE_CONTROL_INFORME", label: "📋 Informe de Gate Control" },
   { id: "GATE_CONTROL_CATALOGOS", label: "📇 Catálogos de Gate Control" },
-  { id: "EDITAR_GATECONTROL", label: "✏️ Editar/borrar en Gate Control" }
+  { id: "EDITAR_GATECONTROL", label: "✏️ Editar/borrar en Gate Control" },
+  { id: "EXTENSIONES_TURNO", label: "🕐 Extensiones de Turno" }
 ];
 
 /** Lee permisos y rol de localStorage y actualiza todo el dashboard. */
@@ -18916,6 +19030,242 @@ async function deslote_confirmarYEjecutar() {
     ocultarCargando();
     mostrarAlerta('❌ Sin conexión', 'No se pudo desautorizar. Intenta de nuevo.');
   }
+}
+
+/* =========================================================
+   EXTENSIONES DE TURNO (Herramientas)
+   Horario operativo normal 08:30–17:00; a veces se extiende hasta
+   las 19:00, habilitado por el cliente o por nosotros. Este módulo
+   registra cada extensión con la dotación que trabaja en horario
+   normal y cuál de esa dotación se queda en la extensión.
+========================================================= */
+
+var extTurno_dotacion = [];
+var extTurno_historialUltimo = [];
+var extTurno_clientesCache = null;
+
+function extTurno_abrir() {
+  ir('pantallaExtensionesTurno');
+  extTurno_resetForm();
+  extTurno_llenarClientes();
+  extTurno_cargarHistorial();
+}
+
+async function extTurno_llenarClientes() {
+  var sel = document.getElementById('extTurno_cliente');
+  if (!sel) return;
+  if (extTurno_clientesCache === null) {
+    try {
+      var res = await fetch(URL_GAS, { method: 'POST', body: JSON.stringify({ accion: 'informeStock', filtros: {} }) });
+      var data = await res.json();
+      extTurno_clientesCache = (data.ok && data.opciones && data.opciones.clientes) ? data.opciones.clientes : [];
+    } catch (e) {
+      extTurno_clientesCache = [];
+    }
+  }
+  var actual = sel.value;
+  var html = '<option value="">— Sin cliente específico —</option>';
+  extTurno_clientesCache.forEach(function (c) {
+    if (!c) return;
+    html += '<option value="' + String(c).replace(/"/g, '&quot;') + '">' + c + '</option>';
+  });
+  sel.innerHTML = html;
+  sel.value = actual || '';
+}
+
+function extTurno_resetForm() {
+  extTurno_dotacion = [];
+  var elFecha = document.getElementById('extTurno_fecha');
+  if (elFecha) elFecha.value = _fechaHoyLocal();
+  var elAut = document.getElementById('extTurno_autorizadoPor');
+  if (elAut) elAut.value = 'NOSOTROS';
+  var elCliente = document.getElementById('extTurno_cliente');
+  if (elCliente) elCliente.value = '';
+  var elSup = document.getElementById('extTurno_supervisor');
+  if (elSup) elSup.value = '';
+  var elMotivo = document.getElementById('extTurno_motivo');
+  if (elMotivo) elMotivo.value = '';
+  var elHFN = document.getElementById('extTurno_horaFinNormal');
+  if (elHFN) elHFN.value = '17:00';
+  var elHFE = document.getElementById('extTurno_horaFinExtension');
+  if (elHFE) elHFE.value = '19:00';
+  var elObs = document.getElementById('extTurno_observaciones');
+  if (elObs) elObs.value = '';
+  extTurno_pintarDotacion();
+}
+
+function extTurno_agregarPersona() {
+  extTurno_dotacion.push({ nombre: '', cargo: '', extiende: false });
+  extTurno_pintarDotacion();
+}
+
+function extTurno_quitarPersona(i) {
+  extTurno_dotacion.splice(i, 1);
+  extTurno_pintarDotacion();
+}
+
+function extTurno_pintarDotacion() {
+  var body = document.getElementById('extTurno_dotacionBody');
+  if (!body) return;
+  body.innerHTML = extTurno_dotacion.length ? extTurno_dotacion.map(function (p, i) {
+    return '<tr>' +
+      '<td style="padding:4px;"><input value="' + String(p.nombre || '').replace(/"/g, '&quot;') + '" ' +
+        'oninput="extTurno_dotacion[' + i + '].nombre=this.value" placeholder="Nombre" ' +
+        'style="width:100%;padding:6px 8px;border:1.5px solid #cfd8dc;border-radius:6px;font-size:12px;box-sizing:border-box;"></td>' +
+      '<td style="padding:4px;"><input value="' + String(p.cargo || '').replace(/"/g, '&quot;') + '" ' +
+        'oninput="extTurno_dotacion[' + i + '].cargo=this.value" placeholder="Cargo" ' +
+        'style="width:100%;padding:6px 8px;border:1.5px solid #cfd8dc;border-radius:6px;font-size:12px;box-sizing:border-box;"></td>' +
+      '<td style="padding:4px;text-align:center;"><input type="checkbox" ' + (p.extiende ? 'checked' : '') + ' ' +
+        'onchange="extTurno_dotacion[' + i + '].extiende=this.checked; extTurno_pintarResumen();" style="width:18px;height:18px;"></td>' +
+      '<td style="padding:4px;text-align:center;"><button type="button" onclick="extTurno_quitarPersona(' + i + ')" ' +
+        'style="width:auto;margin:0;background:#fdecea;color:#c62828;border:none;border-radius:6px;padding:4px 8px;font-size:11px;font-weight:700;cursor:pointer;">✕</button></td>' +
+    '</tr>';
+  }).join('') : '<tr><td colspan="4" style="padding:10px;text-align:center;color:#7a8b95;font-size:12px;">Sin personas agregadas. Toca "+ Agregar persona".</td></tr>';
+  extTurno_pintarResumen();
+}
+
+function extTurno_pintarResumen() {
+  var res = document.getElementById('extTurno_resumen');
+  if (!res) return;
+  var total = extTurno_dotacion.filter(function (p) { return String(p.nombre || '').trim(); }).length;
+  var extiende = extTurno_dotacion.filter(function (p) { return String(p.nombre || '').trim() && p.extiende; }).length;
+  res.textContent = 'Turno normal: ' + total + ' · En extensión: ' + extiende;
+}
+
+async function extTurno_guardar() {
+  var fecha = (document.getElementById('extTurno_fecha') || {}).value;
+  var autorizadoPor = (document.getElementById('extTurno_autorizadoPor') || {}).value || 'NOSOTROS';
+  var cliente = (document.getElementById('extTurno_cliente') || {}).value || '';
+  var motivo = ((document.getElementById('extTurno_motivo') || {}).value || '').trim();
+  var supervisor = ((document.getElementById('extTurno_supervisor') || {}).value || '').trim();
+  var horaFinNormal = (document.getElementById('extTurno_horaFinNormal') || {}).value || '17:00';
+  var horaFinExtension = (document.getElementById('extTurno_horaFinExtension') || {}).value || '19:00';
+  var observaciones = ((document.getElementById('extTurno_observaciones') || {}).value || '').trim();
+
+  if (!fecha) { mostrarAlerta('Falta la fecha', 'Selecciona la fecha del turno.'); return; }
+  if (!supervisor) { mostrarAlerta('Falta el supervisor', 'Indica quién registra/autoriza la extensión.'); return; }
+
+  var dotacionValida = extTurno_dotacion.filter(function (p) { return String(p.nombre || '').trim(); });
+  if (!dotacionValida.length) { mostrarAlerta('Falta dotación', 'Agrega al menos una persona del turno.'); return; }
+  if (!dotacionValida.some(function (p) { return p.extiende; })) {
+    if (!confirm('No marcaste a nadie en extensión. ¿Seguro que quieres guardar así?')) return;
+  }
+
+  var btn = document.getElementById('extTurno_btnGuardar');
+  if (btn) { btn.disabled = true; btn.textContent = 'Guardando…'; }
+  try {
+    var res = await fetch(URL_GAS, { method: 'POST', body: JSON.stringify({
+      accion: 'guardarExtensionTurno',
+      registro: {
+        fecha: fecha, autorizadoPor: autorizadoPor, cliente: cliente, motivo: motivo,
+        supervisor: supervisor, horaFinNormal: horaFinNormal, horaFinExtension: horaFinExtension,
+        observaciones: observaciones, dotacion: dotacionValida
+      }
+    }) });
+    var data = await res.json();
+    if (!data.ok) { mostrarAlerta('❌ Error', data.msg || 'No se pudo guardar.'); return; }
+    mostrarAlerta('✅ Guardado', 'Registro de extensión guardado correctamente.');
+    extTurno_resetForm();
+    extTurno_cargarHistorial();
+  } catch (e) {
+    mostrarAlerta('❌ Error', 'Sin conexión.');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = 'Guardar registro'; }
+  }
+}
+
+async function extTurno_cargarHistorial() {
+  var body = document.getElementById('extTurno_historialBody');
+  if (body) body.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#7a8b95;padding:16px;">Cargando…</td></tr>';
+  try {
+    var res = await fetch(URL_GAS, { method: 'POST', body: JSON.stringify({ accion: 'listarExtensionesTurno', filtros: {} }) });
+    var data = await res.json();
+    if (!data.ok) {
+      if (body) body.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#c62828;padding:16px;">' + (data.msg || 'Error al cargar.') + '</td></tr>';
+      return;
+    }
+    extTurno_historialUltimo = (data.registros || []).slice().sort(function (a, b) {
+      return new Date(b.fecha) - new Date(a.fecha);
+    });
+    extTurno_renderHistorial();
+  } catch (e) {
+    if (body) body.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#c62828;padding:16px;">Sin conexión.</td></tr>';
+  }
+}
+
+function extTurno_renderHistorial() {
+  var body = document.getElementById('extTurno_historialBody');
+  if (!body) return;
+  if (!extTurno_historialUltimo.length) {
+    body.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#7a8b95;padding:16px;">Sin registros todavía.</td></tr>';
+    return;
+  }
+  body.innerHTML = extTurno_historialUltimo.map(function (r, i) {
+    var normal = (r.dotacion || []).length;
+    var ext = (r.dotacion || []).filter(function (p) { return p.extiende; }).length;
+    return '<tr style="cursor:pointer;" onclick="extTurno_verDetalle(' + i + ')">' +
+      '<td style="padding:6px 8px;">' + (r.fecha ? new Date(r.fecha).toLocaleDateString('es-CL') : '—') + '</td>' +
+      '<td style="padding:6px 8px;">' + (r.autorizadoPor === 'CLIENTE' ? 'Cliente' : 'Nosotros') + '</td>' +
+      '<td style="padding:6px 8px;">' + (r.cliente || '—') + '</td>' +
+      '<td style="padding:6px 8px;text-align:right;">' + normal + '</td>' +
+      '<td style="padding:6px 8px;text-align:right;">' + ext + '</td>' +
+      '<td style="padding:6px 8px;">' + (r.horaFinExtension || '—') + '</td>' +
+      '<td style="padding:6px 8px;">' + (r.supervisor || '—') + '</td>' +
+    '</tr>';
+  }).join('');
+}
+
+function extTurno_verDetalle(i) {
+  var r = extTurno_historialUltimo[i];
+  if (!r) return;
+  var filasPersonas = (r.dotacion || []).map(function (p) {
+    return '<tr><td style="padding:4px 6px;">' + (p.nombre || '') + '</td><td style="padding:4px 6px;">' + (p.cargo || '') + '</td>' +
+      '<td style="padding:4px 6px;text-align:center;">' + (p.extiende ? '✅' : '—') + '</td></tr>';
+  }).join('');
+  var html = '<div style="text-align:left;">' +
+    '<p><b>Fecha:</b> ' + (r.fecha ? new Date(r.fecha).toLocaleDateString('es-CL') : '—') + '</p>' +
+    '<p><b>Autorizado por:</b> ' + (r.autorizadoPor === 'CLIENTE' ? 'Cliente' : 'Nosotros') + (r.cliente ? ' (' + r.cliente + ')' : '') + '</p>' +
+    '<p><b>Motivo:</b> ' + (r.motivo || '—') + '</p>' +
+    '<p><b>Horario:</b> turno normal hasta ' + (r.horaFinNormal || '17:00') + ' · extensión hasta ' + (r.horaFinExtension || '—') + '</p>' +
+    '<p><b>Supervisor:</b> ' + (r.supervisor || '—') + '</p>' +
+    (r.observaciones ? ('<p><b>Observaciones:</b> ' + r.observaciones + '</p>') : '') +
+    '<table style="width:100%;border-collapse:collapse;margin-top:8px;font-size:12px;">' +
+    '<thead><tr><th style="text-align:left;padding:4px 6px;border-bottom:1.5px solid #e6ebee;">Nombre</th>' +
+    '<th style="text-align:left;padding:4px 6px;border-bottom:1.5px solid #e6ebee;">Cargo</th>' +
+    '<th style="padding:4px 6px;border-bottom:1.5px solid #e6ebee;">Extensión</th></tr></thead>' +
+    '<tbody>' + filasPersonas + '</tbody></table>' +
+  '</div>';
+  mostrarAlerta('📋 Detalle de extensión', html);
+}
+
+function extTurno_exportarExcel() {
+  if (!extTurno_historialUltimo.length) { mostrarAlerta('Sin datos', 'No hay registros para exportar.'); return; }
+  var wb = XLSX.utils.book_new();
+  var filas = [];
+  extTurno_historialUltimo.forEach(function (r) {
+    var normal = (r.dotacion || []).length;
+    var ext = (r.dotacion || []).filter(function (p) { return p.extiende; }).length;
+    var personas = (r.dotacion && r.dotacion.length) ? r.dotacion : [{}];
+    personas.forEach(function (p) {
+      filas.push({
+        Fecha: r.fecha ? new Date(r.fecha).toLocaleDateString('es-CL') : '',
+        'Autorizado por': r.autorizadoPor === 'CLIENTE' ? 'Cliente' : 'Nosotros',
+        Cliente: r.cliente || '',
+        Motivo: r.motivo || '',
+        'Hora fin turno normal': r.horaFinNormal || '',
+        'Hora fin extensión': r.horaFinExtension || '',
+        Supervisor: r.supervisor || '',
+        'Dotación turno normal': normal,
+        'Dotación en extensión': ext,
+        Nombre: p.nombre || '',
+        Cargo: p.cargo || '',
+        'Se queda en extensión': p.extiende ? 'Sí' : 'No',
+        Observaciones: r.observaciones || ''
+      });
+    });
+  });
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(filas), 'Extensiones de Turno');
+  XLSX.writeFile(wb, 'Extensiones_Turno_' + new Date().toISOString().slice(0, 10) + '.xlsx');
 }
 
 /* =========================================================
