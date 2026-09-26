@@ -2270,7 +2270,10 @@ button:active {
           <tbody id="extTurno_dotacionBody"></tbody>
         </table>
       </div>
-      <button type="button" onclick="extTurno_agregarPersona()" style="width:auto; margin-top:8px; background:#eef2f5; color:#0b3c5d; border:none; border-radius:7px; padding:7px 14px; font-size:12px; font-weight:700; cursor:pointer;">+ Agregar persona</button>
+      <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:8px;">
+        <button type="button" onclick="extTurno_agregarPersona()" style="width:auto; margin-top:0; background:#eef2f5; color:#0b3c5d; border:none; border-radius:7px; padding:7px 14px; font-size:12px; font-weight:700; cursor:pointer;">+ Agregar persona</button>
+        <button type="button" onclick="extTurno_guardarPlantilla()" style="width:auto; margin-top:0; background:#eef2f5; color:#0b3c5d; border:none; border-radius:7px; padding:7px 14px; font-size:12px; font-weight:700; cursor:pointer;" title="Guarda esta lista de nombres y cargos para que venga precargada la próxima vez">💾 Guardar como plantilla</button>
+      </div>
 
       <div style="margin-top:12px;">
         <label style="font-size:11px; color:#5a6b77; font-weight:700;">OBSERVACIONES (opcional)</label>
@@ -19062,12 +19065,46 @@ async function deslote_confirmarYEjecutar() {
 var extTurno_dotacion = [];
 var extTurno_historialUltimo = [];
 var extTurno_clientesCache = null;
+var extTurno_plantillaCache = null;
 
-function extTurno_abrir() {
+async function extTurno_abrir() {
   ir('pantallaExtensionesTurno');
-  extTurno_resetForm();
+  await extTurno_resetForm();
   extTurno_llenarClientes();
   extTurno_cargarHistorial();
+}
+
+/* Trae la plantilla de dotación guardada (nombre+cargo de la gente que
+   trabaja siempre) para no tener que escribirla de nuevo en cada
+   registro — solo hay que marcar quién se queda en la extensión. */
+async function extTurno_cargarPlantilla() {
+  if (extTurno_plantillaCache !== null) return extTurno_plantillaCache;
+  try {
+    var res = await fetch(URL_GAS, { method: 'POST', body: JSON.stringify({ accion: 'listarPlantillaDotacion' }) });
+    var data = await res.json();
+    extTurno_plantillaCache = (data.ok && Array.isArray(data.plantilla)) ? data.plantilla : [];
+  } catch (e) {
+    extTurno_plantillaCache = [];
+  }
+  return extTurno_plantillaCache;
+}
+
+async function extTurno_guardarPlantilla() {
+  var dotacionValida = extTurno_dotacion.filter(function (p) { return String(p.nombre || '').trim(); });
+  if (!dotacionValida.length) { mostrarAlerta('Sin dotación', 'Agrega al menos una persona antes de guardar la plantilla.'); return; }
+
+  var lista = dotacionValida.map(function (p) { return { nombre: p.nombre.trim(), cargo: String(p.cargo || '').trim() }; });
+  if (!confirm('Esto reemplaza la plantilla guardada por la lista actual de ' + lista.length + ' persona(s) (nombre + cargo). ¿Continuar?')) return;
+
+  try {
+    var res = await fetch(URL_GAS, { method: 'POST', body: JSON.stringify({ accion: 'guardarPlantillaDotacion', plantilla: lista }) });
+    var data = await res.json();
+    if (!data.ok) { mostrarAlerta('❌ Error', data.msg || 'No se pudo guardar la plantilla.'); return; }
+    extTurno_plantillaCache = lista.map(function (p) { return { nombre: p.nombre, cargo: p.cargo }; });
+    mostrarAlerta('✅ Plantilla guardada', 'La próxima vez que abras un registro nuevo, esta dotación va a venir precargada.');
+  } catch (e) {
+    mostrarAlerta('❌ Error', 'Sin conexión al guardar la plantilla.');
+  }
 }
 
 async function extTurno_llenarClientes() {
@@ -19092,8 +19129,7 @@ async function extTurno_llenarClientes() {
   sel.value = actual || '';
 }
 
-function extTurno_resetForm() {
-  extTurno_dotacion = [];
+async function extTurno_resetForm() {
   var elFecha = document.getElementById('extTurno_fecha');
   if (elFecha) elFecha.value = _fechaHoyLocal();
   var elAut = document.getElementById('extTurno_autorizadoPor');
@@ -19110,6 +19146,9 @@ function extTurno_resetForm() {
   if (elHFE) elHFE.value = '19:00';
   var elObs = document.getElementById('extTurno_observaciones');
   if (elObs) elObs.value = '';
+
+  var plantilla = await extTurno_cargarPlantilla();
+  extTurno_dotacion = plantilla.map(function (p) { return { nombre: p.nombre, cargo: p.cargo, extiende: false }; });
   extTurno_pintarDotacion();
 }
 
@@ -19184,7 +19223,7 @@ async function extTurno_guardar() {
     var data = await res.json();
     if (!data.ok) { mostrarAlerta('❌ Error', data.msg || 'No se pudo guardar.'); return; }
     mostrarAlerta('✅ Guardado', 'Registro de extensión guardado correctamente.');
-    extTurno_resetForm();
+    await extTurno_resetForm();
     extTurno_cargarHistorial();
   } catch (e) {
     mostrarAlerta('❌ Error', 'Sin conexión.');
