@@ -2108,6 +2108,10 @@ button:active {
         <span class="dbModRowDot" style="background:#c9a24b;"></span>
         <span class="dbModRowTxt">Extensiones de Turno</span><span class="dbModRowArrow">&#8250;</span>
       </div>
+      <div class="dbModRow" data-permiso="EDITAR_LOTE" onclick="editarLote_abrir()">
+        <span class="dbModRowDot" style="background:#c9a24b;"></span>
+        <span class="dbModRowTxt">Editar Lote (Peso/Volumen/Producto)</span><span class="dbModRowArrow">&#8250;</span>
+      </div>
     </div>
   </div>
 
@@ -14917,7 +14921,8 @@ const MODULOS_APP = [
   { id: "GATE_CONTROL_INFORME", label: "📋 Informe de Gate Control" },
   { id: "GATE_CONTROL_CATALOGOS", label: "📇 Catálogos de Gate Control" },
   { id: "EDITAR_GATECONTROL", label: "✏️ Editar/borrar en Gate Control" },
-  { id: "EXTENSIONES_TURNO", label: "🕐 Extensiones de Turno" }
+  { id: "EXTENSIONES_TURNO", label: "🕐 Extensiones de Turno" },
+  { id: "EDITAR_LOTE", label: "✏️ Editar Lote (Peso/Volumen/Producto)" }
 ];
 
 /** Lee permisos y rol de localStorage y actualiza todo el dashboard. */
@@ -19280,6 +19285,120 @@ function extTurno_exportarExcel() {
   });
   XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(filas), 'Extensiones de Turno');
   XLSX.writeFile(wb, 'Extensiones_Turno_' + new Date().toISOString().slice(0, 10) + '.xlsx');
+}
+
+/* =========================================================
+   EDITAR LOTE (Herramientas)
+   Corrige Peso, Volumen y/o Producto de un lote ya registrado en
+   Preparación, cuando en Recepción no se capturó el peso o el
+   producto quedó mal ingresado. Busca por número de lote (reusa
+   buscarLotePreparacion) y solo permite tocar esos 3 campos —
+   nada de ubicación, contenedor asignado, daños, etc.
+========================================================= */
+
+function editarLote_abrir() {
+  var contenido =
+    '<label style="font-size:12px;font-weight:700;color:#5a6b77;">LOTE A CORREGIR</label>' +
+    '<input id="editarLote_lote" type="text" placeholder="Ej: 3330495050 o LP80960" ' +
+      'style="width:100%;margin-top:6px;padding:12px;border:1.5px solid #cfd8dc;border-radius:10px;font-size:15px;box-sizing:border-box;" ' +
+      'autocapitalize="characters" oninput="this.value=this.value.toUpperCase();">';
+
+  mostrarModalForm('Editar Lote', contenido, editarLote_buscar);
+  var btn = document.getElementById('adminModalConfirmar');
+  if (btn) btn.textContent = 'Buscar';
+}
+
+async function editarLote_buscar() {
+  var lote = String((document.getElementById('editarLote_lote') || {}).value || '').trim();
+  if (!lote) { mostrarAlerta('Falta el lote', 'Escribe un número de lote para buscar.'); return false; }
+
+  mostrarCargando('Buscando lote ' + lote + '...');
+  try {
+    var res = await fetch(URL_GAS, { method: 'POST', body: JSON.stringify({ accion: 'buscarLotePreparacion', lote: lote }) });
+    var data = await res.json();
+    ocultarCargando();
+
+    if (!data.ok) { mostrarAlerta('❌ No encontrado', data.msg || 'No se pudo encontrar el lote.'); return false; }
+    if (!data.yaPreparado) {
+      mostrarAlerta('⚠️ Sin registro de Preparación',
+        'El lote <b>' + data.lote + '</b> todavía no tiene un registro de Preparación (no se ha escaneado ahí). ' +
+        'No hay Peso/Producto que corregir todavía — hazlo una vez que pase por Preparación.');
+      return false;
+    }
+
+    editarLote_mostrarForm(data);
+    return true;
+  } catch (e) {
+    ocultarCargando();
+    mostrarAlerta('❌ Error', 'Sin conexión al buscar el lote.');
+    return false;
+  }
+}
+
+function editarLote_mostrarForm(data) {
+  var contenido =
+    '<div style="background:#f4f7f9;border-radius:8px;padding:10px 12px;margin-bottom:14px;font-size:12.5px;color:#5a6b77;">' +
+      '<b>Lote:</b> ' + data.lote +
+      (data.cliente ? ('<br><b>Cliente:</b> ' + data.cliente) : '') +
+      (data.entrega ? ('<br><b>Entrega:</b> ' + data.entrega) : '') +
+      (data.nave ? ('<br><b>Nave:</b> ' + data.nave) : '') +
+    '</div>' +
+
+    '<label style="font-size:11px;font-weight:800;color:#7a8b95;">PESO (KG)</label>' +
+    '<input id="editarLote_peso" type="number" inputmode="decimal" step="any" value="' + (data.peso !== undefined && data.peso !== null && data.peso !== '' ? data.peso : '') + '" ' +
+      'style="width:100%;margin-top:4px;margin-bottom:12px;padding:10px 12px;border:1.5px solid #cfd8dc;border-radius:9px;font-size:15px;box-sizing:border-box;">' +
+
+    '<label style="font-size:11px;font-weight:800;color:#7a8b95;">VOLUMEN (M³)</label>' +
+    '<input id="editarLote_volumen" type="number" inputmode="decimal" step="any" value="' + (data.volumen !== undefined && data.volumen !== null && data.volumen !== '' ? data.volumen : '') + '" ' +
+      'style="width:100%;margin-top:4px;margin-bottom:12px;padding:10px 12px;border:1.5px solid #cfd8dc;border-radius:9px;font-size:15px;box-sizing:border-box;">' +
+
+    '<label style="font-size:11px;font-weight:800;color:#7a8b95;">PRODUCTO</label>' +
+    '<input id="editarLote_producto" type="text" value="' + (data.producto || '') + '" ' +
+      'style="width:100%;margin-top:4px;padding:10px 12px;border:1.5px solid #cfd8dc;border-radius:9px;font-size:15px;box-sizing:border-box;" ' +
+      'autocapitalize="characters" oninput="this.value=this.value.toUpperCase();">' +
+
+    '<div style="font-size:10.5px;color:#7a8b95;margin-top:10px;">' +
+      '⚠️ Si Recepción ya registró un peso (aunque esté mal), este ajuste no lo reemplaza — Recepción tiene prioridad. ' +
+      'Sirve para cuando el peso nunca se capturó.' +
+    '</div>';
+
+  mostrarModalForm('Corregir Lote ' + data.lote, contenido, function () { return editarLote_guardar(data.lote); });
+  var btn = document.getElementById('adminModalConfirmar');
+  if (btn) btn.textContent = 'Guardar corrección';
+}
+
+async function editarLote_guardar(lote) {
+  var peso = (document.getElementById('editarLote_peso') || {}).value;
+  var volumen = (document.getElementById('editarLote_volumen') || {}).value;
+  var producto = ((document.getElementById('editarLote_producto') || {}).value || '').trim();
+
+  if (String(peso).trim() === '' && String(volumen).trim() === '' && !producto) {
+    mostrarAlerta('Sin cambios', 'No modificaste ningún campo.');
+    return false;
+  }
+
+  try {
+    var res = await fetch(URL_GAS, { method: 'POST', body: JSON.stringify({
+      accion: 'editarLote',
+      lote: lote,
+      peso: peso,
+      volumen: volumen,
+      producto: producto,
+      rut: localStorage.getItem('usuario') || ''
+    }) });
+    var data = await res.json();
+
+    if (!data.ok) { mostrarAlerta('❌ No se pudo guardar', data.msg || 'Error desconocido'); return false; }
+
+    var detalle = (data.cambios || []).map(function (c) {
+      return '• <b>' + c.campo + '</b>: ' + (c.anterior || '—') + ' → ' + c.nuevo;
+    }).join('<br>');
+    mostrarAlerta('✅ Lote corregido', 'Lote <b>' + data.lote + '</b>:<br>' + detalle);
+    return true;
+  } catch (e) {
+    mostrarAlerta('❌ Error', 'Sin conexión al guardar la corrección.');
+    return false;
+  }
 }
 
 /* =========================================================
