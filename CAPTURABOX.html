@@ -4362,13 +4362,10 @@ button:active {
                font-size:15px; font-weight:800; color:#0b3c5d;">—</div>
         </div>
         <div style="flex:1;">
-          <div style="font-size:11px; font-weight:800; color:#7a8b95; margin-bottom:4px;">TURNO</div>
-          <select id="prep_servTurno"
-                  style="width:100%; padding:9px 10px; border:1.5px solid #e6ebee;
-                         border-radius:9px; font-size:14px; box-sizing:border-box;">
-            <option value="Primero">Primero</option>
-            <option value="Segundo">Segundo</option>
-          </select>
+          <div style="font-size:11px; font-weight:800; color:#7a8b95; margin-bottom:4px;">FECHA DEL SERVICIO</div>
+          <input type="date" id="prep_servFecha"
+                 style="width:100%; padding:9px 10px; border:1.5px solid #e6ebee;
+                        border-radius:9px; font-size:14px; box-sizing:border-box;">
         </div>
       </div>
 
@@ -16456,13 +16453,13 @@ function prep_setVal(id, val) {
 ========================================================= */
 
 const PREP_SERVICIOS = [
-  'Postura de Tacos',
-  'Postura de Zuncho',
-  'Lateral',
-  'Refrigerador',
-  'Revisión SAG',
-  'Rearmado',
-  'Otro'
+  { nombre: 'Postura de Tacos',  color: '#c9822e', claro: '#fbeedc', icono: '📌' },
+  { nombre: 'Postura de Zuncho', color: '#3f6fb0', claro: '#e2ebf7', icono: '🔗' },
+  { nombre: 'Lateral',           color: '#0e8f8f', claro: '#dff3f3', icono: '➡️' },
+  { nombre: 'Refrigerador',      color: '#1f9d55', claro: '#e1f5e9', icono: '❄️' },
+  { nombre: 'Revisión SAG',      color: '#b0433f', claro: '#f8e2e1', icono: '🌿' },
+  { nombre: 'Rearmado',          color: '#7b4fa6', claro: '#ede3f5', icono: '🔧' },
+  { nombre: 'Otro',              color: '#5a6b77', claro: '#ecedee', icono: '✏️' }
 ];
 
 var prep_servSeleccionados = [];
@@ -16480,15 +16477,21 @@ function prep_pintarChips() {
   const cont = document.getElementById('prep_servChips');
   if (!cont) return;
 
+  cont.style.display = 'grid';
+  cont.style.gridTemplateColumns = 'repeat(auto-fill, minmax(150px, 1fr))';
+  cont.style.gap = '8px';
+
   cont.innerHTML = PREP_SERVICIOS.map(function(s) {
-    const activo = prep_servSeleccionados.indexOf(s) !== -1;
+    const activo = prep_servSeleccionados.indexOf(s.nombre) !== -1;
     return '<button type="button" onclick="prep_toggleServicio(\'' +
-      s.replace(/'/g, "\\'") + '\')" ' +
-      'style="border:2px solid ' + (activo ? '#7b4fa6' : '#e0e5ea') + ';' +
-      'background:' + (activo ? '#7b4fa6' : '#fff') + ';' +
-      'color:' + (activo ? '#fff' : '#5a6a75') + ';' +
-      'border-radius:999px;padding:7px 14px;font-size:13px;font-weight:700;cursor:pointer;">' +
-      (activo ? '✓ ' : '') + s + '</button>';
+      s.nombre.replace(/'/g, "\\'") + '\')" ' +
+      'style="width:auto; margin:0; display:flex; align-items:center; justify-content:center; gap:6px;' +
+      'border:2px solid ' + s.color + ';' +
+      'background:' + (activo ? s.color : s.claro) + ';' +
+      'color:' + (activo ? '#fff' : s.color) + ';' +
+      'border-radius:10px; padding:10px 10px; font-size:13px; font-weight:800; cursor:pointer; text-align:center;">' +
+      '<span>' + s.icono + '</span><span>' + s.nombre + '</span>' +
+      (activo ? '<span>✓</span>' : '') + '</button>';
   }).join('');
 
   const badge = document.getElementById('prep_servContador');
@@ -16532,9 +16535,9 @@ function prep_prepararServicios(data) {
   const obs = document.getElementById('prep_servObs');
   if (obs) obs.value = '';
 
-  // Turno sugerido por la hora, editable
-  const turno = document.getElementById('prep_servTurno');
-  if (turno) turno.value = (new Date()).getHours() < 14 ? 'Primero' : 'Segundo';
+  // Fecha del servicio: hoy por defecto, editable por si se registra atrasado
+  const fecha = document.getElementById('prep_servFecha');
+  if (fecha) fecha.value = _fechaHoyLocal();
 
   prep_pintarChips();
   prep_cargarServiciosPrevios(data && data.lote);
@@ -16586,7 +16589,7 @@ async function prep_guardarServicios() {
 
   const m3 = Number(prep_recordActual.volumen) || 0;
   const obs = (document.getElementById('prep_servObs') || {}).value || '';
-  const turno = (document.getElementById('prep_servTurno') || {}).value || '';
+  const fecha = (document.getElementById('prep_servFecha') || {}).value || _fechaHoyLocal();
 
   const ok = await mostrarConfirm('🛠️ Guardar servicios',
     'Lote: <b>' + prep_recordActual.lote + '</b><br>' +
@@ -16610,7 +16613,7 @@ async function prep_guardarServicios() {
         m3: m3,
         servicios: prep_servSeleccionados,
         observaciones: obs,
-        turno: turno
+        fecha: fecha
       })
     });
     const d = await r.json();
