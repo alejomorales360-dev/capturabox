@@ -2270,7 +2270,10 @@ button:active {
           <tbody id="extTurno_dotacionBody"></tbody>
         </table>
       </div>
-      <button type="button" onclick="extTurno_agregarPersona()" style="width:auto; margin-top:8px; background:#eef2f5; color:#0b3c5d; border:none; border-radius:7px; padding:7px 14px; font-size:12px; font-weight:700; cursor:pointer;">+ Agregar persona</button>
+      <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:8px;">
+        <button type="button" onclick="extTurno_agregarPersona()" style="width:auto; margin-top:0; background:#eef2f5; color:#0b3c5d; border:none; border-radius:7px; padding:7px 14px; font-size:12px; font-weight:700; cursor:pointer;">+ Agregar persona</button>
+        <button type="button" onclick="cuadrillaBase_abrir()" style="width:auto; margin-top:0; background:#eef2f5; color:#0b3c5d; border:none; border-radius:7px; padding:7px 14px; font-size:12px; font-weight:700; cursor:pointer;" title="Agregar o dar de baja trabajadores permanentes de la cuadrilla base">👷 Gestionar cuadrilla base</button>
+      </div>
 
       <div style="margin-top:12px;">
         <label style="font-size:11px; color:#5a6b77; font-weight:700;">OBSERVACIONES (opcional)</label>
@@ -19062,12 +19065,171 @@ async function deslote_confirmarYEjecutar() {
 var extTurno_dotacion = [];
 var extTurno_historialUltimo = [];
 var extTurno_clientesCache = null;
+var extTurno_cuadrillaCache = null; // lista completa (activos + de baja), cacheada
 
-function extTurno_abrir() {
+async function extTurno_abrir() {
   ir('pantallaExtensionesTurno');
-  extTurno_resetForm();
+  await extTurno_resetForm();
   extTurno_llenarClientes();
   extTurno_cargarHistorial();
+}
+
+/* Trae la cuadrilla base (trabajadores permanentes) desde el servidor.
+   Se cachea en memoria; cuadrillaBase_abrir() la invalida cada vez que
+   se agrega o se da de baja a alguien. */
+async function extTurno_cargarCuadrilla_(forzar) {
+  if (extTurno_cuadrillaCache !== null && !forzar) return extTurno_cuadrillaCache;
+  try {
+    var res = await fetch(URL_GAS, { method: 'POST', body: JSON.stringify({ accion: 'listarCuadrillaBase' }) });
+    var data = await res.json();
+    extTurno_cuadrillaCache = (data.ok && Array.isArray(data.cuadrilla)) ? data.cuadrilla : [];
+  } catch (e) {
+    extTurno_cuadrillaCache = [];
+  }
+  return extTurno_cuadrillaCache;
+}
+
+/* =========================================================
+   CUADRILLA BASE (trabajadores permanentes)
+   Registro con fecha de ingreso y de baja — cuando alguien deja de
+   trabajar queda la baja anotada (con motivo) en vez de simplemente
+   borrarlo, y la dotación que se precarga en cada extensión de turno
+   nueva sale de los que siguen activos acá.
+========================================================= */
+
+function cuadrillaBase_abrir() {
+  extTurno_cuadrillaCache = null; // fuerza a traer los datos más frescos al abrir
+  var contenido =
+    '<div style="text-align:left;">' +
+    '<div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:14px; align-items:end;">' +
+      '<div style="flex:1; min-width:130px;"><label style="font-size:11px;font-weight:800;color:#7a8b95;">NOMBRE</label>' +
+      '<input id="cuadrillaBase_nombre" style="width:100%;margin-top:4px;padding:8px 10px;border:1.5px solid #cfd8dc;border-radius:8px;font-size:13px;box-sizing:border-box;"></div>' +
+      '<div style="flex:1; min-width:120px;"><label style="font-size:11px;font-weight:800;color:#7a8b95;">CARGO</label>' +
+      '<input id="cuadrillaBase_cargo" style="width:100%;margin-top:4px;padding:8px 10px;border:1.5px solid #cfd8dc;border-radius:8px;font-size:13px;box-sizing:border-box;"></div>' +
+      '<div style="flex:1; min-width:130px;"><label style="font-size:11px;font-weight:800;color:#7a8b95;">FECHA INGRESO</label>' +
+      '<input id="cuadrillaBase_fechaIngreso" type="date" value="' + _fechaHoyLocal() + '" style="width:100%;margin-top:4px;padding:8px 10px;border:1.5px solid #cfd8dc;border-radius:8px;font-size:13px;box-sizing:border-box;"></div>' +
+      '<button type="button" onclick="cuadrillaBase_agregar()" style="width:auto;margin:0;background:#0b3c5d;color:#fff;border:none;border-radius:8px;padding:9px 16px;font-size:13px;font-weight:800;cursor:pointer;">+ Agregar</button>' +
+    '</div>' +
+    '<div style="font-size:11px;font-weight:800;color:#7a8b95;margin-bottom:6px;">ACTIVOS</div>' +
+    '<div id="cuadrillaBase_listaActivos" style="margin-bottom:16px;">Cargando…</div>' +
+    '<div style="font-size:11px;font-weight:800;color:#7a8b95;margin-bottom:6px;">HISTORIAL DE BAJAS</div>' +
+    '<div id="cuadrillaBase_listaBajas">Cargando…</div>' +
+    '</div>';
+
+  var el = document.createElement('div');
+  el.id = 'cuadrillaBaseModal';
+  el.style.cssText = 'position:fixed;inset:0;width:100vw;height:100vh;overflow-y:auto;' +
+    'background:rgba(0,0,0,.55);display:flex;align-items:flex-start;justify-content:center;' +
+    'z-index:1000000;padding:16px;box-sizing:border-box;';
+  el.innerHTML =
+    '<div style="background:#fff;border-radius:16px;width:100%;max-width:640px;margin-top:8px;">' +
+      '<div style="background:#0b3c5d;color:#fff;padding:14px 16px;border-radius:16px 16px 0 0;display:flex;justify-content:space-between;align-items:center;">' +
+        '<div style="font-size:16px;font-weight:800;">👷 Cuadrilla base</div>' +
+        '<button onclick="document.getElementById(\'cuadrillaBaseModal\').remove()" ' +
+          'style="background:rgba(255,255,255,.2);color:#fff;border:none;width:30px;height:30px;border-radius:8px;font-size:18px;font-weight:800;cursor:pointer;">&times;</button>' +
+      '</div>' +
+      '<div style="padding:16px;max-height:70vh;overflow-y:auto;">' + contenido + '</div>' +
+      '<div style="padding:0 16px 16px;">' +
+        '<button onclick="document.getElementById(\'cuadrillaBaseModal\').remove()" ' +
+          'style="width:100%;background:#eef2f5;color:#444;border:none;border-radius:11px;padding:12px;font-weight:800;cursor:pointer;">Cerrar</button>' +
+      '</div>' +
+    '</div>';
+  document.body.appendChild(el);
+  cuadrillaBase_pintar();
+}
+
+async function cuadrillaBase_pintar() {
+  var cuadrilla = await extTurno_cargarCuadrilla_(true);
+  var activos = cuadrilla.filter(function (p) { return p.estado === 'ACTIVO'; });
+  var bajas = cuadrilla.filter(function (p) { return p.estado !== 'ACTIVO'; })
+    .sort(function (a, b) { return new Date(b.fechaSalida || 0) - new Date(a.fechaSalida || 0); });
+
+  var elActivos = document.getElementById('cuadrillaBase_listaActivos');
+  if (elActivos) {
+    elActivos.innerHTML = activos.length ? (
+      '<table style="width:100%;border-collapse:collapse;font-size:12px;">' +
+      '<thead><tr><th style="text-align:left;padding:4px 6px;border-bottom:1.5px solid #e6ebee;">Nombre</th>' +
+      '<th style="text-align:left;padding:4px 6px;border-bottom:1.5px solid #e6ebee;">Cargo</th>' +
+      '<th style="text-align:left;padding:4px 6px;border-bottom:1.5px solid #e6ebee;">Desde</th><th></th></tr></thead><tbody>' +
+      activos.map(function (p) {
+        return '<tr><td style="padding:4px 6px;">' + (p.nombre || '') + '</td><td style="padding:4px 6px;">' + (p.cargo || '') + '</td>' +
+          '<td style="padding:4px 6px;">' + (p.fechaIngreso ? new Date(p.fechaIngreso).toLocaleDateString('es-CL') : '—') + '</td>' +
+          '<td style="padding:4px 6px;text-align:right;"><button type="button" onclick="cuadrillaBase_darDeBaja(\'' + p.id + '\',\'' + String(p.nombre || '').replace(/'/g, "\\'") + '\')" ' +
+          'style="width:auto;margin:0;background:#fdecea;color:#c62828;border:none;border-radius:6px;padding:4px 8px;font-size:11px;font-weight:700;cursor:pointer;">Dar de baja</button></td></tr>';
+      }).join('') + '</tbody></table>'
+    ) : '<div style="text-align:center;color:#7a8b95;font-size:12px;padding:10px;">Sin trabajadores activos todavía.</div>';
+  }
+
+  var elBajas = document.getElementById('cuadrillaBase_listaBajas');
+  if (elBajas) {
+    elBajas.innerHTML = bajas.length ? (
+      '<table style="width:100%;border-collapse:collapse;font-size:12px;">' +
+      '<thead><tr><th style="text-align:left;padding:4px 6px;border-bottom:1.5px solid #e6ebee;">Nombre</th>' +
+      '<th style="text-align:left;padding:4px 6px;border-bottom:1.5px solid #e6ebee;">Cargo</th>' +
+      '<th style="text-align:left;padding:4px 6px;border-bottom:1.5px solid #e6ebee;">Ingreso</th>' +
+      '<th style="text-align:left;padding:4px 6px;border-bottom:1.5px solid #e6ebee;">Salida</th>' +
+      '<th style="text-align:left;padding:4px 6px;border-bottom:1.5px solid #e6ebee;">Motivo</th><th></th></tr></thead><tbody>' +
+      bajas.map(function (p) {
+        return '<tr><td style="padding:4px 6px;">' + (p.nombre || '') + '</td><td style="padding:4px 6px;">' + (p.cargo || '') + '</td>' +
+          '<td style="padding:4px 6px;">' + (p.fechaIngreso ? new Date(p.fechaIngreso).toLocaleDateString('es-CL') : '—') + '</td>' +
+          '<td style="padding:4px 6px;">' + (p.fechaSalida ? new Date(p.fechaSalida).toLocaleDateString('es-CL') : '—') + '</td>' +
+          '<td style="padding:4px 6px;">' + (p.motivoSalida || '—') + '</td>' +
+          '<td style="padding:4px 6px;text-align:right;"><button type="button" onclick="cuadrillaBase_reactivar(\'' + p.id + '\',\'' + String(p.nombre || '').replace(/'/g, "\\'") + '\')" ' +
+          'style="width:auto;margin:0;background:#eef2f5;color:#0b3c5d;border:none;border-radius:6px;padding:4px 8px;font-size:11px;font-weight:700;cursor:pointer;">Reactivar</button></td></tr>';
+      }).join('') + '</tbody></table>'
+    ) : '<div style="text-align:center;color:#7a8b95;font-size:12px;padding:10px;">Sin bajas registradas.</div>';
+  }
+}
+
+async function cuadrillaBase_agregar() {
+  var nombre = ((document.getElementById('cuadrillaBase_nombre') || {}).value || '').trim();
+  var cargo = ((document.getElementById('cuadrillaBase_cargo') || {}).value || '').trim();
+  var fechaIngreso = (document.getElementById('cuadrillaBase_fechaIngreso') || {}).value || _fechaHoyLocal();
+  if (!nombre) { mostrarAlerta('Falta el nombre', 'Escribe el nombre del trabajador.'); return; }
+
+  try {
+    var res = await fetch(URL_GAS, { method: 'POST', body: JSON.stringify({
+      accion: 'agregarTrabajadorCuadrilla',
+      nombre: nombre, cargo: cargo, fechaIngreso: fechaIngreso, rut: localStorage.getItem('usuario') || ''
+    }) });
+    var data = await res.json();
+    if (!data.ok) { mostrarAlerta('❌ Error', data.msg || 'No se pudo agregar.'); return; }
+    document.getElementById('cuadrillaBase_nombre').value = '';
+    document.getElementById('cuadrillaBase_cargo').value = '';
+    await cuadrillaBase_pintar();
+  } catch (e) {
+    mostrarAlerta('❌ Error', 'Sin conexión al agregar el trabajador.');
+  }
+}
+
+async function cuadrillaBase_darDeBaja(id, nombre) {
+  var fechaSalida = prompt('Fecha de salida de "' + nombre + '" (dejar vacío = hoy):', _fechaHoyLocal());
+  if (fechaSalida === null) return; // canceló
+  var motivo = prompt('Motivo de la baja (opcional):', '') || '';
+
+  try {
+    var res = await fetch(URL_GAS, { method: 'POST', body: JSON.stringify({
+      accion: 'darDeBajaTrabajadorCuadrilla',
+      id: id, fechaSalida: fechaSalida || _fechaHoyLocal(), motivo: motivo, rut: localStorage.getItem('usuario') || ''
+    }) });
+    var data = await res.json();
+    if (!data.ok) { mostrarAlerta('❌ Error', data.msg || 'No se pudo dar de baja.'); return; }
+    await cuadrillaBase_pintar();
+  } catch (e) {
+    mostrarAlerta('❌ Error', 'Sin conexión al dar de baja.');
+  }
+}
+
+async function cuadrillaBase_reactivar(id, nombre) {
+  if (!confirm('¿Reactivar a "' + nombre + '"? Vuelve a la lista de activos y a la dotación precargada de las extensiones de turno.')) return;
+  try {
+    var res = await fetch(URL_GAS, { method: 'POST', body: JSON.stringify({ accion: 'reactivarTrabajadorCuadrilla', id: id }) });
+    var data = await res.json();
+    if (!data.ok) { mostrarAlerta('❌ Error', data.msg || 'No se pudo reactivar.'); return; }
+    await cuadrillaBase_pintar();
+  } catch (e) {
+    mostrarAlerta('❌ Error', 'Sin conexión al reactivar.');
+  }
 }
 
 async function extTurno_llenarClientes() {
@@ -19092,8 +19254,7 @@ async function extTurno_llenarClientes() {
   sel.value = actual || '';
 }
 
-function extTurno_resetForm() {
-  extTurno_dotacion = [];
+async function extTurno_resetForm() {
   var elFecha = document.getElementById('extTurno_fecha');
   if (elFecha) elFecha.value = _fechaHoyLocal();
   var elAut = document.getElementById('extTurno_autorizadoPor');
@@ -19110,6 +19271,10 @@ function extTurno_resetForm() {
   if (elHFE) elHFE.value = '19:00';
   var elObs = document.getElementById('extTurno_observaciones');
   if (elObs) elObs.value = '';
+
+  var cuadrilla = await extTurno_cargarCuadrilla_(false);
+  var activos = cuadrilla.filter(function (p) { return p.estado === 'ACTIVO'; });
+  extTurno_dotacion = activos.map(function (p) { return { nombre: p.nombre, cargo: p.cargo, extiende: false }; });
   extTurno_pintarDotacion();
 }
 
@@ -19184,7 +19349,7 @@ async function extTurno_guardar() {
     var data = await res.json();
     if (!data.ok) { mostrarAlerta('❌ Error', data.msg || 'No se pudo guardar.'); return; }
     mostrarAlerta('✅ Guardado', 'Registro de extensión guardado correctamente.');
-    extTurno_resetForm();
+    await extTurno_resetForm();
     extTurno_cargarHistorial();
   } catch (e) {
     mostrarAlerta('❌ Error', 'Sin conexión.');
