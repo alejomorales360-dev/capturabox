@@ -2285,11 +2285,17 @@ button:active {
 
     <!-- HISTORIAL -->
     <div style="background:#fff; border-radius:12px; padding:14px; box-shadow:0 1px 3px rgba(0,0,0,.06); border:1px solid #e6ebee;">
-      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;">
+      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; flex-wrap:wrap; gap:8px;">
         <div class="dbSecLabel" style="margin:0;">HISTORIAL</div>
-        <div style="display:flex; gap:6px;">
+        <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+          <label style="font-size:10px; color:#7a8b95; font-weight:700;">DESDE</label>
+          <input type="date" id="extTurno_histDesde" onchange="extTurno_cargarHistorial()" style="padding:5px 7px; border:1px solid #d5dde5; border-radius:6px; font-size:11px;">
+          <label style="font-size:10px; color:#7a8b95; font-weight:700;">HASTA</label>
+          <input type="date" id="extTurno_histHasta" onchange="extTurno_cargarHistorial()" style="padding:5px 7px; border:1px solid #d5dde5; border-radius:6px; font-size:11px;">
+          <button onclick="extTurno_limpiarFiltroHistorial()" style="width:auto; margin-top:0; background:#f4f7f9; color:#5a6b77; border:none; border-radius:6px; padding:5px 9px; font-size:11px; font-weight:700; cursor:pointer;">Limpiar</button>
           <button onclick="extTurno_cargarHistorial()" style="width:auto; margin-top:0; background:#eef2f5; color:#0b3c5d; border:none; border-radius:6px; padding:5px 11px; font-size:11px; font-weight:700; cursor:pointer;">Actualizar</button>
           <button onclick="extTurno_exportarExcel()" style="width:auto; margin-top:0; background:#1c6b41; color:#fff; border:none; border-radius:6px; padding:5px 11px; font-size:11px; font-weight:700; cursor:pointer;">Excel</button>
+          <button onclick="extTurno_exportarPDF()" style="width:auto; margin-top:0; background:#fff; color:#0b3c5d; border:1px solid #0b3c5d; border-radius:6px; padding:5px 11px; font-size:11px; font-weight:700; cursor:pointer;">PDF</button>
         </div>
       </div>
       <div style="overflow-x:auto; -webkit-overflow-scrolling:touch;">
@@ -19358,11 +19364,21 @@ async function extTurno_guardar() {
   }
 }
 
+function extTurno_limpiarFiltroHistorial() {
+  var elD = document.getElementById('extTurno_histDesde');
+  var elH = document.getElementById('extTurno_histHasta');
+  if (elD) elD.value = '';
+  if (elH) elH.value = '';
+  extTurno_cargarHistorial();
+}
+
 async function extTurno_cargarHistorial() {
   var body = document.getElementById('extTurno_historialBody');
   if (body) body.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#7a8b95;padding:16px;">Cargando…</td></tr>';
+  var fechaDesde = (document.getElementById('extTurno_histDesde') || {}).value || '';
+  var fechaHasta = (document.getElementById('extTurno_histHasta') || {}).value || '';
   try {
-    var res = await fetch(URL_GAS, { method: 'POST', body: JSON.stringify({ accion: 'listarExtensionesTurno', filtros: {} }) });
+    var res = await fetch(URL_GAS, { method: 'POST', body: JSON.stringify({ accion: 'listarExtensionesTurno', filtros: { fechaDesde: fechaDesde, fechaHasta: fechaHasta } }) });
     var data = await res.json();
     if (!data.ok) {
       if (body) body.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#c62828;padding:16px;">' + (data.msg || 'Error al cargar.') + '</td></tr>';
@@ -19399,27 +19415,122 @@ function extTurno_renderHistorial() {
   }).join('');
 }
 
+/* Estilos compartidos por las vistas imprimibles de Extensiones de
+   Turno (detalle individual y el informe con rango de fechas), mismo
+   look que el resto de los PDF de la app. */
+function extTurno_estiloImprimible_() {
+  return '*{box-sizing:border-box;-webkit-print-color-adjust:exact;print-color-adjust:exact;color-adjust:exact;}' +
+    'body{font-family:Arial,sans-serif;margin:28px;color:#1a2a3a;font-size:12px;}' +
+    'h2{color:#0b3c5d;margin:0 0 4px;font-size:22px;}h3{color:#0b3c5d;margin:22px 0 10px;font-size:14px;}' +
+    'p.sub{color:#7a8b95;margin:0 0 18px;}' +
+    'table{width:100%;border-collapse:collapse;margin-bottom:6px;}' +
+    'th{background:#0b3c5d;color:#fff;padding:8px 6px;font-size:11px;text-align:left;border:1px solid #123a56;}' +
+    'td{padding:7px 6px;border:1px solid #e6ebee;vertical-align:middle;}' +
+    'tr:nth-child(even) td{background:#f7f9fb;}' +
+    '.campo{margin:0 0 6px;font-size:13px;}' +
+    '.btnImprimir{position:fixed;top:14px;right:14px;background:#0b3c5d;color:#fff;border:none;' +
+    'border-radius:10px;padding:11px 18px;font-size:14px;font-weight:800;cursor:pointer;box-shadow:0 3px 10px rgba(0,0,0,.2);}' +
+    '@media print{.btnImprimir{display:none}}';
+}
+
 function extTurno_verDetalle(i) {
   var r = extTurno_historialUltimo[i];
   if (!r) return;
+
+  var w = window.open('', '_blank');
+  if (!w) { mostrarAlerta('Bloqueado', 'El navegador bloqueó la ventana. Habilita ventanas emergentes.'); return; }
+
+  var fechaTxt = r.fecha ? new Date(r.fecha).toLocaleDateString('es-CL') : '—';
   var filasPersonas = (r.dotacion || []).map(function (p) {
-    return '<tr><td style="padding:4px 6px;">' + (p.nombre || '') + '</td><td style="padding:4px 6px;">' + (p.cargo || '') + '</td>' +
-      '<td style="padding:4px 6px;text-align:center;">' + (p.extiende ? '✅' : '—') + '</td></tr>';
+    return '<tr><td>' + (p.nombre || '') + '</td><td>' + (p.cargo || '') + '</td>' +
+      '<td style="text-align:center;">' + (p.extiende ? 'Sí' : 'No') + '</td></tr>';
   }).join('');
-  var html = '<div style="text-align:left;">' +
-    '<p><b>Fecha:</b> ' + (r.fecha ? new Date(r.fecha).toLocaleDateString('es-CL') : '—') + '</p>' +
-    '<p><b>Autorizado por:</b> ' + (r.autorizadoPor === 'CLIENTE' ? 'Cliente' : 'Nosotros') + (r.cliente ? ' (' + r.cliente + ')' : '') + '</p>' +
-    '<p><b>Motivo:</b> ' + (r.motivo || '—') + '</p>' +
-    '<p><b>Horario:</b> turno normal hasta ' + (r.horaFinNormal || '17:00') + ' · extensión hasta ' + (r.horaFinExtension || '—') + '</p>' +
-    '<p><b>Supervisor:</b> ' + (r.supervisor || '—') + '</p>' +
-    (r.observaciones ? ('<p><b>Observaciones:</b> ' + r.observaciones + '</p>') : '') +
-    '<table style="width:100%;border-collapse:collapse;margin-top:8px;font-size:12px;">' +
-    '<thead><tr><th style="text-align:left;padding:4px 6px;border-bottom:1.5px solid #e6ebee;">Nombre</th>' +
-    '<th style="text-align:left;padding:4px 6px;border-bottom:1.5px solid #e6ebee;">Cargo</th>' +
-    '<th style="padding:4px 6px;border-bottom:1.5px solid #e6ebee;">Extensión</th></tr></thead>' +
-    '<tbody>' + filasPersonas + '</tbody></table>' +
-  '</div>';
-  mostrarAlerta('📋 Detalle de extensión', html);
+
+  var html = '<!DOCTYPE html><htm' + 'l><hea' + 'd><meta charset="utf-8">' +
+    '<title>Extensión de Turno ' + fechaTxt + '</title>' +
+    '<sty' + 'le>' + extTurno_estiloImprimible_() + '</sty' + 'le></hea' + 'd><bod' + 'y>' +
+    '<button class="btnImprimir" onclick="window.print()">Imprimir</button>' +
+    '<h2>Extensión de Turno</h2>' +
+    '<p class="sub">Fecha: ' + fechaTxt + '</p>' +
+    '<p class="campo"><b>Autorizado por:</b> ' + (r.autorizadoPor === 'CLIENTE' ? 'Cliente' : 'Nosotros') + (r.cliente ? ' (' + r.cliente + ')' : '') + '</p>' +
+    '<p class="campo"><b>Motivo:</b> ' + (r.motivo || '—') + '</p>' +
+    '<p class="campo"><b>Horario:</b> turno normal hasta ' + (r.horaFinNormal || '17:00') + ' · extensión hasta ' + (r.horaFinExtension || '—') + '</p>' +
+    '<p class="campo"><b>Supervisor:</b> ' + (r.supervisor || '—') + '</p>' +
+    (r.observaciones ? ('<p class="campo"><b>Observaciones:</b> ' + r.observaciones + '</p>') : '') +
+    '<h3>Dotación</h3>' +
+    '<table><tr><th>Nombre</th><th>Cargo</th><th>Extensión</th></tr>' + filasPersonas + '</table>' +
+    '</bod' + 'y></htm' + 'l>';
+
+  w.document.open(); w.document.write(html); w.document.close();
+  setTimeout(function () { w.print(); }, 400);
+}
+
+/* Informe imprimible de TODOS los registros que están actualmente
+   cargados en el historial (ya respeta el filtro de fechas Desde/Hasta
+   de arriba). Incluye un resumen de veces en extensión por persona,
+   útil para controlar horas extras acumuladas en el período. */
+function extTurno_exportarPDF() {
+  if (!extTurno_historialUltimo.length) { mostrarAlerta('Sin datos', 'No hay registros para exportar en este rango.'); return; }
+
+  var w = window.open('', '_blank');
+  if (!w) { mostrarAlerta('Bloqueado', 'El navegador bloqueó la ventana. Habilita ventanas emergentes.'); return; }
+
+  var desde = (document.getElementById('extTurno_histDesde') || {}).value || '';
+  var hasta = (document.getElementById('extTurno_histHasta') || {}).value || '';
+  var rangoTxt = (desde || hasta)
+    ? ('Del ' + (desde ? new Date(desde + 'T12:00:00').toLocaleDateString('es-CL') : '—') +
+       ' al ' + (hasta ? new Date(hasta + 'T12:00:00').toLocaleDateString('es-CL') : '—'))
+    : 'Todos los registros';
+
+  var filasRegistros = extTurno_historialUltimo.map(function (r) {
+    var normal = (r.dotacion || []).length;
+    var ext = (r.dotacion || []).filter(function (p) { return p.extiende; }).length;
+    return '<tr><td>' + (r.fecha ? new Date(r.fecha).toLocaleDateString('es-CL') : '—') + '</td>' +
+      '<td>' + (r.autorizadoPor === 'CLIENTE' ? 'Cliente' : 'Nosotros') + '</td>' +
+      '<td>' + (r.cliente || '—') + '</td>' +
+      '<td style="text-align:right;">' + normal + '</td>' +
+      '<td style="text-align:right;">' + ext + '</td>' +
+      '<td>' + (r.horaFinExtension || '—') + '</td>' +
+      '<td>' + (r.supervisor || '—') + '</td></tr>';
+  }).join('');
+
+  // Resumen por persona: cuántas veces aparece en un registro y cuántas
+  // de esas veces se quedó en la extensión — sirve para llevar el
+  // control de horas extras acumuladas en el período.
+  var porPersona = {};
+  extTurno_historialUltimo.forEach(function (r) {
+    (r.dotacion || []).forEach(function (p) {
+      var nombre = String(p.nombre || '').trim();
+      if (!nombre) return;
+      if (!porPersona[nombre]) porPersona[nombre] = { nombre: nombre, cargo: p.cargo || '', turnos: 0, extensiones: 0 };
+      porPersona[nombre].turnos++;
+      if (p.extiende) porPersona[nombre].extensiones++;
+    });
+  });
+  var listaPersonas = Object.keys(porPersona).map(function (k) { return porPersona[k]; })
+    .sort(function (a, b) { return b.extensiones - a.extensiones; });
+  var filasPersonas = listaPersonas.map(function (p) {
+    return '<tr><td>' + p.nombre + '</td><td>' + p.cargo + '</td>' +
+      '<td style="text-align:right;">' + p.turnos + '</td>' +
+      '<td style="text-align:right;">' + p.extensiones + '</td></tr>';
+  }).join('');
+
+  var html = '<!DOCTYPE html><htm' + 'l><hea' + 'd><meta charset="utf-8">' +
+    '<title>Informe de Extensiones de Turno</title>' +
+    '<sty' + 'le>' + extTurno_estiloImprimible_() + '</sty' + 'le></hea' + 'd><bod' + 'y>' +
+    '<button class="btnImprimir" onclick="window.print()">Imprimir</button>' +
+    '<h2>Informe de Extensiones de Turno</h2>' +
+    '<p class="sub">' + rangoTxt + ' &middot; ' + extTurno_historialUltimo.length + ' registro(s)</p>' +
+    '<h3>Registros</h3>' +
+    '<table><tr><th>Fecha</th><th>Autorizó</th><th>Cliente</th><th>Turno normal</th><th>En extensión</th><th>Hasta</th><th>Supervisor</th></tr>' +
+    filasRegistros + '</table>' +
+    '<h3>Resumen por persona (en el período)</h3>' +
+    '<table><tr><th>Nombre</th><th>Cargo</th><th>N° de turnos</th><th>N° de extensiones</th></tr>' +
+    filasPersonas + '</table>' +
+    '</bod' + 'y></htm' + 'l>';
+
+  w.document.open(); w.document.write(html); w.document.close();
+  setTimeout(function () { w.print(); }, 400);
 }
 
 function extTurno_exportarExcel() {
