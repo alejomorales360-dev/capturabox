@@ -16575,7 +16575,11 @@ async function prep_cargarServiciosPrevios(lote) {
   }
 }
 
+var prep_guardandoServicios = false;
+
 async function prep_guardarServicios() {
+  if (prep_guardandoServicios) return; // evita doble-tap mientras ya se está guardando
+
   if (!prep_recordActual || !prep_recordActual.lote) {
     mostrarAlerta('⚠️ Sin lote', 'Escanea un lote antes de guardar servicios.');
     return;
@@ -16599,6 +16603,8 @@ async function prep_guardarServicios() {
     '</b> línea(s). ¿Continuar?');
   if (!ok) return;
 
+  if (prep_guardandoServicios) return;
+  prep_guardandoServicios = true;
   mostrarCargando('Guardando servicios...');
 
   try {
@@ -16624,9 +16630,12 @@ async function prep_guardarServicios() {
       return;
     }
 
+    const avisoDuplicados = (d.duplicados && d.duplicados.length)
+      ? ('<br><br>⚠️ Ya estaban registrados hoy (no se duplicaron):<br>• ' + d.duplicados.join('<br>• '))
+      : '';
     mostrarAlerta('✅ Servicios guardados',
       '<b>' + d.guardados + '</b> servicio(s) registrado(s) para el lote <b>' +
-      prep_recordActual.lote + '</b>.');
+      prep_recordActual.lote + '</b>.' + avisoDuplicados);
 
     prep_servSeleccionados = [];
     const obsEl = document.getElementById('prep_servObs');
@@ -16639,6 +16648,8 @@ async function prep_guardarServicios() {
     ocultarCargando();
     mostrarAlerta('❌ Error de conexión',
       'No se pudieron guardar los servicios.<br><br>' + (e.message || e));
+  } finally {
+    prep_guardandoServicios = false;
   }
 }
 
