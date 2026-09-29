@@ -18442,7 +18442,8 @@ function pklg_construirDocumento(entregas, esMasivo) {
       filasHtml: filas, fechaEmision: fechaEmision,
       totales: {
         lotes: ent.totalLotes, m3: ent.totalM3, peso: ent.totalPeso,
-        consolidados: ent.totalConsolidados, pendientes: ent.totalPendientes
+        consolidados: ent.totalConsolidados, pendientes: ent.totalPendientes,
+        recepcionados: ent.totalRecepcionados, pendientesRecepcion: ent.totalPendientesRecepcion
       },
       saltoDeHoja: idxEntrega > 0 || esMasivo,
       numeroCorrelativo: esMasivo ? (infoEnt ? infoEnt.numero : (idxEntrega + 1)) : null,
@@ -18564,6 +18565,10 @@ function pklg_plantillaEntrega(d) {
         (t.consolidados != null
           ? '<div class="info-item"><div class="l">Consolidados</div><div class="v" style="color:#1b7a3d;">' + t.consolidados + '</div></div>' +
             '<div class="info-item"><div class="l">Pendientes</div><div class="v" style="color:#b45309;">' + t.pendientes + '</div></div>'
+          : '') +
+        (t.recepcionados != null
+          ? '<div class="info-item"><div class="l">Recepcionados</div><div class="v" style="color:#1b7a3d;">' + t.recepcionados + '</div></div>' +
+            '<div class="info-item"><div class="l">Por recepcionar</div><div class="v" style="color:#b45309;">' + t.pendientesRecepcion + '</div></div>'
           : '') +
       '</div>' +
       '<table class="tabla-lotes"><thead><tr>' +
