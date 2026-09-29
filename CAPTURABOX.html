@@ -18248,8 +18248,13 @@ function pklg_abrir() {
         '<option value="FORACTION">FORACTION</option>' +
       '</select>' +
       '<label style="font-size:12px;font-weight:700;color:#5a6b77;">NAVE (opcional)</label>' +
-      '<input id="pklg_nave" type="text" placeholder="Ej: POLAR COLOMBIA V.631" ' +
-        'style="width:100%;margin-top:6px;padding:12px;border:1.5px solid #cfd8dc;border-radius:10px;font-size:15px;box-sizing:border-box;">' +
+      '<input id="pklg_nave" type="text" list="pklg_naveHistorialList" placeholder="Ej: POLAR COLOMBIA V.631" ' +
+        'style="width:100%;margin-top:6px;padding:12px;border:1.5px solid #cfd8dc;border-radius:10px;font-size:15px;box-sizing:border-box;" ' +
+        'autocapitalize="characters" oninput="this.value=this.value.toUpperCase();">' +
+      // Mismo historial de "últimas naves" que ya usa Cargar Bases y
+      // Resumen por Nave (CB_NAVES_RECIENTES_KEY) — se llena solo con
+      // lo que se vaya consultando acá también.
+      '<datalist id="pklg_naveHistorialList"></datalist>' +
     '</div>' +
     '<label style="display:flex;align-items:center;gap:8px;margin-top:14px;font-size:13px;color:#3a4a57;cursor:pointer;">' +
       '<input id="pklg_soloPendientes" type="checkbox" style="width:18px;height:18px;">' +
@@ -18262,6 +18267,17 @@ function pklg_abrir() {
   if (btnGuardar) btnGuardar.textContent = 'Generar';
 
   pklg_modo = 'entrega';
+  pklg_pintarHistorialNaves_();
+}
+
+function pklg_pintarHistorialNaves_() {
+  var dl = document.getElementById('pklg_naveHistorialList');
+  if (!dl) return;
+  var naves = [];
+  try { naves = JSON.parse(localStorage.getItem(CB_NAVES_RECIENTES_KEY) || '[]'); } catch (e) {}
+  dl.innerHTML = naves.map(function (n) {
+    return '<option value="' + String(n).replace(/"/g, '&quot;') + '"></option>';
+  }).join('');
 }
 
 var pklg_modo = 'entrega';
@@ -18302,6 +18318,9 @@ async function pklg_generar() {
     }
     filtros.cliente = cliente;
     filtros.nave = nave;
+    // Recordar la nave consultada para la pr\u00f3xima vez (mismo historial
+    // compartido con Cargar Bases y Resumen por Nave).
+    if (nave) cb_guardarNaveReciente_(nave);
   }
 
   filtros.soloPendientes = !!(document.getElementById('pklg_soloPendientes') || {}).checked;
@@ -18491,6 +18510,7 @@ function pklg_plantillaResumen(entregas, fechaEmision, agrupado) {
       '<td>' + numero + '</td><td>' + pklg_esc(e.entrega) + notaGrupo + '</td>' +
       '<td>' + pklg_esc(e.reserva) + '</td>' +
       '<td>' + pklg_esc(e.naviera) + '</td>' +
+      '<td>' + (e.ct || '—') + '</td>' +
       '<td>' + (e.totalLotes || 0) + '</td>' +
       '<td>' + (e.totalM3 || 0).toLocaleString('es-CL', {minimumFractionDigits:3}) + '</td>' +
       '<td>' + pklg_esc(productos) + '</td>' +
@@ -18512,10 +18532,11 @@ function pklg_plantillaResumen(entregas, fechaEmision, agrupado) {
         '<div class="info-item"><div class="l">Contenedores</div><div class="v">' + totalContenedores + '</div></div>' +
       '</div>' +
       '<table class="tabla-detalle"><thead><tr>' +
-        '<th style="width:24px;">N\u00b0</th><th style="width:13%;">Entrega</th>' +
-        '<th style="width:11%;">Reserva</th><th style="width:11%;">Naviera</th>' +
-        '<th style="width:8%;">Lotes</th><th style="width:10%;">m\u00b3</th>' +
-        '<th style="width:24%;">Producto</th><th style="width:16%;">Puerto Destino</th>' +
+        '<th style="width:22px;">N\u00b0</th><th style="width:12%;">Entrega</th>' +
+        '<th style="width:10%;">Reserva</th><th style="width:10%;">Naviera</th>' +
+        '<th style="width:6%;">CT</th>' +
+        '<th style="width:7%;">Lotes</th><th style="width:9%;">m\u00b3</th>' +
+        '<th style="width:22%;">Producto</th><th style="width:15%;">Puerto Destino</th>' +
       '</tr></thead><tbody>' + filas + '</tbody></table>' +
       '<div class="totales">' +
         '<div class="item"><div class="l">Total entregas</div><div class="v">' + entregas.length + '</div></div>' +
@@ -18570,11 +18591,10 @@ function pklg_plantillaEntrega(d) {
         '<div class="info-item"><div class="l">Total peso</div><div class="v">' + Math.round(t.peso || 0).toLocaleString('es-CL') + ' kg</div></div>' +
         (t.consolidados != null
           ? '<div class="info-item"><div class="l">Consolidados</div><div class="v" style="color:#1b7a3d;">' + t.consolidados + '</div></div>' +
-            '<div class="info-item"><div class="l">Pendientes</div><div class="v" style="color:#b45309;">' + t.pendientes + '</div></div>'
+            '<div class="info-item"><div class="l">Por consolidar</div><div class="v" style="color:#b45309;">' + t.pendientes + '</div></div>'
           : '') +
         (t.recepcionados != null
-          ? '<div class="info-item"><div class="l">Recepcionados</div><div class="v" style="color:#1b7a3d;">' + t.recepcionados + '</div></div>' +
-            '<div class="info-item"><div class="l">Por recepcionar</div><div class="v" style="color:#b45309;">' + t.pendientesRecepcion + '</div></div>'
+          ? '<div class="info-item"><div class="l">Recepcionados</div><div class="v" style="color:#1b7a3d;">' + t.recepcionados + ' / ' + t.lotes + '</div></div>'
           : '') +
       '</div>' +
       '<table class="tabla-lotes"><thead><tr>' +
