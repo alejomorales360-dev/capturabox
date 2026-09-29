@@ -18510,6 +18510,7 @@ function pklg_plantillaResumen(entregas, fechaEmision, agrupado) {
       '<td>' + numero + '</td><td>' + pklg_esc(e.entrega) + notaGrupo + '</td>' +
       '<td>' + pklg_esc(e.reserva) + '</td>' +
       '<td>' + pklg_esc(e.naviera) + '</td>' +
+      '<td>' + (e.ct || '—') + '</td>' +
       '<td>' + (e.totalLotes || 0) + '</td>' +
       '<td>' + (e.totalM3 || 0).toLocaleString('es-CL', {minimumFractionDigits:3}) + '</td>' +
       '<td>' + pklg_esc(productos) + '</td>' +
@@ -18531,10 +18532,11 @@ function pklg_plantillaResumen(entregas, fechaEmision, agrupado) {
         '<div class="info-item"><div class="l">Contenedores</div><div class="v">' + totalContenedores + '</div></div>' +
       '</div>' +
       '<table class="tabla-detalle"><thead><tr>' +
-        '<th style="width:24px;">N\u00b0</th><th style="width:13%;">Entrega</th>' +
-        '<th style="width:11%;">Reserva</th><th style="width:11%;">Naviera</th>' +
-        '<th style="width:8%;">Lotes</th><th style="width:10%;">m\u00b3</th>' +
-        '<th style="width:24%;">Producto</th><th style="width:16%;">Puerto Destino</th>' +
+        '<th style="width:22px;">N\u00b0</th><th style="width:12%;">Entrega</th>' +
+        '<th style="width:10%;">Reserva</th><th style="width:10%;">Naviera</th>' +
+        '<th style="width:6%;">CT</th>' +
+        '<th style="width:7%;">Lotes</th><th style="width:9%;">m\u00b3</th>' +
+        '<th style="width:22%;">Producto</th><th style="width:15%;">Puerto Destino</th>' +
       '</tr></thead><tbody>' + filas + '</tbody></table>' +
       '<div class="totales">' +
         '<div class="item"><div class="l">Total entregas</div><div class="v">' + entregas.length + '</div></div>' +
