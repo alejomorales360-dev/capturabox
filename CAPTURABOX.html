@@ -18427,7 +18427,7 @@ function pklg_construirDocumento(entregas, esMasivo) {
       var estado = l.consolidado
         ? '<span style="color:#1b7a3d;font-weight:700;">✅ ' + pklg_esc(l.contenedorAsignado) + '</span>'
         : '<span style="color:#b45309;font-weight:700;">⏳ Pendiente</span>';
-      return '<tr><td>' + (i + 1) + '</td><td>' + pklg_esc(l.lote) + '</td>' +
+      return '<tr><td class="colnum">' + (i + 1) + '</td><td>' + pklg_esc(l.lote) + '</td>' +
         '<td>' + pklg_esc(l.material) + '</td>' +
         '<td>' + pklg_esc(l.marca) + '</td><td>' + pklg_esc(l.producto) + '</td>' +
         '<td class="num">' + (Number(l.volumen) || 0).toFixed(3) + '</td>' +
@@ -18567,7 +18567,7 @@ function pklg_plantillaEntrega(d) {
           : '') +
       '</div>' +
       '<table class="tabla-lotes"><thead><tr>' +
-        '<th style="width:24px;">N\u00b0</th><th style="width:10%;">Lote</th><th style="width:10%;">Material</th>' +
+        '<th class="colnum" style="width:40px;">N\u00b0</th><th style="width:10%;">Lote</th><th style="width:10%;">Material</th>' +
         '<th style="width:22%;">Marca</th><th style="width:14%;">Producto</th>' +
         '<th class="num" style="width:7%;">m\u00b3</th>' +
         '<th class="num" style="width:9%;">Peso (kg)</th><th style="width:14%;">Ubicaci\u00f3n</th>' +
@@ -18623,6 +18623,11 @@ function pklg_css() {
     'table.tabla-lotes tbody td{padding:4px 6px;border-bottom:1px solid #e6ebee;' +
       'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}' +
     'table.tabla-lotes tbody td.num{text-align:right;font-variant-numeric:tabular-nums;}' +
+    /* Columna N°: ancho fijo angosto, pero sin "…" — nunca debe recortar
+       el correlativo aunque pase de 3 o 4 dígitos (bodegas con miles
+       de lotes por packing list). */
+    'table.tabla-lotes td.colnum,table.tabla-lotes th.colnum{padding-left:4px;padding-right:2px;' +
+      'text-overflow:clip;font-variant-numeric:tabular-nums;}' +
     'table.tabla-lotes tbody tr{page-break-inside:avoid;}' +
     'table.tabla-lotes tbody tr:nth-child(even){background:#fafbfc;}' +
 
