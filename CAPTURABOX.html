@@ -18591,11 +18591,10 @@ function pklg_plantillaEntrega(d) {
         '<div class="info-item"><div class="l">Total peso</div><div class="v">' + Math.round(t.peso || 0).toLocaleString('es-CL') + ' kg</div></div>' +
         (t.consolidados != null
           ? '<div class="info-item"><div class="l">Consolidados</div><div class="v" style="color:#1b7a3d;">' + t.consolidados + '</div></div>' +
-            '<div class="info-item"><div class="l">Pendientes</div><div class="v" style="color:#b45309;">' + t.pendientes + '</div></div>'
+            '<div class="info-item"><div class="l">Por consolidar</div><div class="v" style="color:#b45309;">' + t.pendientes + '</div></div>'
           : '') +
         (t.recepcionados != null
-          ? '<div class="info-item"><div class="l">Recepcionados</div><div class="v" style="color:#1b7a3d;">' + t.recepcionados + '</div></div>' +
-            '<div class="info-item"><div class="l">Por recepcionar</div><div class="v" style="color:#b45309;">' + t.pendientesRecepcion + '</div></div>'
+          ? '<div class="info-item"><div class="l">Recepcionados</div><div class="v" style="color:#1b7a3d;">' + t.recepcionados + ' / ' + t.lotes + '</div></div>'
           : '') +
       '</div>' +
       '<table class="tabla-lotes"><thead><tr>' +
