@@ -10845,6 +10845,12 @@ async function precargarLotesCache(cliente) {
   if (_lotesCargando) return;
   _lotesCargando = true;
   actualizarBadgeCache('cargando', 0);
+  // No se parte de cero: se mezcla lo nuevo SOBRE lo que ya hubiera en
+  // memoria (mismo criterio que precargarLotesConsolidados), asi un
+  // refresco despues de cerrar un contenedor no deja un hueco de
+  // "modo lento" (cache vacio -> cada pistoleo va al servidor uno a
+  // uno) mientras dura el fetch.
+  if (_lotesCache === null) _lotesCache = {};
   try {
     // Filtra por CLIENTE en el servidor: con 42.000 filas historicas,
     // traer todo es inviable. Un cliente rara vez pasa de ~5.000 lotes.
@@ -10858,15 +10864,20 @@ async function precargarLotesCache(cliente) {
     });
     var data = await res.json();
     if (data.ok && Array.isArray(data.lotes)) {
-      _lotesCache = {};
-      // De ABAJO hacia ARRIBA: el registro mas reciente manda
+      // De ABAJO hacia ARRIBA: el registro mas reciente manda (solo
+      // para duplicados DENTRO de esta misma respuesta). El resultado
+      // se mezcla sobre _lotesCache al final: lo nuevo siempre pisa lo
+      // viejo para un mismo lote, y lo que no vino en esta tanda (fuera
+      // de la ventana de 4000 filas) se conserva de una carga anterior.
+      var nuevo = {};
       var dup = 0;
       for (var li = data.lotes.length - 1; li >= 0; li--) {
         var lo = data.lotes[li];
         var lk = String(lo.lote).trim().toUpperCase();
-        if (_lotesCache[lk]) { dup++; continue; }
-        _lotesCache[lk] = lo;
+        if (nuevo[lk]) { dup++; continue; }
+        nuevo[lk] = lo;
       }
+      Object.assign(_lotesCache, nuevo);
       var ks2 = Object.keys(_lotesCache);
       var n = ks2.length;
       var yaAsig = ks2.filter(function(k){
@@ -10874,25 +10885,18 @@ async function precargarLotesCache(cliente) {
       }).length;
       console.log('[CACHE-LOTES] OK:', n, 'lotes',
                   (data.desdeFila ? '| filas ' + data.desdeFila + '-' + data.hastaFila : ''),
-                  (n ? '| nave 1er lote: ' + (_lotesCache[ks2[0]].nave || '?') : ''),
                   '| ' + yaAsig + ' ya consolidados',
                   '| ' + (n - yaAsig) + ' disponibles',
                   dup ? '| ' + dup + ' dups' : '');
       actualizarBadgeCache('ok', n);
     } else {
-      _lotesCache = {};
       console.warn('[CACHE-LOTES] sin datos');
-      actualizarBadgeCache('error', 0);
+      actualizarBadgeCache(Object.keys(_lotesCache).length ? 'ok' : 'error', Object.keys(_lotesCache).length);
     }
   } catch(e) {
     console.warn('[CACHE-LOTES] fallo:', e.message);
-    // Si ya se cargaron lotes, NO botar el cache por un error de log
-    if (!_lotesCache || !Object.keys(_lotesCache).length) {
-      _lotesCache = {};
-      actualizarBadgeCache('error', 0);
-    } else {
-      actualizarBadgeCache('ok', Object.keys(_lotesCache).length);
-    }
+    // No botar lo que ya habia en memoria por un error de red puntual.
+    actualizarBadgeCache(Object.keys(_lotesCache).length ? 'ok' : 'error', Object.keys(_lotesCache).length);
   } finally {
     _lotesCargando = false;
   }
@@ -10914,9 +10918,20 @@ function actualizarBadgeCache(estado, n) {
   }
 }
 
-async function precargarLotesConsolidados() {
-  if (_lotesConsolidadosCache !== null) return;
-  _lotesConsolidadosCache = {};
+/* FIX duplicado: antes, recargarCaches() ponia _lotesConsolidadosCache
+   en null al cerrar un contenedor y esta funcion lo volvia a poblar en
+   segundo plano SIN esperar el fetch. Si el operador pistoleaba el
+   contenedor siguiente muy rapido, el FILTRO 4 de procesarLoteEscaneado
+   ("if (_lotesConsolidadosCache && ...)") quedaba con el cache en null
+   y NO bloqueaba nada — asi paso el lote duplicado. Ahora el cache
+   nunca vuelve a null despues de la primera carga: un refresco
+   (forzar=true) mezcla lo nuevo del servidor SOBRE el objeto existente
+   (que ya tiene marcado localmente el lote recien consolidado, ver
+   procesarLoteEscaneado) en vez de reemplazarlo, asi la deteccion sigue
+   activa todo el tiempo que dura el fetch. */
+async function precargarLotesConsolidados(forzar) {
+  if (_lotesConsolidadosCache !== null && !forzar) return;
+  if (_lotesConsolidadosCache === null) _lotesConsolidadosCache = {};
   try {
     var res = await fetch(URL_GAS, {
       method: 'POST',
@@ -10924,18 +10939,18 @@ async function precargarLotesConsolidados() {
     });
     var data = await res.json();
     if (data.ok && data.mapa) {
-      _lotesConsolidadosCache = data.mapa;
+      Object.assign(_lotesConsolidadosCache, data.mapa);
       var ks = Object.keys(_lotesConsolidadosCache);
       console.log('[CACHE-CONS] OK:', ks.length, 'lotes consolidados',
                   (data.desdeFila ? '| filas ' + data.desdeFila + '-' + data.hastaFila : ''));
       actualizarBadgeCons(ks.length);
     } else {
       console.warn('[CACHE-CONS] respuesta sin mapa');
-      actualizarBadgeCons(0);
+      actualizarBadgeCons(Object.keys(_lotesConsolidadosCache).length);
     }
   } catch(e) {
     console.warn('[CACHE-CONS] fallo:', e.message);
-    _lotesConsolidadosCache = {};
+    // No botar lo que ya habia en memoria por un error de red puntual.
   }
 }
 
@@ -13364,12 +13379,17 @@ async function recargarCachesManual() {
   var btn = document.getElementById('rc_btnRecargar');
   if (btn) { btn.disabled = true; btn.innerHTML = '\u21bb Actualizando...'; }
 
-  _lotesCache = null;
-  _lotesConsolidadosCache = null;
+  // FIX duplicado de lote: ya NO se ponen los caches en null antes de
+  // refrescar. Mientras el cache queda en null (a la espera del fetch),
+  // el FILTRO 4 de procesarLoteEscaneado no tiene forma de detectar un
+  // lote ya consolidado \u2014 si alguien pistoleaba justo en ese momento,
+  // pasaba sin control. Ahora se refresca "en caliente": lo nuevo del
+  // servidor se mezcla sobre lo que ya hay en memoria (forzar=true),
+  // nunca se pierde cobertura mientras dura el fetch.
   _lotesCargando = false;
 
   try {
-    await Promise.all([precargarLotesCache(), precargarLotesConsolidados()]);
+    await Promise.all([precargarLotesCache(true), precargarLotesConsolidados(true)]);
     var n = _lotesCache ? Object.keys(_lotesCache).length : 0;
     var c = _lotesConsolidadosCache ? Object.keys(_lotesConsolidadosCache).length : 0;
     if (btn) { btn.innerHTML = '\u2713 Actualizado'; }
@@ -13391,11 +13411,16 @@ async function recargarCachesManual() {
 
 function recargarCaches() {
   console.log('[CACHE] recargando ambas hojas...');
-  _lotesCache = null;
-  _lotesConsolidadosCache = null;
+  // FIX lote duplicado: antes esta funcion vaciaba _lotesConsolidadosCache
+  // (null) y disparaba el fetch SIN esperarlo. Se llama justo al cerrar
+  // un contenedor (ver limpiarFormularioDespuesDeGuardar) — si el
+  // siguiente contenedor se empezaba a pistolear enseguida, el cache
+  // quedaba en null y el FILTRO 4 no bloqueaba el lote que se acababa
+  // de consolidar. Ahora se refresca en caliente (forzar=true): nunca
+  // queda en null, el fetch solo agrega/actualiza datos por encima.
   _lotesCargando = false;
-  precargarLotesCache();
-  precargarLotesConsolidados();
+  precargarLotesCache(true);
+  precargarLotesConsolidados(true);
 }
 
 function limpiarFormularioDespuesDeGuardar() {
