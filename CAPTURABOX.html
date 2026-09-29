@@ -18495,11 +18495,12 @@ function pklg_plantillaResumen(entregas, fechaEmision, agrupado) {
   var navesUnicas = pklg_unicos(entregas.map(function (e) { return e.nave; }));
   var clientesUnicos = pklg_unicos(entregas.map(function (e) { return e.cliente; }));
 
-  var totalLotes = 0, totalM3 = 0;
+  var totalLotes = 0, totalM3 = 0, totalCT = 0;
   var filas = entregas.map(function (e) {
     var productos = pklg_unicos((e.lotes || []).map(function (l) { return l.producto; })).join(' / ');
     totalLotes += e.totalLotes || 0;
     totalM3 += e.totalM3 || 0;
+    totalCT += Number(e.ct) || 0;
     var infoEnt = agrupado ? agrupado.info[e.entrega] : null;
     var numero = infoEnt ? infoEnt.numero : '\u2014';
     var enGrupo = infoEnt && infoEnt.companeras && infoEnt.companeras.length;
@@ -18517,8 +18518,6 @@ function pklg_plantillaResumen(entregas, fechaEmision, agrupado) {
       '<td>' + pklg_esc(e.destino) + '</td></tr>';
   }).join('');
 
-  var totalContenedores = agrupado ? agrupado.totalContenedores : entregas.length;
-
   return (
     '<div class="hoja-resumen">' +
       '<div class="encabezado-top">' +
@@ -18529,7 +18528,7 @@ function pklg_plantillaResumen(entregas, fechaEmision, agrupado) {
         '<div class="info-item"><div class="l">Nave</div><div class="v">' + pklg_esc(navesUnicas.join(' / ')) + '</div></div>' +
         '<div class="info-item"><div class="l">Cliente</div><div class="v">' + pklg_esc(clientesUnicos.join(' / ')) + '</div></div>' +
         '<div class="info-item"><div class="l">Entregas incluidas</div><div class="v">' + entregas.length + '</div></div>' +
-        '<div class="info-item"><div class="l">Contenedores</div><div class="v">' + totalContenedores + '</div></div>' +
+        '<div class="info-item"><div class="l">Contenedores</div><div class="v">' + totalCT + '</div></div>' +
       '</div>' +
       '<table class="tabla-detalle"><thead><tr>' +
         '<th style="width:22px;">N\u00b0</th><th style="width:12%;">Entrega</th>' +
@@ -18540,7 +18539,7 @@ function pklg_plantillaResumen(entregas, fechaEmision, agrupado) {
       '</tr></thead><tbody>' + filas + '</tbody></table>' +
       '<div class="totales">' +
         '<div class="item"><div class="l">Total entregas</div><div class="v">' + entregas.length + '</div></div>' +
-        '<div class="item"><div class="l">Total contenedores</div><div class="v">' + totalContenedores + '</div></div>' +
+        '<div class="item"><div class="l">Total contenedores</div><div class="v">' + totalCT + '</div></div>' +
         '<div class="item"><div class="l">Total lotes</div><div class="v">' + totalLotes + '</div></div>' +
         '<div class="item"><div class="l">Total m\u00b3</div><div class="v">' + totalM3.toLocaleString('es-CL', {minimumFractionDigits:3}) + '</div></div>' +
       '</div>' +
