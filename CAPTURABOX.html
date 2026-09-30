@@ -18726,7 +18726,37 @@ function resNave_abrir() {
     // Mismo historial de "últimas naves" que ya usa Cargar Bases
     // (CB_NAVES_RECIENTES_KEY) — así lo que se consulta acá también
     // queda disponible ahí, y viceversa.
-    '<datalist id="resNave_naveHistorialList"></datalist>';
+    '<datalist id="resNave_naveHistorialList"></datalist>' +
+    // Filtros adicionales: se aplican EN EL NAVEGADOR sobre lo que ya
+    // trae el servidor (Reserva/Entrega/Destino/Contenedor/Fecha van
+    // en cada fila de la respuesta), así no hace falta tocar el
+    // backend. Solo existen acá, en el formulario previo — nunca se
+    // imprimen ni aparecen en el documento generado.
+    '<div style="margin-top:14px;padding-top:12px;border-top:1px solid #eef2f5;">' +
+      '<div style="font-size:11px;font-weight:800;color:#8a99a5;text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px;">Filtrar antes de generar (opcional)</div>' +
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">' +
+        '<div><label style="font-size:11px;font-weight:700;color:#5a6b77;">Reserva</label>' +
+          '<input id="resNave_fReserva" type="text" placeholder="Ej: 721700944" ' +
+            'style="width:100%;margin-top:4px;padding:9px;border:1.5px solid #cfd8dc;border-radius:8px;font-size:13px;box-sizing:border-box;"></div>' +
+        '<div><label style="font-size:11px;font-weight:700;color:#5a6b77;">Entrega</label>' +
+          '<input id="resNave_fEntrega" type="text" placeholder="Ej: 819581339" ' +
+            'style="width:100%;margin-top:4px;padding:9px;border:1.5px solid #cfd8dc;border-radius:8px;font-size:13px;box-sizing:border-box;"></div>' +
+        '<div><label style="font-size:11px;font-weight:700;color:#5a6b77;">Destino</label>' +
+          '<input id="resNave_fDestino" type="text" placeholder="Ej: BALTIMORE" ' +
+            'style="width:100%;margin-top:4px;padding:9px;border:1.5px solid #cfd8dc;border-radius:8px;font-size:13px;box-sizing:border-box;" ' +
+            'autocapitalize="characters" oninput="this.value=this.value.toUpperCase();"></div>' +
+        '<div><label style="font-size:11px;font-weight:700;color:#5a6b77;">Contenedor</label>' +
+          '<input id="resNave_fContenedor" type="text" placeholder="Ej: HASU5084720" ' +
+            'style="width:100%;margin-top:4px;padding:9px;border:1.5px solid #cfd8dc;border-radius:8px;font-size:13px;box-sizing:border-box;" ' +
+            'autocapitalize="characters" oninput="this.value=this.value.toUpperCase();"></div>' +
+        '<div><label style="font-size:11px;font-weight:700;color:#5a6b77;">Fecha desde</label>' +
+          '<input id="resNave_fFechaDesde" type="date" ' +
+            'style="width:100%;margin-top:4px;padding:8px;border:1.5px solid #cfd8dc;border-radius:8px;font-size:13px;box-sizing:border-box;"></div>' +
+        '<div><label style="font-size:11px;font-weight:700;color:#5a6b77;">Fecha hasta</label>' +
+          '<input id="resNave_fFechaHasta" type="date" ' +
+            'style="width:100%;margin-top:4px;padding:8px;border:1.5px solid #cfd8dc;border-radius:8px;font-size:13px;box-sizing:border-box;"></div>' +
+      '</div>' +
+    '</div>';
 
   mostrarModalForm('Resumen por Nave', contenido, resNave_generar);
   var btn = document.getElementById('adminModalConfirmar');
@@ -18750,6 +18780,19 @@ async function resNave_generar() {
   // Recordar la nave consultada para la próxima vez (mismo historial
   // compartido con Cargar Bases).
   if (nave) cb_guardarNaveReciente_(nave);
+
+  // Filtros finos (Reserva/Entrega/Destino/Contenedor/Fecha): se
+  // aplican EN EL NAVEGADOR sobre lo que ya devuelve el servidor, no
+  // viajan al backend. Solo existen en este formulario previo — nunca
+  // se imprimen ni quedan visibles en el documento generado.
+  var filtrosFinos = {
+    reserva:     String((document.getElementById('resNave_fReserva') || {}).value || '').trim(),
+    entrega:     String((document.getElementById('resNave_fEntrega') || {}).value || '').trim(),
+    destino:     String((document.getElementById('resNave_fDestino') || {}).value || '').trim(),
+    contenedor:  String((document.getElementById('resNave_fContenedor') || {}).value || '').trim(),
+    fechaDesde:  String((document.getElementById('resNave_fFechaDesde') || {}).value || '').trim(),
+    fechaHasta:  String((document.getElementById('resNave_fFechaHasta') || {}).value || '').trim()
+  };
 
   // La ventana se abre AQUÍ, de forma sincrónica dentro del mismo clic
   // (ver mismo criterio en pklg_generar): si se abre después de un
@@ -18788,7 +18831,16 @@ async function resNave_generar() {
       return true;
     }
 
-    var html = resNave_construirDocumento(data.naves);
+    var navesFiltradas = resNave_aplicarFiltrosFinos_(data.naves, filtrosFinos);
+    if (!navesFiltradas.length) {
+      ventana.document.open();
+      ventana.document.write('<p style="font-family:\'Segoe UI\',Arial,sans-serif;padding:24px;color:#c62828;">' +
+        'Ningún contenedor coincide con los filtros elegidos (Reserva/Entrega/Destino/Contenedor/Fecha).</p>');
+      ventana.document.close();
+      return true;
+    }
+
+    var html = resNave_construirDocumento(navesFiltradas);
     ventana.document.open();
     ventana.document.write(html);
     ventana.document.close();
@@ -18809,6 +18861,75 @@ async function resNave_generar() {
     } catch (e2) { /* si ni eso funciona, no hay más que hacer aquí */ }
     return true;
   }
+}
+
+/* Convierte "DD-MM-YYYY" (formato que ya usa la columna Fecha de este
+   informe) a Date; si no calza con ese patrón, intenta el parser
+   nativo como respaldo (por si algún día llega un ISO). */
+function _resNave_parsearFecha_(v) {
+  if (!v) return null;
+  var s = String(v).trim();
+  var m = s.match(/^(\d{1,2})-(\d{1,2})-(\d{4})/);
+  if (m) return new Date(Number(m[3]), Number(m[2]) - 1, Number(m[1]));
+  var d = new Date(s);
+  return isNaN(d.getTime()) ? null : d;
+}
+
+/* Filtros finos de Reserva/Entrega/Destino/Contenedor/Fecha: se
+   aplican EN EL NAVEGADOR sobre la respuesta ya traída del servidor
+   (cada contenedor ya trae esos campos), recalculando los totales de
+   cada Nave a partir de los contenedores que quedan. Una Nave que se
+   queda sin contenedores tras filtrar desaparece del resultado. */
+function resNave_aplicarFiltrosFinos_(naves, f) {
+  var hayFiltro = f.reserva || f.entrega || f.destino || f.contenedor || f.fechaDesde || f.fechaHasta;
+  if (!hayFiltro) return naves;
+
+  var desde = f.fechaDesde ? new Date(f.fechaDesde + 'T00:00:00') : null;
+  var hasta = f.fechaHasta ? new Date(f.fechaHasta + 'T23:59:59') : null;
+  var reservaQ = f.reserva.toUpperCase();
+  var entregaQ = f.entrega.toUpperCase();
+  var destinoQ = f.destino.toUpperCase();
+  var contenedorQ = f.contenedor.replace(/\s+/g, '').toUpperCase();
+
+  var out = [];
+  naves.forEach(function (n) {
+    var contenedoresFiltrados = (n.contenedores || []).filter(function (c) {
+      if (reservaQ && String(c.reserva || '').toUpperCase().indexOf(reservaQ) === -1) return false;
+      if (entregaQ && String(c.entrega || '').toUpperCase().indexOf(entregaQ) === -1) return false;
+      if (destinoQ && String(c.destino || '').toUpperCase().indexOf(destinoQ) === -1) return false;
+      if (contenedorQ && String(c.contenedor || '').replace(/\s+/g, '').toUpperCase().indexOf(contenedorQ) === -1) return false;
+      if (desde || hasta) {
+        var fc = _resNave_parsearFecha_(c.fecha);
+        if (!fc) return false;
+        if (desde && fc < desde) return false;
+        if (hasta && fc > hasta) return false;
+      }
+      return true;
+    });
+
+    if (!contenedoresFiltrados.length) return;
+
+    var totalM3 = 0, totalPeso = 0, totalLotes = 0;
+    var entregasUnicas = {};
+    contenedoresFiltrados.forEach(function (c) {
+      totalM3 += Number(c.totalVolumen) || 0;
+      totalPeso += Number(c.pesoCarga) || 0;
+      totalLotes += Number(c.totalLotes) || 0;
+      if (c.entrega) entregasUnicas[String(c.entrega).trim()] = true;
+    });
+
+    var nFiltrada = {};
+    for (var k in n) { if (n.hasOwnProperty(k)) nFiltrada[k] = n[k]; }
+    nFiltrada.contenedores = contenedoresFiltrados;
+    nFiltrada.totalContenedores = contenedoresFiltrados.length;
+    nFiltrada.totalEntregas = Object.keys(entregasUnicas).length;
+    nFiltrada.totalLotes = totalLotes;
+    nFiltrada.totalVolumen = Math.round(totalM3 * 1000) / 1000;
+    nFiltrada.totalPeso = Math.round(totalPeso);
+    out.push(nFiltrada);
+  });
+
+  return out;
 }
 
 /* Arma el documento HTML: un bloque por Nave (salto de página entre
@@ -18856,6 +18977,12 @@ function resNave_construirDocumento(naves) {
   // que lo abrió.
   return '<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">' +
     '<title>Resumen por Nave</title><style>' + pklg_css() +
+    // Este informe tiene muchas columnas (Fecha/Contenedor/Cliente/Tipo/
+    // Entrega/Reserva/Destino/2 sellos/Lotes/m³/Peso) y siempre queda
+    // mejor en horizontal — se fuerza acá (@page después del de
+    // pklg_css() gana) en vez de depender de que cada quien recuerde
+    // marcar "Horizontal" a mano en el diálogo de impresión.
+    '@page{size:letter landscape;margin:10mm;}' +
     '.barra-imprimir{position:sticky;top:0;z-index:9;background:#0b3c5d;color:#fff;' +
     'padding:10px 14px;display:flex;justify-content:center;gap:10px;flex-wrap:wrap;box-shadow:0 2px 8px rgba(0,0,0,.2);}' +
     '.barra-imprimir button{background:#fff;color:#0b3c5d;border:none;border-radius:8px;' +
