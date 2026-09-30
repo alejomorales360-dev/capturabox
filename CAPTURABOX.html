@@ -2264,10 +2264,12 @@ button:active {
           <thead><tr>
             <th style="text-align:left; padding:4px 6px; color:#7a8b95; font-size:10px; text-transform:uppercase;">Nombre</th>
             <th style="text-align:left; padding:4px 6px; color:#7a8b95; font-size:10px; text-transform:uppercase;">Cargo</th>
+            <th style="text-align:left; padding:4px 6px; color:#7a8b95; font-size:10px; text-transform:uppercase;">Empresa</th>
             <th style="padding:4px 6px; color:#7a8b95; font-size:10px; text-transform:uppercase;">Extensión</th>
             <th style="padding:4px 6px;"></th>
           </tr></thead>
           <tbody id="extTurno_dotacionBody"></tbody>
+          <datalist id="extTurno_empresaHistorialList"><option value="CENTER"></option><option value="MAERSK"></option></datalist>
         </table>
       </div>
       <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:8px;">
@@ -19299,6 +19301,11 @@ function cuadrillaBase_abrir() {
       '<input id="cuadrillaBase_nombre" style="width:100%;margin-top:4px;padding:8px 10px;border:1.5px solid #cfd8dc;border-radius:8px;font-size:13px;box-sizing:border-box;"></div>' +
       '<div style="flex:1; min-width:120px;"><label style="font-size:11px;font-weight:800;color:#7a8b95;">CARGO</label>' +
       '<input id="cuadrillaBase_cargo" style="width:100%;margin-top:4px;padding:8px 10px;border:1.5px solid #cfd8dc;border-radius:8px;font-size:13px;box-sizing:border-box;"></div>' +
+      '<div style="flex:1; min-width:120px;"><label style="font-size:11px;font-weight:800;color:#7a8b95;">EMPRESA</label>' +
+      '<input id="cuadrillaBase_empresa" list="cuadrillaBase_empresaHistorialList" placeholder="Ej: CENTER" ' +
+        'style="width:100%;margin-top:4px;padding:8px 10px;border:1.5px solid #cfd8dc;border-radius:8px;font-size:13px;box-sizing:border-box;" ' +
+        'autocapitalize="characters" oninput="this.value=this.value.toUpperCase();">' +
+      '<datalist id="cuadrillaBase_empresaHistorialList"><option value="CENTER"></option><option value="MAERSK"></option></datalist></div>' +
       '<div style="flex:1; min-width:130px;"><label style="font-size:11px;font-weight:800;color:#7a8b95;">FECHA INGRESO</label>' +
       '<input id="cuadrillaBase_fechaIngreso" type="date" value="' + _fechaHoyLocal() + '" style="width:100%;margin-top:4px;padding:8px 10px;border:1.5px solid #cfd8dc;border-radius:8px;font-size:13px;box-sizing:border-box;"></div>' +
       '<button type="button" onclick="cuadrillaBase_agregar()" style="width:auto;margin:0;background:#0b3c5d;color:#fff;border:none;border-radius:8px;padding:9px 16px;font-size:13px;font-weight:800;cursor:pointer;">+ Agregar</button>' +
@@ -19343,9 +19350,11 @@ async function cuadrillaBase_pintar() {
       '<table style="width:100%;border-collapse:collapse;font-size:12px;">' +
       '<thead><tr><th style="text-align:left;padding:4px 6px;border-bottom:1.5px solid #e6ebee;">Nombre</th>' +
       '<th style="text-align:left;padding:4px 6px;border-bottom:1.5px solid #e6ebee;">Cargo</th>' +
+      '<th style="text-align:left;padding:4px 6px;border-bottom:1.5px solid #e6ebee;">Empresa</th>' +
       '<th style="text-align:left;padding:4px 6px;border-bottom:1.5px solid #e6ebee;">Desde</th><th></th></tr></thead><tbody>' +
       activos.map(function (p) {
         return '<tr><td style="padding:4px 6px;">' + (p.nombre || '') + '</td><td style="padding:4px 6px;">' + (p.cargo || '') + '</td>' +
+          '<td style="padding:4px 6px;">' + (p.empresa || '—') + '</td>' +
           '<td style="padding:4px 6px;">' + (p.fechaIngreso ? new Date(p.fechaIngreso).toLocaleDateString('es-CL') : '—') + '</td>' +
           '<td style="padding:4px 6px;text-align:right;"><button type="button" onclick="cuadrillaBase_darDeBaja(\'' + p.id + '\',\'' + String(p.nombre || '').replace(/'/g, "\\'") + '\')" ' +
           'style="width:auto;margin:0;background:#fdecea;color:#c62828;border:none;border-radius:6px;padding:4px 8px;font-size:11px;font-weight:700;cursor:pointer;">Dar de baja</button></td></tr>';
@@ -19359,11 +19368,13 @@ async function cuadrillaBase_pintar() {
       '<table style="width:100%;border-collapse:collapse;font-size:12px;">' +
       '<thead><tr><th style="text-align:left;padding:4px 6px;border-bottom:1.5px solid #e6ebee;">Nombre</th>' +
       '<th style="text-align:left;padding:4px 6px;border-bottom:1.5px solid #e6ebee;">Cargo</th>' +
+      '<th style="text-align:left;padding:4px 6px;border-bottom:1.5px solid #e6ebee;">Empresa</th>' +
       '<th style="text-align:left;padding:4px 6px;border-bottom:1.5px solid #e6ebee;">Ingreso</th>' +
       '<th style="text-align:left;padding:4px 6px;border-bottom:1.5px solid #e6ebee;">Salida</th>' +
       '<th style="text-align:left;padding:4px 6px;border-bottom:1.5px solid #e6ebee;">Motivo</th><th></th></tr></thead><tbody>' +
       bajas.map(function (p) {
         return '<tr><td style="padding:4px 6px;">' + (p.nombre || '') + '</td><td style="padding:4px 6px;">' + (p.cargo || '') + '</td>' +
+          '<td style="padding:4px 6px;">' + (p.empresa || '—') + '</td>' +
           '<td style="padding:4px 6px;">' + (p.fechaIngreso ? new Date(p.fechaIngreso).toLocaleDateString('es-CL') : '—') + '</td>' +
           '<td style="padding:4px 6px;">' + (p.fechaSalida ? new Date(p.fechaSalida).toLocaleDateString('es-CL') : '—') + '</td>' +
           '<td style="padding:4px 6px;">' + (p.motivoSalida || '—') + '</td>' +
@@ -19377,18 +19388,20 @@ async function cuadrillaBase_pintar() {
 async function cuadrillaBase_agregar() {
   var nombre = ((document.getElementById('cuadrillaBase_nombre') || {}).value || '').trim();
   var cargo = ((document.getElementById('cuadrillaBase_cargo') || {}).value || '').trim();
+  var empresa = ((document.getElementById('cuadrillaBase_empresa') || {}).value || '').trim();
   var fechaIngreso = (document.getElementById('cuadrillaBase_fechaIngreso') || {}).value || _fechaHoyLocal();
   if (!nombre) { mostrarAlerta('Falta el nombre', 'Escribe el nombre del trabajador.'); return; }
 
   try {
     var res = await fetch(URL_GAS, { method: 'POST', body: JSON.stringify({
       accion: 'agregarTrabajadorCuadrilla',
-      nombre: nombre, cargo: cargo, fechaIngreso: fechaIngreso, rut: localStorage.getItem('usuario') || ''
+      nombre: nombre, cargo: cargo, empresa: empresa, fechaIngreso: fechaIngreso, rut: localStorage.getItem('usuario') || ''
     }) });
     var data = await res.json();
     if (!data.ok) { mostrarAlerta('❌ Error', data.msg || 'No se pudo agregar.'); return; }
     document.getElementById('cuadrillaBase_nombre').value = '';
     document.getElementById('cuadrillaBase_cargo').value = '';
+    document.getElementById('cuadrillaBase_empresa').value = '';
     await cuadrillaBase_pintar();
   } catch (e) {
     mostrarAlerta('❌ Error', 'Sin conexión al agregar el trabajador.');
@@ -19467,12 +19480,12 @@ async function extTurno_resetForm() {
 
   var cuadrilla = await extTurno_cargarCuadrilla_(false);
   var activos = cuadrilla.filter(function (p) { return p.estado === 'ACTIVO'; });
-  extTurno_dotacion = activos.map(function (p) { return { nombre: p.nombre, cargo: p.cargo, extiende: false }; });
+  extTurno_dotacion = activos.map(function (p) { return { nombre: p.nombre, cargo: p.cargo, empresa: p.empresa || '', extiende: false }; });
   extTurno_pintarDotacion();
 }
 
 function extTurno_agregarPersona() {
-  extTurno_dotacion.push({ nombre: '', cargo: '', extiende: false });
+  extTurno_dotacion.push({ nombre: '', cargo: '', empresa: '', extiende: false });
   extTurno_pintarDotacion();
 }
 
@@ -19492,12 +19505,16 @@ function extTurno_pintarDotacion() {
       '<td style="padding:4px;"><input value="' + String(p.cargo || '').replace(/"/g, '&quot;') + '" ' +
         'oninput="extTurno_dotacion[' + i + '].cargo=this.value" placeholder="Cargo" ' +
         'style="width:100%;padding:6px 8px;border:1.5px solid #cfd8dc;border-radius:6px;font-size:12px;box-sizing:border-box;"></td>' +
+      '<td style="padding:4px;"><input value="' + String(p.empresa || '').replace(/"/g, '&quot;') + '" ' +
+        'list="extTurno_empresaHistorialList" ' +
+        'oninput="extTurno_dotacion[' + i + '].empresa=this.value.toUpperCase();this.value=this.value.toUpperCase();" placeholder="Empresa" ' +
+        'style="width:100%;padding:6px 8px;border:1.5px solid #cfd8dc;border-radius:6px;font-size:12px;box-sizing:border-box;"></td>' +
       '<td style="padding:4px;text-align:center;"><input type="checkbox" ' + (p.extiende ? 'checked' : '') + ' ' +
         'onchange="extTurno_dotacion[' + i + '].extiende=this.checked; extTurno_pintarResumen();" style="width:18px;height:18px;"></td>' +
       '<td style="padding:4px;text-align:center;"><button type="button" onclick="extTurno_quitarPersona(' + i + ')" ' +
         'style="width:auto;margin:0;background:#fdecea;color:#c62828;border:none;border-radius:6px;padding:4px 8px;font-size:11px;font-weight:700;cursor:pointer;">✕</button></td>' +
     '</tr>';
-  }).join('') : '<tr><td colspan="4" style="padding:10px;text-align:center;color:#7a8b95;font-size:12px;">Sin personas agregadas. Toca "+ Agregar persona".</td></tr>';
+  }).join('') : '<tr><td colspan="5" style="padding:10px;text-align:center;color:#7a8b95;font-size:12px;">Sin personas agregadas. Toca "+ Agregar persona".</td></tr>';
   extTurno_pintarResumen();
 }
 
@@ -19630,6 +19647,7 @@ function extTurno_verDetalle(i) {
   var fechaTxt = r.fecha ? new Date(r.fecha).toLocaleDateString('es-CL') : '—';
   var filasPersonas = (r.dotacion || []).map(function (p) {
     return '<tr><td>' + (p.nombre || '') + '</td><td>' + (p.cargo || '') + '</td>' +
+      '<td>' + (p.empresa || '—') + '</td>' +
       '<td style="text-align:center;">' + (p.extiende ? 'Sí' : 'No') + '</td></tr>';
   }).join('');
 
@@ -19645,7 +19663,7 @@ function extTurno_verDetalle(i) {
     '<p class="campo"><b>Supervisor:</b> ' + (r.supervisor || '—') + '</p>' +
     (r.observaciones ? ('<p class="campo"><b>Observaciones:</b> ' + r.observaciones + '</p>') : '') +
     '<h3>Dotación</h3>' +
-    '<table><tr><th>Nombre</th><th>Cargo</th><th>Extensión</th></tr>' + filasPersonas + '</table>' +
+    '<table><tr><th>Nombre</th><th>Cargo</th><th>Empresa</th><th>Extensión</th></tr>' + filasPersonas + '</table>' +
     '</bod' + 'y></htm' + 'l>';
 
   w.document.open(); w.document.write(html); w.document.close();
@@ -19689,7 +19707,8 @@ function extTurno_exportarPDF() {
     (r.dotacion || []).forEach(function (p) {
       var nombre = String(p.nombre || '').trim();
       if (!nombre) return;
-      if (!porPersona[nombre]) porPersona[nombre] = { nombre: nombre, cargo: p.cargo || '', turnos: 0, extensiones: 0 };
+      if (!porPersona[nombre]) porPersona[nombre] = { nombre: nombre, cargo: p.cargo || '', empresa: p.empresa || '', turnos: 0, extensiones: 0 };
+      if (p.empresa && !porPersona[nombre].empresa) porPersona[nombre].empresa = p.empresa;
       porPersona[nombre].turnos++;
       if (p.extiende) porPersona[nombre].extensiones++;
     });
@@ -19697,7 +19716,7 @@ function extTurno_exportarPDF() {
   var listaPersonas = Object.keys(porPersona).map(function (k) { return porPersona[k]; })
     .sort(function (a, b) { return b.extensiones - a.extensiones; });
   var filasPersonas = listaPersonas.map(function (p) {
-    return '<tr><td>' + p.nombre + '</td><td>' + p.cargo + '</td>' +
+    return '<tr><td>' + p.nombre + '</td><td>' + p.cargo + '</td><td>' + (p.empresa || '—') + '</td>' +
       '<td style="text-align:right;">' + p.turnos + '</td>' +
       '<td style="text-align:right;">' + p.extensiones + '</td></tr>';
   }).join('');
@@ -19712,7 +19731,7 @@ function extTurno_exportarPDF() {
     '<table><tr><th>Fecha</th><th>Autorizó</th><th>Cliente</th><th>Turno normal</th><th>En extensión</th><th>Hasta</th><th>Supervisor</th></tr>' +
     filasRegistros + '</table>' +
     '<h3>Resumen por persona (en el período)</h3>' +
-    '<table><tr><th>Nombre</th><th>Cargo</th><th>N° de turnos</th><th>N° de extensiones</th></tr>' +
+    '<table><tr><th>Nombre</th><th>Cargo</th><th>Empresa</th><th>N° de turnos</th><th>N° de extensiones</th></tr>' +
     filasPersonas + '</table>' +
     '</bod' + 'y></htm' + 'l>';
 
@@ -19741,6 +19760,7 @@ function extTurno_exportarExcel() {
         'Dotación en extensión': ext,
         Nombre: p.nombre || '',
         Cargo: p.cargo || '',
+        Empresa: p.empresa || '',
         'Se queda en extensión': p.extiende ? 'Sí' : 'No',
         Observaciones: r.observaciones || ''
       });
