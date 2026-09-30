@@ -2294,6 +2294,13 @@ button:active {
           <input type="date" id="extTurno_histDesde" onchange="extTurno_cargarHistorial()" style="padding:5px 7px; border:1px solid #d5dde5; border-radius:6px; font-size:11px;">
           <label style="font-size:10px; color:#7a8b95; font-weight:700;">HASTA</label>
           <input type="date" id="extTurno_histHasta" onchange="extTurno_cargarHistorial()" style="padding:5px 7px; border:1px solid #d5dde5; border-radius:6px; font-size:11px;">
+          <label style="font-size:10px; color:#7a8b95; font-weight:700;">EMPRESA</label>
+          <select id="extTurno_histEmpresa" style="padding:5px 7px; border:1px solid #d5dde5; border-radius:6px; font-size:11px;">
+            <option value="">Todas</option>
+          </select>
+          <label style="display:flex; align-items:center; gap:4px; font-size:11px; color:#5a6b77; font-weight:700; cursor:pointer;" title="Solo cuenta y muestra a quienes se quedaron en extensión ese día">
+            <input type="checkbox" id="extTurno_histSoloExtension" style="width:14px;height:14px;"> Solo extensión
+          </label>
           <button onclick="extTurno_limpiarFiltroHistorial()" style="width:auto; margin-top:0; background:#f4f7f9; color:#5a6b77; border:none; border-radius:6px; padding:5px 9px; font-size:11px; font-weight:700; cursor:pointer;">Limpiar</button>
           <button onclick="extTurno_cargarHistorial()" style="width:auto; margin-top:0; background:#eef2f5; color:#0b3c5d; border:none; border-radius:6px; padding:5px 11px; font-size:11px; font-weight:700; cursor:pointer;">Actualizar</button>
           <button onclick="extTurno_exportarExcel()" style="width:auto; margin-top:0; background:#1c6b41; color:#fff; border:none; border-radius:6px; padding:5px 11px; font-size:11px; font-weight:700; cursor:pointer;">Excel</button>
@@ -19571,8 +19578,12 @@ async function extTurno_guardar() {
 function extTurno_limpiarFiltroHistorial() {
   var elD = document.getElementById('extTurno_histDesde');
   var elH = document.getElementById('extTurno_histHasta');
+  var elEmp = document.getElementById('extTurno_histEmpresa');
+  var elSolo = document.getElementById('extTurno_histSoloExtension');
   if (elD) elD.value = '';
   if (elH) elH.value = '';
+  if (elEmp) elEmp.value = '';
+  if (elSolo) elSolo.checked = false;
   extTurno_cargarHistorial();
 }
 
@@ -19591,10 +19602,31 @@ async function extTurno_cargarHistorial() {
     extTurno_historialUltimo = (data.registros || []).slice().sort(function (a, b) {
       return new Date(b.fecha) - new Date(a.fecha);
     });
+    extTurno_pintarFiltroEmpresaHistorial_();
     extTurno_renderHistorial();
   } catch (e) {
     if (body) body.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#c62828;padding:16px;">Sin conexión.</td></tr>';
   }
+}
+
+/* Llena el select de Empresa con las que realmente aparecen en la
+   dotación de los registros cargados (evita mostrar CENTER/MAERSK
+   fijos si mañana se suma otra empresa distinta). */
+function extTurno_pintarFiltroEmpresaHistorial_() {
+  var sel = document.getElementById('extTurno_histEmpresa');
+  if (!sel) return;
+  var actual = sel.value;
+  var vistas = {};
+  extTurno_historialUltimo.forEach(function (r) {
+    (r.dotacion || []).forEach(function (p) {
+      var e = String(p.empresa || '').trim();
+      if (e) vistas[e] = true;
+    });
+  });
+  var empresas = Object.keys(vistas).sort();
+  sel.innerHTML = '<option value="">Todas</option>' +
+    empresas.map(function (e) { return '<option value="' + e.replace(/"/g, '&quot;') + '">' + e + '</option>'; }).join('');
+  sel.value = empresas.indexOf(actual) !== -1 ? actual : '';
 }
 
 function extTurno_renderHistorial() {
@@ -19670,12 +19702,45 @@ function extTurno_verDetalle(i) {
   setTimeout(function () { w.print(); }, 400);
 }
 
+/* Filtros de "Solo extensión" y "Empresa" del historial — leídos una
+   vez y aplicados igual en el PDF y el Excel. Con "Solo extensión"
+   activo, cada registro se queda solo con quienes se quedaron en
+   extensión ese día (los que hicieron turno normal y se fueron a su
+   hora NO aparecen). Con Empresa elegida, además se filtra a esa
+   empresa. Un registro que se queda sin nadie tras filtrar se excluye
+   completo del informe. */
+function extTurno_leerFiltrosHistorial_() {
+  return {
+    soloExtension: !!(document.getElementById('extTurno_histSoloExtension') || {}).checked,
+    empresa: String((document.getElementById('extTurno_histEmpresa') || {}).value || '').trim().toUpperCase()
+  };
+}
+
+function extTurno_dotacionFiltrada_(dotacion, filtros) {
+  return (dotacion || []).filter(function (p) {
+    if (filtros.soloExtension && !p.extiende) return false;
+    if (filtros.empresa && String(p.empresa || '').trim().toUpperCase() !== filtros.empresa) return false;
+    return true;
+  });
+}
+
 /* Informe imprimible de TODOS los registros que están actualmente
    cargados en el historial (ya respeta el filtro de fechas Desde/Hasta
-   de arriba). Incluye un resumen de veces en extensión por persona,
-   útil para controlar horas extras acumuladas en el período. */
+   de arriba, y ahora también Empresa/Solo extensión). Incluye un
+   resumen de veces en extensión por persona, útil para controlar
+   horas extras acumuladas en el período. */
 function extTurno_exportarPDF() {
   if (!extTurno_historialUltimo.length) { mostrarAlerta('Sin datos', 'No hay registros para exportar en este rango.'); return; }
+
+  var filtros = extTurno_leerFiltrosHistorial_();
+  var registrosConDotacion = extTurno_historialUltimo
+    .map(function (r) { return { r: r, dot: extTurno_dotacionFiltrada_(r.dotacion, filtros) }; })
+    .filter(function (x) { return x.dot.length > 0; });
+
+  if (!registrosConDotacion.length) {
+    mostrarAlerta('Sin datos', 'Ningún registro coincide con los filtros de Empresa/Solo extensión elegidos.');
+    return;
+  }
 
   var w = window.open('', '_blank');
   if (!w) { mostrarAlerta('Bloqueado', 'El navegador bloqueó la ventana. Habilita ventanas emergentes.'); return; }
@@ -19686,10 +19751,15 @@ function extTurno_exportarPDF() {
     ? ('Del ' + (desde ? new Date(desde + 'T12:00:00').toLocaleDateString('es-CL') : '—') +
        ' al ' + (hasta ? new Date(hasta + 'T12:00:00').toLocaleDateString('es-CL') : '—'))
     : 'Todos los registros';
+  var filtroTxt = [
+    filtros.soloExtension ? 'Solo dotación en extensión' : null,
+    filtros.empresa ? ('Empresa: ' + filtros.empresa) : null
+  ].filter(Boolean).join(' · ');
 
-  var filasRegistros = extTurno_historialUltimo.map(function (r) {
-    var normal = (r.dotacion || []).length;
-    var ext = (r.dotacion || []).filter(function (p) { return p.extiende; }).length;
+  var filasRegistros = registrosConDotacion.map(function (x) {
+    var r = x.r, dot = x.dot;
+    var normal = dot.length;
+    var ext = dot.filter(function (p) { return p.extiende; }).length;
     return '<tr><td>' + (r.fecha ? new Date(r.fecha).toLocaleDateString('es-CL') : '—') + '</td>' +
       '<td>' + (r.autorizadoPor === 'CLIENTE' ? 'Cliente' : 'Nosotros') + '</td>' +
       '<td>' + (r.cliente || '—') + '</td>' +
@@ -19701,10 +19771,12 @@ function extTurno_exportarPDF() {
 
   // Resumen por persona: cuántas veces aparece en un registro y cuántas
   // de esas veces se quedó en la extensión — sirve para llevar el
-  // control de horas extras acumuladas en el período.
+  // control de horas extras acumuladas en el período. Ya usa la
+  // dotación filtrada, así que con "Solo extensión" activo turnos y
+  // extensiones quedan iguales (solo se cuenta lo filtrado).
   var porPersona = {};
-  extTurno_historialUltimo.forEach(function (r) {
-    (r.dotacion || []).forEach(function (p) {
+  registrosConDotacion.forEach(function (x) {
+    x.dot.forEach(function (p) {
       var nombre = String(p.nombre || '').trim();
       if (!nombre) return;
       if (!porPersona[nombre]) porPersona[nombre] = { nombre: nombre, cargo: p.cargo || '', empresa: p.empresa || '', turnos: 0, extensiones: 0 };
@@ -19726,7 +19798,8 @@ function extTurno_exportarPDF() {
     '<sty' + 'le>' + extTurno_estiloImprimible_() + '</sty' + 'le></hea' + 'd><bod' + 'y>' +
     '<button class="btnImprimir" onclick="window.print()">Imprimir</button>' +
     '<h2>Informe de Extensiones de Turno</h2>' +
-    '<p class="sub">' + rangoTxt + ' &middot; ' + extTurno_historialUltimo.length + ' registro(s)</p>' +
+    '<p class="sub">' + rangoTxt + ' &middot; ' + registrosConDotacion.length + ' registro(s)' +
+      (filtroTxt ? (' &middot; ' + filtroTxt) : '') + '</p>' +
     '<h3>Registros</h3>' +
     '<table><tr><th>Fecha</th><th>Autorizó</th><th>Cliente</th><th>Turno normal</th><th>En extensión</th><th>Hasta</th><th>Supervisor</th></tr>' +
     filasRegistros + '</table>' +
@@ -19741,12 +19814,16 @@ function extTurno_exportarPDF() {
 
 function extTurno_exportarExcel() {
   if (!extTurno_historialUltimo.length) { mostrarAlerta('Sin datos', 'No hay registros para exportar.'); return; }
+
+  var filtros = extTurno_leerFiltrosHistorial_();
   var wb = XLSX.utils.book_new();
   var filas = [];
   extTurno_historialUltimo.forEach(function (r) {
-    var normal = (r.dotacion || []).length;
-    var ext = (r.dotacion || []).filter(function (p) { return p.extiende; }).length;
-    var personas = (r.dotacion && r.dotacion.length) ? r.dotacion : [{}];
+    var dotFiltrada = extTurno_dotacionFiltrada_(r.dotacion, filtros);
+    if (!dotFiltrada.length) return; // sin nadie que coincida, se excluye el registro completo
+    var normal = dotFiltrada.length;
+    var ext = dotFiltrada.filter(function (p) { return p.extiende; }).length;
+    var personas = dotFiltrada;
     personas.forEach(function (p) {
       filas.push({
         Fecha: r.fecha ? new Date(r.fecha).toLocaleDateString('es-CL') : '',
@@ -19766,6 +19843,12 @@ function extTurno_exportarExcel() {
       });
     });
   });
+
+  if (!filas.length) {
+    mostrarAlerta('Sin datos', 'Ningún registro coincide con los filtros de Empresa/Solo extensión elegidos.');
+    return;
+  }
+
   XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(filas), 'Extensiones de Turno');
   XLSX.writeFile(wb, 'Extensiones_Turno_' + new Date().toISOString().slice(0, 10) + '.xlsx');
 }
