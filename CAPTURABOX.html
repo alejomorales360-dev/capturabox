@@ -18491,7 +18491,7 @@ function pklg_construirDocumento(entregas, esMasivo) {
 
     bloques += pklg_plantillaEntrega({
       cliente: ent.cliente, nave: ent.nave, reserva: ent.reserva,
-      naviera: ent.naviera, ct: ent.ct,
+      naviera: ent.naviera, ct: ent.ct, restriccionPeso: ent.restriccionPeso,
       entrega: ent.entrega, puertoEmbarque: ent.puertoEmbarque, puertoDestino: ent.destino,
       filasHtml: filas, fechaEmision: fechaEmision,
       totales: {
@@ -18622,6 +18622,11 @@ function pklg_plantillaEntrega(d) {
         '<div class="info-item"><div class="l">Total lotes</div><div class="v">' + t.lotes + '</div></div>' +
         '<div class="info-item"><div class="l">Total m\u00b3</div><div class="v">' + (t.m3 || 0).toLocaleString('es-CL', {minimumFractionDigits:3}) + '</div></div>' +
         '<div class="info-item"><div class="l">Total peso</div><div class="v">' + Math.round(t.peso || 0).toLocaleString('es-CL') + ' kg</div></div>' +
+        (d.restriccionPeso
+          ? '<div class="info-item"><div class="l">Restricción de peso</div><div class="v"' +
+            ((Number(t.peso) || 0) > Number(d.restriccionPeso) ? ' style="color:#c62828;"' : '') +
+            '>' + Math.round(Number(d.restriccionPeso)).toLocaleString('es-CL') + ' kg</div></div>'
+          : '') +
         (t.consolidados != null
           ? '<div class="info-item"><div class="l">Consolidados</div><div class="v" style="color:#1b7a3d;">' + t.consolidados + '</div></div>' +
             '<div class="info-item"><div class="l">Por consolidar</div><div class="v" style="color:#b45309;">' + t.pendientes + '</div></div>'
@@ -26748,9 +26753,13 @@ function cb_hojaReservaPorEntrega_(wb) {
       var iNav = enc.indexOf('nav');
       var iCT = enc.indexOf('ct');
 
+      // RestriccionPeso (kg máximos permitidos para esa Entrega, ej:
+      // por restricción de puerto/destino) — tampoco viene en el ZOOPP.
+      var iRestriccionPeso = enc.indexOf('restriccionpeso');
+
       var filasDatos = m.length - f - 1;
       if (!mejor || filasDatos > mejor.filasDatos) {
-        mejor = { nombre: nombre, matriz: m, filaEnc: f, iEnt: iEnt, iRes: iRes, iGrupo: iGrupo, iNav: iNav, iCT: iCT, filasDatos: filasDatos };
+        mejor = { nombre: nombre, matriz: m, filaEnc: f, iEnt: iEnt, iRes: iRes, iGrupo: iGrupo, iNav: iNav, iCT: iCT, iRestriccionPeso: iRestriccionPeso, filasDatos: filasDatos };
       }
       break;
     }
@@ -26769,6 +26778,7 @@ function cb_parsearReservaPorEntrega(wb) {
   var mapaGrupo = {};
   var mapaNaviera = {};
   var mapaCT = {};
+  var mapaRestriccionPeso = {};
   var total = 0, conReserva = 0, conGrupo = 0;
 
   for (var k = hoja.filaEnc + 1; k < hoja.matriz.length; k++) {
@@ -26796,12 +26806,18 @@ function cb_parsearReservaPorEntrega(wb) {
       var ct = String(r[hoja.iCT] === undefined ? '' : r[hoja.iCT]).trim();
       if (ct && !mapaCT[entrega]) { mapaCT[entrega] = ct; }
     }
+
+    if (hoja.iRestriccionPeso !== -1) {
+      var restriccionPeso = String(r[hoja.iRestriccionPeso] === undefined ? '' : r[hoja.iRestriccionPeso]).trim();
+      if (restriccionPeso && !mapaRestriccionPeso[entrega]) { mapaRestriccionPeso[entrega] = restriccionPeso; }
+    }
   }
 
   if (!total) throw new Error('No se encontraron filas de Entrega en el archivo.');
 
   return {
     mapa: mapa, mapaGrupo: mapaGrupo, mapaNaviera: mapaNaviera, mapaCT: mapaCT,
+    mapaRestriccionPeso: mapaRestriccionPeso,
     hoja: hoja.nombre, total: total, conReserva: conReserva, conGrupo: conGrupo
   };
 }
@@ -26838,6 +26854,11 @@ function cb_aplicarReservaExterna_(resZ) {
     }
     if (cb_reservaExterna.mapaCT && cb_reservaExterna.mapaCT[f.Entrega]) {
       f.CT = cb_reservaExterna.mapaCT[f.Entrega];
+    }
+    // RestriccionPeso (kg máx. permitidos para esa Entrega): tampoco
+    // viene en el ZOOPP, solo en el Programa de Entregas.
+    if (cb_reservaExterna.mapaRestriccionPeso && cb_reservaExterna.mapaRestriccionPeso[f.Entrega]) {
+      f.RestriccionPeso = cb_reservaExterna.mapaRestriccionPeso[f.Entrega];
     }
   });
   resZ.reservasCompletadas = aplicadas;
