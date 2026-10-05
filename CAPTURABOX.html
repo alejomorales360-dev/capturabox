@@ -9947,6 +9947,20 @@ async function cargarPendientesIndexedDB() {
       if (!c) return;
       if (j.status !== 'parcial') return;
       var opJ = (j.datosCont && j.datosCont.operacion) || '';
+      // FIX GRAVE: sin Operación todavía (contenedor abierto offline),
+      // _claveContOp_ guarda en "sincronizados" una clave SIN operación
+      // (solo el código de contenedor) -- esa clave queda en localStorage
+      // indefinidamente (hasta 200 entradas, nunca expiran). Si el mismo
+      // código físico se reutiliza meses después en OTRO contenedor nuevo
+      // que también arranca sin Operación, esa entrada vieja hacía creer
+      // que "ya subió antes" aunque sea la primera vez que este contenedor
+      // nuevo intenta sincronizar -- si el aviso a la nube todavía no
+      // alcanzó a llegar (hay un freno de red de hasta 90s), el contenedor
+      // nuevo se marcaba fantasma y se borraba solo, perdiendo todo lo
+      // escaneado. Sin Operación no hay forma confiable de confirmar que
+      // es el MISMO contenedor/sesión -- mejor nunca borrar automático en
+      // ese caso (el usuario puede seguir usando "Eliminar" a mano).
+      if (!opJ) return;
       if (!_estaEnConjunto_(sincronizados, c, opJ)) return; // nunca subió (esta operación) → no tocar
       if (!_estaEnConjunto_(contNubeSet, c, opJ)) { esFantasma[c] = true; _aEliminar.push(j); }
     });
