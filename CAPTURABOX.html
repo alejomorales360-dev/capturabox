@@ -5717,7 +5717,8 @@ function verResumen() {
   // Planilla: encabezados + correlativo + X para eliminar
   var html =
     '<div style="background:#fff; border-radius:10px; overflow:hidden; box-shadow:0 1px 3px rgba(0,0,0,.06);">' +
-    '<table style="width:100%; border-collapse:collapse; font-size:12px;">' +
+    '<div style="overflow-x:auto; -webkit-overflow-scrolling:touch;">' +
+    '<table style="width:100%; min-width:480px; border-collapse:collapse; font-size:12px;">' +
       '<thead>' +
         '<tr style="background:#0b3c5d; color:#fff;">' +
           '<th style="padding:9px 4px; text-align:center; width:26px;">#</th>' +
@@ -5747,7 +5748,7 @@ function verResumen() {
       '</tr>';
   });
 
-  html += '</tbody></table></div>';
+  html += '</tbody></table></div></div>';
   lista.innerHTML = html;
   document.getElementById("modalResumenRecepcion").style.display = "flex";
 }
@@ -8567,7 +8568,8 @@ async function renderTablaLotesRecepcion() {
 
   var html =
     '<div style="background:#fff; border-radius:10px; overflow:hidden; box-shadow:0 1px 3px rgba(0,0,0,.06);">' +
-    '<table style="width:100%; border-collapse:collapse; font-size:12px;">' +
+    '<div style="overflow-x:auto; -webkit-overflow-scrolling:touch;">' +
+    '<table style="width:100%; min-width:480px; border-collapse:collapse; font-size:12px;">' +
       '<thead>' +
         '<tr style="background:#0b3c5d; color:#fff;">' +
           '<th style="padding:9px 4px; text-align:center; width:26px;">#</th>' +
@@ -8603,7 +8605,7 @@ async function renderTablaLotesRecepcion() {
       '</tr>';
   });
 
-  html += '</tbody></table></div>';
+  html += '</tbody></table></div></div>';
   cont.innerHTML = html;
 }
 
