@@ -16762,7 +16762,7 @@ async function prep_precargarCache(forzar) {
   try {
     const res = await fetch(URL_GAS, {
       method: 'POST',
-      body: JSON.stringify({ accion: 'listarLotesPreparacion', limite: 20000 })
+      body: JSON.stringify({ accion: 'listarLotesPreparacion', limite: 60000 })
     });
     const d = await res.json();
 
