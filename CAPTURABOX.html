@@ -25406,9 +25406,12 @@ async function cb_verSinCruce() {
 
     var filas = d.data.map(function(x, i) {
       var fecha = x.fechaUbicacion ? new Date(x.fechaUbicacion).toLocaleDateString('es-CL') : '—';
+      var loteEsc = String(x.lote || '').replace(/'/g, "\\'");
       return '<tr style="background:' + (i % 2 ? '#f7f9fb' : '#fff') + ';">' +
         '<td style="padding:6px 8px;border:1px solid #e6ebee;font-weight:700;">' + (x.lote || '—') + '</td>' +
-        '<td style="padding:6px 8px;border:1px solid #e6ebee;">' + (x.cliente || '—') + '</td>' +
+        '<td style="padding:6px 8px;border:1px solid #e6ebee;">' +
+          cbSinCruce_celdaClienteHtml(i, x.cliente || '—', loteEsc) +
+        '</td>' +
         '<td style="padding:6px 8px;border:1px solid #e6ebee;">' + (x.producto || '—') + '</td>' +
         '<td style="padding:6px 8px;border:1px solid #e6ebee;">' + (x.ubicacion || '—') + '</td>' +
         '<td style="padding:6px 8px;border:1px solid #e6ebee;">' + fecha + '</td>' +
@@ -25468,6 +25471,92 @@ async function cb_verSinCruce() {
     ocultarCargando();
     mostrarAlerta('❌ Error', e.message || String(e));
   }
+}
+
+/* Edición en línea del Cliente en "Lotes sin cruce" — se pidió
+   explícitamente: antes había que ir a Editar el detalle de la
+   recepción (y encima ese camino tenía un bug aparte, ver fix33 en
+   el backend: stockMarcarRecepcionados_ nunca actualizaba el Cliente
+   de una fila ya existente en STOCK_CLIENTE). Acá se corrige directo
+   sobre STOCK_CLIENTE, sin salir de esta ventana. */
+var CB_SINCRUCE_CLIENTES = ['ARAUCO', 'FORACTION', 'MASISA', 'JCE', 'CMPC'];
+
+function cbSinCruce_celdaClienteHtml(idx, clienteTxt, loteEsc) {
+  return '<span id="cbSinCruceCliente_' + idx + '">' + clienteTxt + '</span> ' +
+    '<span onclick="cbSinCruce_editarCliente(' + idx + ', \'' + loteEsc + '\')" ' +
+    'style="cursor:pointer;" title="Corregir cliente">✏️</span>';
+}
+
+function cbSinCruce_editarCliente(idx, lote) {
+  var celda = document.getElementById('cbSinCruceCliente_' + idx);
+  if (!celda) return;
+  var td = celda.parentNode;
+  if (!td) return;
+
+  var actual = celda.textContent.trim();
+  if (actual === '—') actual = '';
+  var htmlOriginal = td.innerHTML;
+
+  td.innerHTML = '';
+
+  var select = document.createElement('select');
+  select.style.cssText = 'font-size:12px;padding:3px 4px;border-radius:6px;border:1px solid #cfd8dc;';
+  CB_SINCRUCE_CLIENTES.forEach(function (c) {
+    var opt = document.createElement('option');
+    opt.value = c;
+    opt.textContent = c;
+    if (c === actual) opt.selected = true;
+    select.appendChild(opt);
+  });
+
+  var btnOk = document.createElement('span');
+  btnOk.textContent = '✓';
+  btnOk.title = 'Guardar';
+  btnOk.style.cssText = 'cursor:pointer;color:#1b7a3d;font-weight:900;margin-left:6px;font-size:14px;';
+
+  var btnCancel = document.createElement('span');
+  btnCancel.textContent = '✕';
+  btnCancel.title = 'Cancelar';
+  btnCancel.style.cssText = 'cursor:pointer;color:#c62828;font-weight:900;margin-left:6px;font-size:14px;';
+
+  td.appendChild(select);
+  td.appendChild(btnOk);
+  td.appendChild(btnCancel);
+
+  btnCancel.onclick = function () {
+    td.innerHTML = htmlOriginal;
+  };
+
+  btnOk.onclick = async function () {
+    var nuevo = select.value;
+    if (!nuevo || nuevo === actual) { td.innerHTML = htmlOriginal; return; }
+
+    btnOk.style.pointerEvents = 'none';
+    btnOk.textContent = '…';
+
+    try {
+      var res = await fetch(URL_GAS, {
+        method: 'POST',
+        body: JSON.stringify({
+          accion: 'corregirClienteLoteStock',
+          lote: lote,
+          clienteNuevo: nuevo,
+          rut: localStorage.getItem('usuario') || ''
+        })
+      });
+      var d = await res.json();
+      if (!d.ok) {
+        mostrarAlerta('❌ No se pudo corregir', d.msg || 'Error desconocido.');
+        td.innerHTML = htmlOriginal;
+        return;
+      }
+      td.innerHTML = cbSinCruce_celdaClienteHtml(idx, nuevo, lote.replace(/'/g, "\\'"));
+      if (typeof mostrarToastExito === 'function') mostrarToastExito('Cliente corregido a ' + nuevo);
+    } catch (e) {
+      mostrarAlerta('❌ Error de conexión', e.message || String(e));
+      td.innerHTML = htmlOriginal;
+    }
+  };
 }
 
 /* Lotes que el cliente reporta en su stock pero que todavía no se
