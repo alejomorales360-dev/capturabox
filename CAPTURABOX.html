@@ -9401,6 +9401,31 @@ async function rc_editarEncabezado() {
     await rc_putJob(jobActual);
 
     rc_pintarEncabezado(jobActual);
+
+    // Si esta recepción YA estaba enviada (se reabrió para editar), el
+    // encabezado corregido tiene que llegar al servidor AHORA MISMO —
+    // antes esto solo se guardaba localmente (IndexedDB) y quedaba
+    // esperando a que el supervisor volviera a tocar "Cerrar camión y
+    // enviar", algo que no siempre pasa si solo venía a corregir un
+    // dato del encabezado. Sin este envío inmediato, la hoja RECEPCION
+    // (y STOCK_CLIENTE) seguía mostrando el dato viejo aunque en el
+    // celular ya se viera corregido.
+    if (jobActual.editando) {
+      mostrarCargando('Guardando en el servidor...');
+      try {
+        await enviarABaseDeDatosDesdeJob(jobActual);
+        ocultarCargando && ocultarCargando();
+        mostrarAlerta('✅ Actualizado', 'Los datos de la recepción se guardaron en el servidor.');
+      } catch (eEnvio) {
+        ocultarCargando && ocultarCargando();
+        mostrarAlerta('⚠️ Guardado solo en el celular',
+          'El dato quedó actualizado aquí, pero no se pudo enviar al servidor todavía.' +
+          '<br><br><span style="font-size:12px;color:#7a8b95;">' + (eEnvio.message || eEnvio) + '</span>' +
+          '<br><br>Vuelve a intentarlo o presiona "Cerrar camión y enviar" para reintentar.');
+      }
+      return true;
+    }
+
     mostrarAlerta('✅ Actualizado', 'Los datos de la recepción quedaron actualizados.');
     return true;
   });
