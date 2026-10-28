@@ -1,0 +1,2709 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<!-- MODO DEMO: generado por tools/build-demo.js, no editar a mano -->
+<script src="../demo-backend.js"></script>
+<script src="../demo-ui.js"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CapturaBox TV — Demo</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<style>
+  :root{
+    --bg-1:#0a1420;
+    --bg-2:#000000;
+    --gold:#e0a52c;
+    --teal:#17a2a0;
+    --indigo:#7c6cd8;
+    --sage:#3fae6a;
+    --amber:#e0a52c;
+    --ink:#f2f6f9;
+    --muted:#7f92a3;
+    --card:#101c2b;
+    --card-line:rgba(255,255,255,.07);
+    --numfont:"Segoe UI",Arial,Helvetica,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  html,body{
+    width:100vw;height:100vh;overflow:hidden;
+    background:radial-gradient(ellipse at 15% 0%, var(--bg-1) 0%, var(--bg-2) 70%);
+    color:var(--ink);
+    font-family:"Segoe UI",Helvetica,Arial,sans-serif;
+  }
+
+  /* Pantalla pensada para horizontal. El layout usa vw/vh en todas
+     sus reglas, y esas unidades no respetan un transform:rotate() en
+     un ancestro (siguen midiendo contra la pantalla física sin
+     rotar), asi que "forzar" la rotacion con CSS termina rompiendo
+     el diseño. En vez de eso, si el dispositivo queda en vertical se
+     oculta el dashboard y se muestra un aviso pidiendo girarlo. */
+  @media screen and (orientation: portrait) {
+    .wrap{ display:none; }
+  }
+  .girar-aviso{
+    display:none;
+    width:100vw;height:100vh;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    gap:2vh;
+    text-align:center;
+    padding:6vw;
+  }
+  @media screen and (orientation: portrait) {
+    .girar-aviso{ display:flex; }
+  }
+  .girar-aviso svg{
+    width:64px;height:64px;
+    color:var(--gold);
+    animation:girar-icono 1.6s ease-in-out infinite;
+  }
+  @keyframes girar-icono{
+    0%,100%{ transform:rotate(0deg); }
+    50%{ transform:rotate(90deg); }
+  }
+  .girar-aviso h2{
+    font-size:1.3rem;
+    color:var(--ink);
+  }
+  .girar-aviso p{
+    color:var(--muted);
+    font-size:.95rem;
+  }
+  .ic{width:1em;height:1em;display:inline-block;vertical-align:middle;}
+
+  .wrap{
+    width:100vw;height:100vh;
+    padding:1.7vh 1.7vw;
+    display:grid;
+    grid-template-columns:1fr 21vw;
+    grid-template-rows:auto auto auto 1fr auto;
+    gap:1.3vh 1.4vw;
+  }
+
+  /* ===== HEADER (ocupa las 2 columnas) ===== */
+  header{grid-column:1 / -1;display:flex;align-items:center;justify-content:space-between;}
+  .brand{display:flex;align-items:center;gap:.9vw;}
+  .brand .logo{
+    width:2.6vw;height:2.6vw;min-width:34px;min-height:34px;background:var(--gold);border-radius:.55vw;
+    display:flex;align-items:center;justify-content:center;color:#1a1300;font-size:1.35vw;
+  }
+  .brand .txt{display:flex;flex-direction:column;line-height:1.15;}
+  .brand .word{font-size:1.55vw;font-weight:800;letter-spacing:.02em;}
+  .brand .word b{color:var(--gold);font-weight:800;}
+  .brand .sub{display:flex;align-items:center;gap:.7vw;margin-left:1.1vw;padding-left:1.1vw;border-left:1px solid var(--card-line);}
+  .brand .sub .a{font-size:.95vw;font-weight:700;letter-spacing:.02em;}
+  .brand .sub .b{font-size:.68vw;color:var(--muted);letter-spacing:.14em;text-transform:uppercase;}
+
+  .status-pill{
+    display:flex;align-items:center;gap:.5vw;background:rgba(63,174,106,.12);
+    border:1px solid rgba(63,174,106,.35);border-radius:999px;padding:.5vh 1vw;
+  }
+  .status-pill .dot{width:.55vw;height:.55vw;border-radius:50%;background:var(--sage);box-shadow:0 0 6px var(--sage);transition:background .3s;}
+  .status-pill .dot.stale{background:#c1633f;box-shadow:0 0 6px #c1633f;}
+  .status-pill .txt{font-size:.72vw;}
+  .status-pill .txt b{color:var(--sage);font-weight:700;letter-spacing:.05em;}
+  .status-pill .txt .sub{display:block;color:var(--muted);font-size:.9em;}
+
+  .clockbox{display:flex;align-items:center;gap:.7vw;}
+  .clockbox .ic{color:var(--gold);font-size:1.5vw;}
+  .clockbox .time{font-family:var(--numfont);font-variant-numeric:tabular-nums;font-size:1.9vw;font-weight:800;line-height:1;}
+  .clockbox .date{font-size:.75vw;color:var(--muted);margin-top:.15vh;text-transform:capitalize;}
+
+  /* ===== BOTÓN HISTÓRICO ===== */
+  .btn-hist{
+    display:flex;align-items:center;gap:.45vw;cursor:pointer;
+    background:rgba(124,108,216,.14);border:1px solid rgba(124,108,216,.4);
+    color:#b9aef0;border-radius:999px;padding:.55vh 1.05vw;
+    font-size:.72vw;font-weight:700;letter-spacing:.04em;text-transform:uppercase;
+    transition:background .2s, transform .12s;
+  }
+  .btn-hist:hover{background:rgba(124,108,216,.26);}
+  .btn-hist:active{transform:scale(.96);}
+  .btn-hist .ic{font-size:.95vw;}
+
+  /* Pill de "viendo una fecha pasada" — reemplaza al pill EN LÍNEA
+     mientras se navega a un día/semana específico. */
+  .status-pill.viendo{background:rgba(224,165,44,.14);border-color:rgba(224,165,44,.45);cursor:pointer;}
+  .status-pill.viendo .dot{background:var(--gold);box-shadow:0 0 6px var(--gold);}
+  .status-pill.viendo .txt b{color:var(--gold);}
+
+  /* ===== SELECTOR DE FECHA (ir a un día/semana específico) ===== */
+  .fecha-overlay{
+    position:fixed;inset:0;z-index:9500;display:none;
+    background:rgba(0,0,0,.6);align-items:center;justify-content:center;
+  }
+  .fecha-overlay.open{display:flex;}
+  .fecha-box{
+    background:#101c2b;border:1px solid var(--card-line);border-radius:1vw;
+    padding:2.2vh 2.2vw;width:min(360px,90vw);text-align:center;
+  }
+  .fecha-box .ttl{font-size:1.1vw;font-weight:800;margin-bottom:.4vh;}
+  .fecha-box .sub{font-size:.72vw;color:var(--muted);margin-bottom:1.6vh;}
+  .fecha-box input[type=date]{
+    width:100%;box-sizing:border-box;padding:1vh 1vw;border-radius:.6vw;border:1px solid var(--card-line);
+    background:rgba(255,255,255,.06);color:var(--ink);font-size:1vw;margin-bottom:1.6vh;
+    color-scheme:dark;
+  }
+  .fecha-box .btns{display:flex;gap:.8vw;}
+  .fecha-box button{
+    flex:1;cursor:pointer;border-radius:.6vw;padding:1vh 1vw;font-size:.8vw;font-weight:700;
+    border:1px solid var(--card-line);background:rgba(255,255,255,.08);color:var(--ink);
+  }
+  .fecha-box button.ir{background:var(--indigo);border-color:var(--indigo);color:#fff;}
+  .fecha-box button:hover{opacity:.9;}
+
+  /* ===== MAIN (fila 2, col izquierda) ===== */
+  main{grid-column:1;display:grid;grid-template-columns:1fr 1.75fr;gap:1.4vw;min-height:31vh;}
+
+  .card{background:var(--card);border:1px solid var(--card-line);border-radius:.9vw;overflow:hidden;}
+  .card.clickable{cursor:pointer;transition:background .15s,border-color .15s;}
+  .card.clickable:hover{background:rgba(255,255,255,.045);border-color:rgba(255,255,255,.16);}
+
+  .ring-card{
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    padding:1.2vh 1.5vw;position:relative;
+  }
+  .ring-card .label{font-size:.68vw;letter-spacing:.08em;text-transform:uppercase;font-weight:600;color:var(--muted);margin-bottom:.8vh;text-align:center;}
+  .ring-body{display:flex;align-items:center;justify-content:center;gap:1.6vw;}
+  .ring-wrap{position:relative;width:min(12.5vw,26vh);height:min(12.5vw,26vh);flex-shrink:0;}
+  .ring-wrap svg{width:100%;height:100%;transform:rotate(-90deg);}
+  .ring-center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;}
+  .ring-center .pct{font-family:var(--numfont);font-variant-numeric:tabular-nums;font-weight:800;font-size:2.05vw;line-height:1;color:var(--sage);transition:color .4s;}
+  .ring-center .tag{margin-top:.5vh;font-size:.65vw;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);}
+  .ring-side{display:flex;flex-direction:column;gap:1vh;}
+  .ring-side-row{display:flex;align-items:center;gap:.6vw;}
+  .ring-mini-ic{width:1.9vw;height:1.9vw;min-width:22px;min-height:22px;border-radius:.4vw;display:flex;align-items:center;justify-content:center;font-size:.9vw;flex-shrink:0;}
+  .ring-side .n{font-family:var(--numfont);font-variant-numeric:tabular-nums;font-size:1.15vw;font-weight:800;}
+  .ring-side .l{font-size:.66vw;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;}
+  .ring-foot{position:absolute;bottom:1.3vh;left:0;right:0;text-align:center;font-size:.66vw;color:var(--muted);letter-spacing:.04em;}
+  .ring-foot b{color:var(--ink);}
+
+  .kpi-grid{display:grid;grid-template-columns:1fr 1fr;grid-template-rows:auto auto;gap:1.1vw;min-height:0;}
+  .kpi{padding:1vh 1.1vw;display:flex;flex-direction:column;justify-content:center;gap:.35vh;}
+  .kpi-top{display:flex;align-items:center;gap:.7vw;}
+  .kpi-ic{width:2.1vw;height:2.1vw;min-width:26px;min-height:26px;border-radius:.5vw;display:flex;align-items:center;justify-content:center;font-size:1.05vw;flex-shrink:0;}
+  .kpi-txt .l{font-size:.68vw;color:var(--muted);letter-spacing:.05em;text-transform:uppercase;line-height:1.2;}
+  .kpi-txt .v{font-family:var(--numfont);font-variant-numeric:tabular-nums;font-weight:800;font-size:1.65vw;line-height:1.1;margin-top:.15vh;transition:color .35s;}
+  .kpi-txt .v small{font-size:.6vw;color:var(--muted);font-weight:400;margin-left:.25vw;}
+  .kpi-break{font-size:.68vw;color:var(--muted);padding-left:2.8vw;}
+  .kpi-break b{color:var(--ink);font-weight:700;}
+
+  .flash{color:var(--gold) !important;}
+
+  /* ===== FILA MEDIA (trend + resumen) ===== */
+  .midrow{grid-column:1;display:grid;grid-template-columns:1.5fr 1fr;gap:1.4vw;min-height:22vh;}
+  .midrow .card{padding:1.2vh 1.3vw;display:flex;flex-direction:column;min-height:0;}
+  .midrow .t{font-size:.74vw;letter-spacing:.05em;text-transform:uppercase;font-weight:600;margin-bottom:.8vh;text-align:center;}
+  .midrow .card:first-child .t{color:var(--teal);}
+  .midrow .card:last-child .t{color:var(--gold);}
+  .canvas-wrap{flex:1;position:relative;min-height:0;}
+
+  .resumen-row{display:flex;align-items:center;gap:.8vw;flex:1;}
+  .resumen-item{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.4vh;text-align:center;}
+  .resumen-ic{width:2vw;height:2vw;min-width:24px;min-height:24px;border-radius:.45vw;display:flex;align-items:center;justify-content:center;font-size:1vw;color:var(--gold);background:rgba(224,165,44,.12);}
+  .resumen-item .v{font-family:var(--numfont);font-variant-numeric:tabular-nums;font-weight:800;font-size:1.4vw;}
+  .resumen-item .l{font-size:.6vw;color:var(--muted);letter-spacing:.04em;text-transform:uppercase;}
+
+  /* ===== BOTTOM (tablas) ===== */
+  .bottom{grid-column:1;display:grid;grid-template-columns:1fr 1fr 1fr;gap:1.4vw;min-height:0;}
+  .bottom .card{padding:1.1vh 1.2vw;display:flex;flex-direction:column;min-height:0;overflow:hidden;}
+  .table-scroll{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;}
+  .bottom .t{display:flex;align-items:center;justify-content:center;gap:.55vw;font-size:.76vw;letter-spacing:.04em;text-transform:uppercase;font-weight:600;margin-bottom:.7vh;flex-shrink:0;}
+  .bottom .card:nth-child(1) .t{color:var(--gold);}
+  .bottom .card:nth-child(2) .t{color:var(--indigo);}
+  .bottom .card:nth-child(3) .t{color:var(--sage);}
+  .bottom .t .ic-round{width:1.6vw;height:1.6vw;min-width:19px;min-height:19px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.82vw;flex-shrink:0;}
+  table.act-table{width:100%;border-collapse:collapse;font-size:.72vw;}
+  table.act-table thead th{
+    text-align:left;color:var(--muted);font-weight:600;letter-spacing:.04em;text-transform:uppercase;
+    font-size:.6vw;padding:.3vh .2vw;border-bottom:1px solid var(--card-line);
+  }
+  table.act-table tbody td{padding:.4vh .2vw;border-bottom:1px solid rgba(255,255,255,.04);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  table.act-table tbody tr:last-child td{border-bottom:none;}
+  table.act-table .dotcell{width:1vw;}
+  table.act-table .rowdot{width:.5vw;height:.5vw;border-radius:50%;background:var(--sage);display:inline-block;}
+  .act-empty{color:var(--muted);font-size:.75vw;text-align:center;padding:1.5vh 0;}
+
+  /* ===== SIDEBAR NAVES ===== */
+  .sidebar{grid-column:2;grid-row:2 / -1;display:flex;flex-direction:column;min-height:0;}
+  .sidebar-card{flex:1;display:flex;flex-direction:column;min-height:0;padding:1.2vh 1.2vw;}
+  .sidebar-title{display:flex;align-items:center;justify-content:center;gap:.55vw;font-size:.78vw;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--gold);margin-bottom:1vh;}
+  .sidebar-title .ic{color:var(--gold);font-size:1vw;}
+  .nave-list{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:1vh;}
+  .nave-card{background:rgba(255,255,255,.025);border:1px solid var(--card-line);border-radius:.6vw;padding:.9vh .9vw;}
+  .nave-card.clickable{cursor:pointer;transition:background .15s;}
+  .nave-card.clickable:hover{background:rgba(255,255,255,.06);}
+  .nave-card-top{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:.6vh;gap:.4vw;}
+  .nave-card-name{font-size:.9vw;font-weight:800;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0;}
+  .nave-card-tags{display:flex;align-items:center;gap:.35vw;flex-shrink:0;}
+  .nave-card-badge{font-size:.6vw;color:var(--sage);background:rgba(63,174,106,.12);border-radius:999px;padding:.2vh .6vw;white-space:nowrap;}
+  /* Chip de semana (WK33) */
+  .nave-wk{
+    font-size:.6vw;font-weight:800;letter-spacing:.05em;white-space:nowrap;
+    color:#b9aef0;background:rgba(124,108,216,.18);
+    border:1px solid rgba(124,108,216,.4);border-radius:999px;padding:.2vh .55vw;
+  }
+  .nave-wk.actual{color:#1a1300;background:var(--gold);border-color:var(--gold);}
+  .nave-client-block{padding-top:.6vh;margin-top:.6vh;border-top:1px solid var(--card-line);}
+  .nave-client-block:first-of-type{border-top:none;margin-top:0;}
+  .nave-client-name{font-size:.65vw;color:var(--gold);font-weight:700;margin-bottom:.4vh;letter-spacing:.03em;text-transform:uppercase;}
+  .nave-bar-bg{background:rgba(255,255,255,.08);border-radius:4px;height:.5vh;overflow:hidden;margin-bottom:.6vh;}
+  .nave-bar-fill{height:100%;border-radius:4px;transition:width .8s ease;}
+  .nave-stats{display:flex;justify-content:space-between;text-align:center;}
+  .nave-stats div{flex:1;}
+  .nave-stats .n{font-family:var(--numfont);font-variant-numeric:tabular-nums;font-weight:800;font-size:.95vw;}
+  .nave-stats .n.gold{color:var(--gold);}
+  .nave-stats .l{font-size:.55vw;color:var(--muted);letter-spacing:.05em;text-transform:uppercase;}
+
+  /* Encabezado de grupo por semana, arriba de las naves de esa semana */
+  .semana-header{
+    display:flex;align-items:center;justify-content:space-between;gap:.6vw;
+    padding:.7vh .9vw;border-radius:.5vw;background:rgba(124,108,216,.1);
+    border:1px solid rgba(124,108,216,.3);margin-top:.4vh;
+  }
+  .semana-header:first-child{margin-top:0;}
+  .semana-header.clickable{cursor:pointer;transition:background .15s;}
+  .semana-header.clickable:hover{background:rgba(124,108,216,.18);}
+  .semana-header .tit{display:flex;align-items:center;gap:.5vw;font-size:.72vw;font-weight:800;letter-spacing:.05em;color:#b9aef0;}
+  .semana-header .tit.actual{color:var(--gold);}
+  .semana-header .stats{display:flex;gap:.9vw;}
+  .semana-header .stats div{text-align:center;}
+  .semana-header .stats .n{font-family:var(--numfont);font-variant-numeric:tabular-nums;font-weight:800;font-size:.85vw;}
+  .semana-header .stats .n.gold{color:var(--gold);}
+  .semana-header .stats .l{font-size:.55vw;color:var(--muted);letter-spacing:.04em;text-transform:uppercase;}
+
+  .footer-note{
+    grid-column:1 / -1;text-align:center;font-size:.68vw;color:var(--muted);
+    display:flex;align-items:center;justify-content:center;gap:.4vw;padding-top:.2vh;
+  }
+
+  /* ============================================================
+     DETALLE DEL DÍA (al hacer clic en una barra del gráfico
+     de tendencia semanal, en la pantalla principal)
+     ============================================================ */
+  .dia-detalle-overlay{
+    position:fixed;inset:0;z-index:9500;display:none;
+    background:rgba(5,10,15,.72);align-items:center;justify-content:center;padding:2vh 2vw;
+    animation:histIn .2s ease;
+  }
+  .dia-detalle-overlay.open{display:flex;}
+  .dia-detalle-card{
+    background:var(--card);border:1px solid var(--card-line);border-radius:1vw;
+    width:100%;max-width:none;height:96vh;display:flex;flex-direction:column;
+    box-shadow:0 1.5vh 4vh rgba(0,0,0,.45);
+  }
+  .dia-detalle-head{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:1.6vh 1.6vw;border-bottom:1px solid var(--card-line);flex-shrink:0;
+  }
+  .dia-detalle-titulo{font-size:1vw;font-weight:800;text-transform:capitalize;}
+  .dia-detalle-cerrar{
+    cursor:pointer;background:rgba(255,255,255,.08);border:1px solid var(--card-line);
+    color:var(--ink);border-radius:.5vw;width:2vw;height:2vw;min-width:26px;min-height:26px;
+    font-size:.85vw;display:flex;align-items:center;justify-content:center;
+  }
+  .dia-detalle-cerrar:hover{background:rgba(255,255,255,.16);}
+  .dia-detalle-resumen{display:flex;gap:.8vw;flex-wrap:wrap;padding:1.4vh 1.6vw 0;}
+  .dia-detalle-chip{
+    display:flex;align-items:center;gap:.5vw;background:rgba(255,255,255,.03);
+    border:1px solid var(--card-line);border-radius:.6vw;padding:.7vh 1vw;font-size:.78vw;
+    cursor:pointer;transition:background .15s,border-color .15s;
+  }
+  .dia-detalle-chip:hover{background:rgba(255,255,255,.08);}
+  .dia-detalle-chip.activo{background:rgba(255,255,255,.14);border-color:var(--teal);}
+  .dia-detalle-resumen .dia-detalle-chip-hint{
+    display:flex;align-items:center;font-size:.72vw;color:var(--muted);padding:.7vh 0;
+  }
+  .dia-detalle-chip .dot{width:.6vw;height:.6vw;min-width:7px;min-height:7px;border-radius:50%;flex-shrink:0;}
+  .dia-detalle-chip .nombre{font-weight:700;}
+  .dia-detalle-chip .n{font-family:var(--numfont);font-variant-numeric:tabular-nums;font-weight:800;color:var(--gold);}
+  .dia-detalle-chip .m3{color:var(--muted);}
+  .dia-detalle-scroll{flex:1;overflow-y:auto;overflow-x:hidden;padding:1.4vh 1.6vw 1.6vh;}
+  .dia-detalle-scroll table.act-table{width:100%;table-layout:fixed;font-size:1vw;}
+  .dia-detalle-scroll table.act-table td,.dia-detalle-scroll table.act-table th{white-space:normal;overflow-wrap:break-word;}
+  .dia-detalle-scroll table.act-table tfoot td{padding-top:.8vh;}
+  .kpi-detalle-sub{font-size:.85vw;font-weight:800;color:var(--teal);text-transform:uppercase;letter-spacing:.05em;margin:1.8vh 0 .8vh;}
+  .kpi-detalle-sub:first-child{margin-top:0;}
+
+  /* ============================================================
+     VISTA HISTÓRICA (capa completa sobre el dashboard)
+     ============================================================ */
+  .hist-overlay{
+    position:fixed;inset:0;z-index:9000;display:none;
+    background:radial-gradient(ellipse at 15% 0%, #0a1420 0%, #000 70%);
+    padding:2vh 2vw;flex-direction:column;
+    animation:histIn .25s ease;
+  }
+  .hist-overlay.open{display:flex;}
+  @keyframes histIn{from{opacity:0;transform:scale(.985);}to{opacity:1;transform:scale(1);}}
+
+  .hist-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:1.6vh;flex-shrink:0;}
+  .hist-head .ttl{display:flex;align-items:center;gap:.8vw;}
+  .hist-head .ttl .ic{color:var(--indigo);font-size:1.7vw;}
+  .hist-head .ttl .a{font-size:1.4vw;font-weight:800;}
+  .hist-head .ttl .b{font-size:.72vw;color:var(--muted);letter-spacing:.12em;text-transform:uppercase;margin-top:.2vh;}
+  .hist-close{
+    cursor:pointer;background:rgba(255,255,255,.08);border:1px solid var(--card-line);
+    color:var(--ink);border-radius:.6vw;padding:.7vh 1.3vw;font-size:.85vw;font-weight:700;
+  }
+  .hist-close:hover{background:rgba(255,255,255,.16);}
+  .hist-autoclose{font-size:.66vw;color:var(--muted);margin-right:1vw;}
+  .hist-filtro{
+    cursor:pointer;background:rgba(255,255,255,.06);border:1px solid var(--card-line);
+    color:var(--ink);border-radius:.6vw;padding:.65vh 1vw;font-size:.78vw;font-weight:600;
+    margin-right:1vw;
+  }
+  .hist-filtro:focus{outline:1px solid var(--indigo);}
+  /* El popup nativo del <select> no hereda el tema oscuro del resto de la
+     página — sin esto, Chromium lo pinta con texto claro sobre fondo
+     claro (casi ilegible). Fondo y texto explícitos por opción. */
+  .hist-filtro option{background:#101c2b;color:#f2f6f9;}
+  .hist-rango{
+    display:none;align-items:center;gap:.4vw;margin-right:1vw;
+    color:var(--muted);font-size:.72vw;
+  }
+  .hist-rango.show{display:flex;}
+  .hist-rango input{
+    width:3.2vw;background:rgba(255,255,255,.06);border:1px solid var(--card-line);
+    color:var(--ink);border-radius:.5vw;padding:.5vh .5vw;font-size:.78vw;text-align:center;
+    font-family:var(--numfont);
+  }
+  .hist-rango input:focus{outline:1px solid var(--indigo);}
+
+  .hist-body{flex:1;display:grid;grid-template-columns:1.15fr .95fr .9fr;grid-template-rows:auto 22vh 1fr;gap:1.2vh 1.2vw;min-height:0;}
+  .hist-chart{grid-column:1;grid-row:1;}
+  .hist-vol{grid-column:2;grid-row:1;}
+  .hist-records{grid-column:3;grid-row:1;}
+  .hist-ocupacion{grid-column:1 / -1;grid-row:2;min-height:0;}
+  .hist-ocupacion .hist-canvas{min-height:0;}
+  .hist-naves{grid-column:1 / -1;grid-row:3;min-height:0;}
+  .hist-card{background:var(--card);border:1px solid var(--card-line);border-radius:.9vw;padding:1.3vh 1.4vw;display:flex;flex-direction:column;min-height:0;}
+  .hist-card .t{font-size:.78vw;letter-spacing:.05em;text-transform:uppercase;font-weight:600;margin-bottom:1vh;color:var(--teal);flex-shrink:0;}
+  .hist-vol .t{color:var(--sage);}
+  .hist-records .t{color:#d98cc4;}
+  .hist-naves .t{color:var(--indigo);}
+  .hist-canvas{flex:1;position:relative;min-height:16vh;}
+
+  /* ---- Récords (sin iconos: un acento de color a la izquierda basta
+     para distinguir cada fila, sin verse informal) ---- */
+  .rec-grid{display:flex;flex-direction:column;gap:.75vh;flex:1;justify-content:center;}
+  .rec-row{
+    display:flex;align-items:center;justify-content:space-between;gap:.7vw;
+    padding:.6vh .7vw;border-left:3px solid var(--muted);border-radius:.3vw;
+    background:rgba(255,255,255,.02);
+  }
+  .rec-txt{flex:1;min-width:0;}
+  .rec-txt .l{font-size:.6vw;color:var(--muted);letter-spacing:.05em;text-transform:uppercase;line-height:1.2;}
+  .rec-txt .v{font-family:var(--numfont);font-variant-numeric:tabular-nums;font-weight:800;font-size:.95vw;line-height:1.25;}
+  .rec-txt .v small{font-size:.62vw;color:var(--muted);font-weight:600;margin-left:.3vw;}
+  .rec-wk{font-size:.6vw;font-weight:800;color:#b9aeff;background:rgba(124,108,216,.16);border-radius:999px;padding:.15vh .5vw;white-space:nowrap;}
+
+  .hist-scroll{flex:1;min-height:0;overflow-y:auto;}
+  table.hist-table{width:100%;border-collapse:collapse;font-size:.78vw;}
+  table.hist-table thead th{
+    position:sticky;top:0;background:var(--card);
+    text-align:left;color:var(--muted);font-weight:600;letter-spacing:.04em;text-transform:uppercase;
+    font-size:.64vw;padding:.5vh .4vw;border-bottom:1px solid var(--card-line);
+  }
+  table.hist-table tbody td{padding:.55vh .4vw;border-bottom:1px solid rgba(255,255,255,.04);}
+  table.hist-table tbody tr.wk-actual{background:rgba(224,165,44,.07);}
+  .mini-bar-bg{background:rgba(255,255,255,.08);border-radius:4px;height:.6vh;overflow:hidden;width:100%;min-width:60px;}
+  .mini-bar-fill{height:100%;border-radius:4px;}
+  .pill-ok{font-size:.64vw;font-weight:800;color:var(--sage);background:rgba(63,174,106,.14);border-radius:999px;padding:.2vh .6vw;}
+  .pill-no{font-size:.64vw;font-weight:800;color:#c1633f;background:rgba(193,99,63,.14);border-radius:999px;padding:.2vh .6vw;}
+  .pill-curso{font-size:.64vw;font-weight:800;color:var(--gold);background:rgba(224,165,44,.14);border-radius:999px;padding:.2vh .6vw;}
+</style>
+</head>
+<body>
+  <div class="girar-aviso">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="5" y="2" width="14" height="20" rx="2"/>
+      <line x1="12" y1="18" x2="12.01" y2="18"/>
+    </svg>
+    <h2>Girá el dispositivo</h2>
+    <p>Esta pantalla está diseñada para verse en horizontal.</p>
+  </div>
+  <div class="wrap">
+
+    <header>
+      <div class="brand">
+        <div class="logo">
+          <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+            <polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/>
+          </svg>
+        </div>
+        <div class="txt"><div class="word">Captura<b>Box</b></div></div>
+        <div class="sub">
+          <div>
+            <div class="a" id="bodegaNombre">Bodega</div>
+            <div class="b">Dashboard operativo</div>
+          </div>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:1.2vw;">
+        <div class="btn-hist" id="btnFecha" onclick="abrirSelectorFecha()">
+          <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+          </svg>
+          Ir a fecha
+        </div>
+        <div class="btn-hist" id="btnHistorico" onclick="abrirHistorico()">
+          <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>
+          </svg>
+          Histórico
+        </div>
+        <div class="status-pill" id="pillEstado" onclick="if(fechaVistaISO) volverAEnVivo();">
+          <span class="dot" id="dotEstado"></span>
+          <div class="txt"><b id="pillEstadoTxt">EN LÍNEA</b><span class="sub" id="txtActualizado">Cargando…</span></div>
+        </div>
+        <div class="clockbox">
+          <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+          </svg>
+          <div><div class="time" id="reloj">--:--</div><div class="date" id="fechaHoy">—</div></div>
+        </div>
+      </div>
+    </header>
+
+    <main>
+      <div class="card ring-card clickable" onclick="mostrarDetalleBodega()">
+        <div class="label" id="labelOcupacionBodega">Ocupación de bodega</div>
+        <div class="ring-body">
+        <div class="ring-wrap">
+          <svg viewBox="0 0 220 220">
+            <circle cx="110" cy="110" r="96" fill="none" stroke="rgba(255,255,255,.07)" stroke-width="16"/>
+            <circle id="ringProgress" cx="110" cy="110" r="96" fill="none" stroke="#3fae6a" stroke-width="16"
+                    stroke-linecap="round" stroke-dasharray="603" stroke-dashoffset="603"
+                    style="transition:stroke-dashoffset 1s ease, stroke 1s ease;"/>
+          </svg>
+          <div class="ring-center">
+            <div class="pct" id="ringPct">—<span style="font-size:.55em;">%</span></div>
+            <div class="tag" id="ringTag">cargando</div>
+          </div>
+        </div>
+        <div class="ring-side">
+          <div class="ring-side-row">
+            <div class="ring-mini-ic" style="background:rgba(224,165,44,.15);color:var(--gold);">
+              <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+            </div>
+            <div><div class="n" id="stockUsado">—</div><div class="l">m³ usados</div></div>
+          </div>
+          <div class="ring-side-row">
+            <div class="ring-mini-ic" style="background:rgba(63,174,106,.15);color:var(--sage);">
+              <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+            </div>
+            <div><div class="n" id="stockLibre">—</div><div class="l">m³ libres</div></div>
+          </div>
+        </div>
+        </div>
+        <div class="ring-foot">Capacidad total <b id="stockCapacidad">—</b> m³</div>
+      </div>
+
+      <div class="kpi-grid">
+        <div class="card kpi clickable" onclick="mostrarDetalleConsolidadosHoy()">
+          <div class="kpi-top">
+            <div class="kpi-ic" style="background:rgba(23,162,160,.15);color:var(--teal);">
+              <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+            </div>
+            <div class="kpi-txt"><div class="l">Consolidados hoy</div><div class="v" id="kpiBox">—</div></div>
+          </div>
+          <div class="kpi-break" id="kpiBoxBreak"></div>
+          <div style="border-top:1px solid rgba(255,255,255,.08); margin-top:8px; padding-top:8px;">
+            <div style="display:flex; align-items:center; gap:8px;">
+              <span style="color:#e0a52c; font-size:11px; font-weight:700;">⏳ EN PROCESO</span>
+              <span style="color:#e0a52c; font-size:20px; font-weight:800;" id="kpiParciales">—</span>
+            </div>
+            <div style="font-size:10px; color:rgba(255,255,255,.4); margin-top:2px;" id="kpiParcialesBreak"></div>
+          </div>
+        </div>
+
+        <div class="card kpi clickable" onclick="mostrarDetalleRecepcionHoy()">
+          <div class="kpi-top">
+            <div class="kpi-ic" style="background:rgba(63,174,106,.15);color:var(--sage);">
+              <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+            </div>
+            <div class="kpi-txt"><div class="l">Recepción hoy · camiones</div><div class="v" id="kpiCamiones">—</div></div>
+          </div>
+          <div class="kpi-break" id="kpiCamionesBreak"></div>
+        </div>
+
+        <div class="card kpi clickable" onclick="mostrarDetalleVolumenHoy()">
+          <div class="kpi-top">
+            <div class="kpi-ic" style="background:rgba(124,108,216,.15);color:var(--indigo);">
+              <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+            </div>
+            <div class="kpi-txt"><div class="l">Volumen movilizado hoy</div><div class="v" id="kpiM3">—</div></div>
+          </div>
+          <div class="kpi-break" id="kpiM3Break"></div>
+        </div>
+
+        <div class="card kpi clickable" onclick="mostrarDetalleVaciosHoy()">
+          <div class="kpi-top">
+            <div class="kpi-ic" style="background:rgba(224,165,44,.15);color:var(--gold);">
+              <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+            </div>
+            <div class="kpi-txt"><div class="l">Contenedores vacíos hoy</div><div class="v" id="kpiVacios">—</div></div>
+          </div>
+          <div class="kpi-break" id="kpiVaciosBreak"></div>
+          <div style="border-top:1px solid rgba(255,255,255,.08); margin-top:8px; padding-top:8px;">
+            <div style="display:flex; align-items:center; gap:8px;">
+              <span style="color:#7c6cd8; font-size:11px; font-weight:700;">📤 DESPACHOS</span>
+              <span style="color:#7c6cd8; font-size:20px; font-weight:800;" id="kpiDespachos">—</span>
+            </div>
+            <div style="font-size:10px; color:rgba(255,255,255,.4); margin-top:2px;" id="kpiDespachosBreak"></div>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <div class="midrow">
+      <div class="card">
+        <div class="t">Contenedores consolidados — esta semana (lun–sáb)</div>
+        <div class="canvas-wrap"><canvas id="cvsTendencia"></canvas></div>
+      </div>
+      <div class="card clickable" onclick="mostrarDetalleResumenSemana()">
+        <div class="t">Resumen general — semana</div>
+        <div class="resumen-row">
+          <div class="resumen-item">
+            <div class="resumen-ic">
+              <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+            </div>
+            <div class="v" id="resVolumen">—</div><div class="l">m³ movilizados</div>
+          </div>
+          <div class="resumen-item">
+            <div class="resumen-ic">
+              <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            </div>
+            <div class="v" id="resCamiones">—</div><div class="l">recepciones</div>
+          </div>
+          <div class="resumen-item">
+            <div class="resumen-ic">
+              <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+            </div>
+            <div class="v" id="resContenedores">—</div><div class="l">consolidados</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="bottom">
+      <div class="card">
+        <div class="t">
+          <span class="ic-round" style="background:rgba(224,165,44,.15);color:var(--gold);">
+            <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          </span>
+          Últimas recepciones
+        </div>
+        <div class="table-scroll">
+        <table class="act-table"><thead><tr><th></th><th>Fecha</th><th>Hora fin</th><th>Patente</th><th>Cliente</th><th>m³</th></tr></thead>
+          <tbody id="listRecepciones"><tr><td colspan="6" class="act-empty">Cargando…</td></tr></tbody>
+        </table>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="t">
+          <span class="ic-round" style="background:rgba(124,108,216,.15);color:var(--indigo);">
+            <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+          </span>
+          Últimos consolidados
+        </div>
+        <div class="table-scroll">
+        <table class="act-table"><thead><tr><th></th><th>Fecha</th><th>Hora inicio</th><th>Contenedor</th><th>Cliente</th><th>Nave</th></tr></thead>
+          <tbody id="listConsolidados"><tr><td colspan="6" class="act-empty">Cargando…</td></tr></tbody>
+        </table>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="t">
+          <span class="ic-round" style="background:rgba(63,174,106,.15);color:var(--sage);">
+            <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+          </span>
+          Últimos lotes preparados
+        </div>
+        <div class="table-scroll">
+        <table class="act-table"><thead><tr><th></th><th>Lote</th><th>Cliente</th><th>Ubicación</th><th>m³</th><th>Servicio</th></tr></thead>
+          <tbody id="listPreparados"><tr><td colspan="6" class="act-empty">Cargando…</td></tr></tbody>
+        </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="sidebar">
+      <div class="card sidebar-card">
+        <div class="sidebar-title">
+          <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="3"/><line x1="12" y1="22" x2="12" y2="8"/><path d="M5 12H2a10 10 0 0 0 20 0h-3"/></svg>
+          Naves de la semana
+        </div>
+        <div class="nave-list" id="listNaves"><div class="act-empty">Cargando…</div></div>
+      </div>
+    </div>
+
+    <div class="footer-note">
+      <svg class="ic" style="width:.9em;height:.9em;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+      Los datos se actualizan automáticamente cada 3 minutos
+    </div>
+
+  </div>
+
+  <!-- ============ SELECTOR DE FECHA (ir a un día/semana específico) ============ -->
+  <div class="fecha-overlay" id="fechaOverlay">
+    <div class="fecha-box">
+      <div class="ttl">📅 Ir a una fecha</div>
+      <div class="sub">Se muestra ese día y la semana (lun–dom) a la que pertenece.</div>
+      <input type="date" id="fechaSeleccionada">
+      <div class="btns">
+        <button onclick="cerrarSelectorFecha()">Cancelar</button>
+        <button class="ir" onclick="irAFechaSeleccionada()">Ver esa fecha</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ VISTA HISTÓRICA ============ -->
+  <div class="hist-overlay" id="histOverlay">
+    <div class="hist-head">
+      <div class="ttl">
+        <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>
+        </svg>
+        <div>
+          <div class="a">Histórico por semana</div>
+          <div class="b" id="histSubtitulo">Avance de naves · CapturaBox</div>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;">
+        <select class="hist-filtro" id="histFiltroSemanas" onchange="histCambioFiltroSemanas_()">
+          <option value="1">Última semana</option>
+          <option value="2">Últimas 2 semanas</option>
+          <option value="3">Últimas 3 semanas</option>
+          <option value="4" selected>Últimas 4 semanas</option>
+          <option value="5">Últimas 5 semanas</option>
+          <option value="6">Últimas 6 semanas</option>
+          <option value="8">Últimas 8 semanas</option>
+          <option value="12">Últimas 12 semanas</option>
+          <option value="24">Últimos 6 meses</option>
+          <option value="todo">Todo el histórico</option>
+          <option value="rango">Rango de semanas…</option>
+        </select>
+        <span class="hist-rango" id="histRango">
+          desde <input type="number" id="histSemanaDesde" min="1" max="53" onchange="pintarHistorico()">
+          a <input type="number" id="histSemanaHasta" min="1" max="53" onchange="pintarHistorico()">
+        </span>
+        <span class="hist-autoclose" id="histAutoclose"></span>
+        <button class="hist-close" onclick="cerrarHistorico()">✕ Volver al dashboard</button>
+      </div>
+    </div>
+
+    <div class="hist-body">
+      <div class="hist-card hist-chart">
+        <div class="t">Contenedores consolidados por semana</div>
+        <div class="hist-canvas"><canvas id="cvsHistorico"></canvas></div>
+      </div>
+
+      <div class="hist-card hist-vol">
+        <div class="t">Volumen recibido (m³) y camiones por semana</div>
+        <div class="hist-canvas"><canvas id="cvsHistVolumen"></canvas></div>
+      </div>
+
+      <div class="hist-card hist-records">
+        <div class="t">Días destacados</div>
+        <div class="rec-grid" id="histRecords">
+          <div class="act-empty">Cargando…</div>
+        </div>
+      </div>
+
+      <div class="hist-card hist-ocupacion">
+        <div class="t">Ocupación de bodega (m³) · histórico diario <span id="histOcupacionResumen" style="text-transform:none;font-weight:400;color:#7f92a3;"></span></div>
+        <div class="hist-canvas"><canvas id="cvsHistOcupacion"></canvas></div>
+      </div>
+
+      <div class="hist-card hist-naves">
+        <div class="t">Naves por semana · cumplimiento</div>
+        <div class="hist-scroll">
+          <table class="hist-table">
+            <thead><tr>
+              <th>Semana</th><th>Nave</th><th>Cliente</th>
+              <th>Consolidados</th><th>Meta</th><th>Saldo</th>
+              <th style="width:22%;">Avance</th><th>Estado</th>
+            </tr></thead>
+            <tbody id="histNavesBody"><tr><td colspan="8" class="act-empty">Cargando…</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+const URL_GAS = "https://script.google.com/macros/s/AKfycbwJ2zTkUXowYovx0PtFJwQcVhPlDM0vWPEYQ_rCfYuVajKUP7v1PgsUG81xOEPBIRi7/exec";
+
+const REFRESCO_DATOS_MS = 180 * 1000;
+let ultimaActualizacion = null;
+let chartTendencia = null;
+let ultimoSnapshot = {};
+
+/* ===== IR A FECHA (ver un día/semana específico en vez de "hoy" en vivo) ===== */
+let fechaVistaISO = null; // null = en vivo (hoy real); si no, "YYYY-MM-DD"
+const FECHA_VISTA_AUTOCLOSE_SEG = 120; // la TV vuelve sola a EN VIVO si nadie toca nada
+let fechaVistaAutocloseTimer = null;
+let fechaVistaCuenta = FECHA_VISTA_AUTOCLOSE_SEG;
+
+function abrirSelectorFecha() {
+  document.getElementById('fechaSeleccionada').value = fechaVistaISO || fechaISO(new Date());
+  document.getElementById('fechaOverlay').classList.add('open');
+}
+function cerrarSelectorFecha() {
+  document.getElementById('fechaOverlay').classList.remove('open');
+}
+function irAFechaSeleccionada() {
+  const val = document.getElementById('fechaSeleccionada').value;
+  if (!val) return;
+  fechaVistaISO = val;
+  cerrarSelectorFecha();
+  iniciarAutocierreFechaVista_();
+  actualizarPillEstado_();
+  ultimoSnapshot = {}; // fuerza a repintar todo con los datos de la fecha elegida
+  actualizarTodo();
+}
+function volverAEnVivo() {
+  if (!fechaVistaISO) return;
+  fechaVistaISO = null;
+  detenerAutocierreFechaVista_();
+  actualizarPillEstado_();
+  ultimoSnapshot = {};
+  actualizarTodo();
+}
+function iniciarAutocierreFechaVista_() {
+  clearInterval(fechaVistaAutocloseTimer);
+  fechaVistaCuenta = FECHA_VISTA_AUTOCLOSE_SEG;
+  fechaVistaAutocloseTimer = setInterval(function () {
+    fechaVistaCuenta--;
+    if (fechaVistaCuenta <= 0) volverAEnVivo();
+  }, 1000);
+}
+function detenerAutocierreFechaVista_() {
+  clearInterval(fechaVistaAutocloseTimer);
+  fechaVistaAutocloseTimer = null;
+}
+['click', 'touchstart', 'mousemove', 'keydown'].forEach(function (ev) {
+  document.addEventListener(ev, function () {
+    if (fechaVistaAutocloseTimer) fechaVistaCuenta = FECHA_VISTA_AUTOCLOSE_SEG;
+  }, { passive: true });
+});
+
+function actualizarPillEstado_() {
+  const pill = document.getElementById('pillEstado');
+  const txt = document.getElementById('pillEstadoTxt');
+  const labelBodega = document.getElementById('labelOcupacionBodega');
+  if (!pill || !txt) return;
+  if (fechaVistaISO) {
+    const f = new Date(fechaVistaISO + 'T12:00:00');
+    pill.classList.add('viendo');
+    txt.textContent = '📅 ' + f.toLocaleDateString('es-CL', { day: 'numeric', month: 'long' }).toUpperCase();
+    if (labelBodega) labelBodega.textContent = 'Ocupación de bodega (dato en vivo)';
+  } else {
+    pill.classList.remove('viendo');
+    txt.textContent = 'EN LÍNEA';
+    if (labelBodega) labelBodega.textContent = 'Ocupación de bodega';
+  }
+}
+
+/* Datos de naves guardados para la vista histórica */
+let navesCache = [];
+
+const PALETA = ['#e0a52c', '#17a2a0', '#7c6cd8', '#3fae6a', '#c1633f', '#8fa8b8'];
+function colorCliente(nombre) {
+  let hash = 0;
+  const str = String(nombre || '');
+  for (let i = 0; i < str.length; i++) hash = (hash * 31 + str.charCodeAt(i)) >>> 0;
+  return PALETA[hash % PALETA.length];
+}
+function hexToRgba_(hex, alpha) {
+  const h = String(hex || '').replace('#', '');
+  const r = parseInt(h.substring(0, 2), 16), g = parseInt(h.substring(2, 4), 16), b = parseInt(h.substring(4, 6), 16);
+  return 'rgba(' + r + ',' + g + ',' + b + ',' + alpha + ')';
+}
+
+/* Número de semana ISO de una fecha — para saber cuál es "la actual" */
+function semanaISO(fecha) {
+  const d = new Date(Date.UTC(fecha.getFullYear(), fecha.getMonth(), fecha.getDate()));
+  const diaNum = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - diaNum);
+  const inicioAnio = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  return Math.ceil((((d - inicioAnio) / 86400000) + 1) / 7);
+}
+const SEMANA_ACTUAL = semanaISO(new Date());
+
+function tickReloj() {
+  const ahora = new Date();
+  document.getElementById('reloj').textContent =
+    ahora.toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' });
+  document.getElementById('fechaHoy').textContent =
+    ahora.toLocaleDateString('es-CL', { weekday: 'long', day: 'numeric', month: 'long' });
+}
+tickReloj();
+setInterval(tickReloj, 1000);
+
+function tickIndicador() {
+  const txt = document.getElementById('txtActualizado');
+  const dot = document.getElementById('dotEstado');
+  if (fechaVistaISO) { txt.textContent = 'Toca para volver a EN VIVO'; dot.className = 'dot'; return; }
+  if (!ultimaActualizacion) { txt.textContent = 'Cargando…'; return; }
+  const seg = Math.round((Date.now() - ultimaActualizacion) / 1000);
+  txt.textContent = seg < 5 ? 'Actualizado ahora' : ('Actualizado hace ' + seg + 's');
+  dot.className = 'dot' + (seg > REFRESCO_DATOS_MS / 1000 * 2 ? ' stale' : '');
+}
+setInterval(tickIndicador, 1000);
+
+function fmt(n, dec) {
+  return Number(n || 0).toLocaleString('es-CL', { maximumFractionDigits: dec != null ? dec : 0 });
+}
+function fechaISO(d) {
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+
+function setSiCambio(id, val, campoSnapshot) {
+  const el = document.getElementById(id);
+  const valStr = String(val);
+  if (ultimoSnapshot[campoSnapshot] === valStr) return;
+  ultimoSnapshot[campoSnapshot] = valStr;
+  el.innerHTML = val;
+  el.classList.add('flash');
+  setTimeout(function () { el.classList.remove('flash'); }, 1200);
+}
+
+function pintarSiCambio(id, snapshotKey, html, vacio) {
+  if (ultimoSnapshot[snapshotKey] === html) return;
+  ultimoSnapshot[snapshotKey] = html;
+  document.getElementById(id).innerHTML = html || vacio || '';
+}
+
+async function pedirJSON(accion, extra) {
+  const body = Object.assign({ accion: accion }, extra || {});
+  const res = await fetch(URL_GAS, { method: 'POST', body: JSON.stringify(body) });
+  return res.json();
+}
+
+function desgloseTexto(porCliente, campo) {
+  if (!porCliente || !porCliente.length) return 'Sin movimientos hoy.';
+  return porCliente.slice(0, 3).map(function (c) {
+    var val = c[campo] != null ? c[campo] : 0;
+    if (typeof val === 'number' && val % 1 !== 0) val = val.toFixed(1);
+    return c.cliente + ' <b>' + val + '</b>';
+  }).join(' &nbsp;·&nbsp; ');
+}
+
+async function cargarParcialsDashboard() {
+  try {
+    var data = await pedirJSON('listarConsolidadosParciales', {});
+    if (!data || !data.ok || !Array.isArray(data.parciales)) {
+      document.getElementById('kpiParciales').textContent = '0';
+      document.getElementById('kpiParcialesBreak').innerHTML = '';
+      return [];
+    }
+    var parciales = data.parciales;
+    window._kpiParciales = parciales;
+    document.getElementById('kpiParciales').textContent = parciales.length;
+
+    var porSup = {};
+    parciales.forEach(function(p) {
+      var sup = p.supervisor || '?';
+      porSup[sup] = (porSup[sup] || 0) + 1;
+    });
+    var breakHtml = Object.keys(porSup).map(function(s) {
+      return s + ' <b>' + porSup[s] + '</b>';
+    }).join(' · ');
+    document.getElementById('kpiParcialesBreak').innerHTML = breakHtml;
+
+    return parciales;
+  } catch(e) {
+    document.getElementById('kpiParciales').textContent = '?';
+    return [];
+  }
+}
+
+/* Contenedores vacíos que llegaron (Gate Control · Recepción con estado
+   Empty) y contenedores despachados hoy (Gate Control · Despacho),
+   con desglose por cliente. Reemplaza la card de "Clientes activos". */
+function gcPorCliente_(lista) {
+  var acc = {};
+  lista.forEach(function (m) {
+    var c = m.cliente || '—';
+    acc[c] = (acc[c] || 0) + 1;
+  });
+  return Object.keys(acc).map(function (c) { return { cliente: c, cant: acc[c] }; })
+    .sort(function (a, b) { return b.cant - a.cant; });
+}
+function gcDesgloseTexto_(arr) {
+  if (!arr.length) return 'Sin movimientos hoy.';
+  return arr.slice(0, 3).map(function (c) { return c.cliente + ' <b>' + c.cant + '</b>'; }).join(' &nbsp;·&nbsp; ');
+}
+async function cargarGateControlDashboard(hoy) {
+  try {
+    hoy = hoy || new Date();
+    var rangoHoy = { fechaDesde: fechaISO(hoy), fechaHasta: fechaISO(hoy) };
+    var data = await pedirJSON('listarMovimientosGateControl', rangoHoy);
+    var movs = (data && data.ok && Array.isArray(data.movimientos)) ? data.movimientos : [];
+
+    var vacios = movs.filter(function (m) { return m.tipo === 'RECEPCION' && m.estado === 'VACIO'; });
+    var despachos = movs.filter(function (m) { return m.tipo === 'DESPACHO'; });
+    window._kpiVacios = vacios;
+    window._kpiDespachos = despachos;
+
+    setSiCambio('kpiVacios', fmt(vacios.length), 'gcVacios');
+    pintarSiCambio('kpiVaciosBreak', 'gcVaciosBreak', gcDesgloseTexto_(gcPorCliente_(vacios)));
+    setSiCambio('kpiDespachos', fmt(despachos.length), 'gcDespachos');
+    pintarSiCambio('kpiDespachosBreak', 'gcDespachosBreak', gcDesgloseTexto_(gcPorCliente_(despachos)));
+  } catch (e) {
+    console.error('Error cargando datos de Gate Control:', e);
+  }
+}
+
+async function actualizarTodo() {
+  try {
+    const enVivo = !fechaVistaISO;
+    const hoy = enVivo ? new Date() : new Date(fechaVistaISO + 'T12:00:00');
+    const diaSemana = hoy.getDay();
+    const diasDesdeLunes = diaSemana === 0 ? 6 : diaSemana - 1;
+    const lunes = new Date(hoy); lunes.setDate(hoy.getDate() - diasDesdeLunes);
+    // En vivo, la semana llega solo hasta hoy (los días futuros no tienen
+    // datos todavía); viendo una fecha pasada, la semana ya está completa,
+    // así que se muestra lun-dom entera.
+    const domingo = new Date(lunes); domingo.setDate(lunes.getDate() + 6);
+    const rangoHoy = { fechaDesde: fechaISO(hoy), fechaHasta: fechaISO(hoy) };
+    const rangoSemana = { fechaDesde: fechaISO(lunes), fechaHasta: fechaISO(enVivo ? hoy : domingo) };
+
+    const [dataHoy, dataSemana, dataRecepcion, dataConsolidado, dataPreparados, dataNaves] = await Promise.all([
+      pedirJSON('dashboardEjecutivo', rangoHoy),
+      pedirJSON('dashboardEjecutivo', rangoSemana),
+      pedirJSON('informeRecepcion', { filtros: rangoSemana }),
+      pedirJSON('informeConsolidado', { filtros: rangoSemana }),
+      enVivo ? pedirJSON('ultimosPreparados', { limite: 8 }) : Promise.resolve(null),
+      pedirJSON('avanceNaves', {})
+    ]);
+
+    if (enVivo) {
+      cargarParcialsDashboard();
+    } else {
+      // "En proceso" es un concepto solo de HOY en vivo — no aplica a una
+      // fecha pasada, así que se deja en blanco en vez de mostrar lo actual.
+      document.getElementById('kpiParciales').textContent = '—';
+      document.getElementById('kpiParcialesBreak').innerHTML = '';
+    }
+    cargarGateControlDashboard(hoy);
+
+    // Cache para los modales de detalle de las tarjetas KPI (Consolidados
+    // hoy, Recepción hoy, Volumen movilizado hoy, Ocupación bodega) — se
+    // guarda lo mismo que ya se pide siempre para pintar el dashboard, sin
+    // llamadas extra al servidor.
+    if (dataHoy && dataHoy.ok) window._kpiDataHoy = dataHoy;
+    if (dataSemana && dataSemana.ok) window._kpiDataSemana = dataSemana;
+    if (dataRecepcion && dataRecepcion.ok) window._kpiDetalleRecepcionSemana = dataRecepcion.detalle || [];
+    if (dataConsolidado && dataConsolidado.ok) window._kpiDetalleConsolidadoSemana = dataConsolidado.detalle || [];
+
+    if (dataHoy && dataHoy.ok) pintarKpisYAnillo(dataHoy);
+    if (dataSemana && dataSemana.ok) {
+      try { pintarGraficoYResumen(dataSemana, dataRecepcion, dataConsolidado); }
+      catch (eGrafico) { console.error('Error pintando gráfico de tendencia:', eGrafico); }
+    }
+    if (dataRecepcion && dataRecepcion.ok) pintarRecepciones(dataRecepcion.detalle || []);
+    if (dataConsolidado && dataConsolidado.ok) pintarConsolidados(dataConsolidado.detalle || []);
+    if (enVivo) {
+      if (dataPreparados && dataPreparados.ok) pintarPreparados(dataPreparados.items || []);
+    } else {
+      // Esta tabla siempre trae "lo más reciente" sin filtro de fecha —
+      // mostrarla mezclada con datos de una fecha pasada sería engañoso.
+      pintarSiCambio('listPreparados', 'preparados',
+        filaVacia(6, 'Esta tabla siempre muestra los más recientes — no aplica en modo "Ir a fecha". Vuelve a EN VIVO para verla.'));
+    }
+    if (dataNaves && dataNaves.ok) {
+      navesCache = dataNaves.naves || [];
+      pintarNaves(navesCache);
+      // Si el histórico está abierto, refrescarlo con los datos nuevos
+      if (document.getElementById('histOverlay').classList.contains('open')) {
+        pintarHistorico();
+      }
+    }
+
+    ultimaActualizacion = Date.now();
+  } catch (e) {
+    console.error('Error actualizando pantalla operativa:', e);
+  }
+}
+
+function pintarKpisYAnillo(data) {
+  const k = data.kpis || {};
+  setSiCambio('kpiBox', fmt(k.boxConsolidados), 'box');
+  setSiCambio('kpiM3', fmt(k.m3Movilizados, 1) + '<small>m³</small>', 'm3');
+
+  pintarSiCambio('kpiBoxBreak', 'boxBreak', desgloseTexto(data.consolidadoPorCliente, 'contenedores'));
+  pintarSiCambio('kpiM3Break', 'm3Break', desgloseTexto(data.consolidadoPorCliente, 'm3'));
+
+  const rp = data.recepcionPorCliente || [];
+  const totalCamiones = rp.reduce(function (s, c) { return s + (Number(c.camiones) || 0); }, 0);
+  setSiCambio('kpiCamiones', fmt(totalCamiones), 'camiones');
+  pintarSiCambio('kpiCamionesBreak', 'camionesBreak', desgloseTexto(rp, 'camiones'));
+
+  if (data.stock && data.stock.bodega) document.getElementById('bodegaNombre').textContent = data.stock.bodega;
+
+  const st = data.stock || {};
+  const cap = Number(st.capacidadM3) || 0;
+  const usado = Number(st.totalVolumen) || 0;
+  const libre = Math.max(0, cap - usado);
+  const pct = cap > 0 ? Math.min(100, (usado / cap) * 100) : 0;
+
+  setSiCambio('ringPct', pct.toFixed(1) + '<span style="font-size:.55em;">%</span>', 'pct');
+  setSiCambio('stockUsado', fmt(usado, 1), 'usado');
+  setSiCambio('stockLibre', fmt(libre, 1), 'libre');
+  setSiCambio('stockCapacidad', fmt(cap, 1), 'capacidad');
+
+  const circ = 2 * Math.PI * 96;
+  const offset = circ - (pct / 100) * circ;
+  const ring = document.getElementById('ringProgress');
+  ring.style.strokeDashoffset = offset;
+
+  let color = '#3fae6a', tag = 'nivel normal';
+  if (pct >= 90) { color = '#c1633f'; tag = 'nivel crítico'; }
+  else if (pct >= 75) { color = '#e0a52c'; tag = 'nivel alto'; }
+  ring.style.stroke = color;
+  document.getElementById('ringPct').style.color = color;
+  document.getElementById('ringTag').textContent = tag;
+}
+
+/* Guarda el detalle de consolidados de la semana (con cliente, nave,
+   hora) para poder mostrarlo al hacer clic en una barra del día. */
+let consolidadoDetalleSemana = [];
+
+/* "07/09/2026" (como viene el detalle) -> "2026-09-07" (como vienen
+   las fechas de contenedoresPorDia, que son las que arma el gráfico). */
+function fechaChilenaAISO_(fch) {
+  const p = String(fch || '').split('/');
+  return p.length === 3 ? (p[2] + '-' + p[1] + '-' + p[0]) : '';
+}
+
+function pintarGraficoYResumen(dataSemana, dataRecepcion, dataConsolidado) {
+  const k = dataSemana.kpis || {};
+  setSiCambio('resVolumen', fmt(k.m3Movilizados, 1), 'resVol');
+  setSiCambio('resContenedores', fmt(k.boxConsolidados), 'resCont');
+  const totalCamionesSemana = dataRecepcion && dataRecepcion.totalCamiones != null ? dataRecepcion.totalCamiones : 0;
+  setSiCambio('resCamiones', fmt(totalCamionesSemana), 'resCam');
+
+  const dias = dataSemana.contenedoresPorDia || [];
+  consolidadoDetalleSemana = (dataConsolidado && dataConsolidado.detalle) || [];
+
+  // ---- Reparto por cliente, día a día (solo si hay más de un cliente
+  //      esta semana — si es uno solo, la barra queda igual que antes) ----
+  const porDiaCliente = {};
+  const clientesSemanaSet = {};
+  consolidadoDetalleSemana.forEach(function (d) {
+    const iso = fechaChilenaAISO_(d.fecha);
+    if (!iso) return;
+    const cli = d.cliente || 'Sin cliente';
+    clientesSemanaSet[cli] = true;
+    if (!porDiaCliente[iso]) porDiaCliente[iso] = {};
+    porDiaCliente[iso][cli] = (porDiaCliente[iso][cli] || 0) + 1;
+  });
+  const clientesSemana = Object.keys(clientesSemanaSet).sort();
+
+  const firma = JSON.stringify(dias) + '|' + clientesSemana.join(',');
+  if (ultimoSnapshot.tendencia === firma) return;
+  ultimoSnapshot.tendencia = firma;
+
+  let datasetsTendencia, pluginsTendencia;
+  if (clientesSemana.length > 1) {
+    datasetsTendencia = clientesSemana.map(function (cli) {
+      return {
+        label: cli,
+        stack: 'cons',
+        data: dias.map(function (d) { return (porDiaCliente[d.fecha] && porDiaCliente[d.fecha][cli]) || 0; }),
+        backgroundColor: colorCliente(cli),
+        maxBarThickness: 46
+      };
+    });
+    pluginsTendencia = [etiquetasPorcentajeStack({ id: 'Tend', stack: 'cons' })];
+  } else {
+    datasetsTendencia = [{
+      data: dias.map(function (d) { return d.total; }),
+      backgroundColor: dias.map(function (d, i) { return i === dias.length - 1 ? '#3fae6a' : '#17a2a0'; }),
+      borderRadius: 6, maxBarThickness: 46
+    }];
+    pluginsTendencia = [{
+      id: 'valueLabels',
+      afterDatasetsDraw: function (chart) {
+        var ctx = chart.ctx;
+        chart.data.datasets.forEach(function (dataset, i) {
+          var meta = chart.getDatasetMeta(i);
+          meta.data.forEach(function (bar, index) {
+            var value = dataset.data[index];
+            if (!value) return;
+            ctx.save();
+            ctx.fillStyle = '#f2f6f9';
+            ctx.font = '800 12px "Segoe UI", Arial, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'bottom';
+            ctx.fillText(value, bar.x, bar.y - 5);
+            ctx.restore();
+          });
+        });
+      }
+    }];
+  }
+
+  if (chartTendencia) chartTendencia.destroy();
+  chartTendencia = new Chart(document.getElementById('cvsTendencia'), {
+    type: 'bar',
+    data: {
+      labels: dias.map(function (d) { return d.fecha; }),
+      datasets: datasetsTendencia
+    },
+    plugins: pluginsTendencia,
+    options: {
+      maintainAspectRatio: false,
+      layout: { padding: { top: 18 } },
+      onHover: function (evt, elementos) {
+        evt.native.target.style.cursor = elementos.length ? 'pointer' : 'default';
+      },
+      onClick: function (evt, elementos) {
+        if (!elementos.length) return;
+        const dia = dias[elementos[0].index];
+        if (dia) mostrarDetalleDia_(dia.fecha);
+      },
+      plugins: {
+        legend: { display: clientesSemana.length > 1, position: 'top', labels: { color: '#7f92a3', boxWidth: 10, font: { size: 10 } } },
+        tooltip: { enabled: false },
+      },
+      scales: {
+        y: { beginAtZero: true, stacked: true, ticks: { color: '#7f92a3', font: { size: 10 } }, grid: { color: 'rgba(255,255,255,.05)' } },
+        x: { stacked: true, ticks: { color: '#7f92a3', font: { size: 10 } }, grid: { display: false } }
+      }
+    }
+  });
+}
+
+/* ============================================================
+   DETALLE DEL DÍA — al hacer clic en una barra del gráfico de
+   la pantalla principal, muestra qué contenedores se consolidaron
+   ese día (con cliente y nave), y el reparto por cliente si hay
+   más de uno.
+   ============================================================ */
+function mostrarDetalleDia_(fechaISO) {
+  const fechaCl = fechaISO.split('-').reverse().join('/'); // "2026-09-07" -> "07/09/2026"
+  const filas = (consolidadoDetalleSemana || []).filter(function (d) { return d.fecha === fechaCl; });
+
+  const porCliente = {};
+  filas.forEach(function (d) {
+    const cli = d.cliente || 'Sin cliente';
+    if (!porCliente[cli]) porCliente[cli] = { cliente: cli, contenedores: 0, m3: 0 };
+    porCliente[cli].contenedores++;
+    porCliente[cli].m3 += Number(d.m3) || 0;
+  });
+  const clientesDia = Object.values(porCliente).sort(function (a, b) { return b.contenedores - a.contenedores; });
+
+  const resumenHtml = clientesDia.length > 1 ? '<div class="dia-detalle-resumen">' +
+    clientesDia.map(function (c) {
+      return '<div class="dia-detalle-chip">' +
+        '<span class="dot" style="background:' + colorCliente(c.cliente) + ';"></span>' +
+        '<span class="nombre">' + c.cliente + '</span>' +
+        '<span class="n">' + c.contenedores + '</span>' +
+        '<span class="m3">' + fmt(c.m3, 1) + ' m³</span>' +
+      '</div>';
+    }).join('') +
+  '</div>' : '';
+
+  const filasHtml = filas.length ? filas.map(function (d) {
+    return '<tr>' +
+      '<td>' + (d.horaInicio || '—') + '</td>' +
+      '<td style="color:' + colorCliente(d.cliente || '') + ';font-weight:700;">' + (d.cliente || '—') + '</td>' +
+      '<td>' + (d.nave || '—') + '</td>' +
+      '<td>' + (d.contenedor || '—') + '</td>' +
+      '<td>' + (d.sello || '—') + '</td>' +
+      '<td>' + (d.entrega || '—') + '</td>' +
+      '<td>' + (d.producto || '—') + '</td>' +
+    '</tr>';
+  }).join('') : filaVacia(7, 'Sin contenedores consolidados este día.');
+
+  const fechaLegible = new Date(fechaISO + 'T12:00:00').toLocaleDateString('es-CL', { weekday: 'long', day: 'numeric', month: 'long' });
+
+  let el = document.getElementById('diaDetalleOverlay');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'diaDetalleOverlay';
+    el.className = 'dia-detalle-overlay';
+    el.addEventListener('click', function (e) { if (e.target === el) cerrarDetalleDia_(); });
+    document.body.appendChild(el);
+  }
+  el.innerHTML =
+    '<div class="dia-detalle-card">' +
+      '<div class="dia-detalle-head">' +
+        '<div class="dia-detalle-titulo">📦 Consolidados · ' + fechaLegible + '</div>' +
+        '<button class="dia-detalle-cerrar" onclick="cerrarDetalleDia_()">✕</button>' +
+      '</div>' +
+      resumenHtml +
+      '<div class="dia-detalle-scroll"><table class="act-table">' +
+        '<thead><tr><th>Hora</th><th>Cliente</th><th>Nave</th><th>Contenedor</th><th>Sello</th><th>Entrega</th><th>Producto</th></tr></thead>' +
+        '<tbody>' + filasHtml + '</tbody>' +
+      '</table></div>' +
+    '</div>';
+  el.classList.add('open');
+}
+
+function cerrarDetalleDia_() {
+  const el = document.getElementById('diaDetalleOverlay');
+  if (el) el.classList.remove('open');
+}
+
+/* =========================================================
+   DETALLE AL HACER CLIC EN LAS TARJETAS KPI ("hoy") Y EN
+   OCUPACIÓN DE BODEGA — mismo patrón de overlay a pantalla
+   completa que "Consolidados · [día]", pero genérico: cada
+   tarjeta arma su propio contenido y usa mostrarOverlayDetalle_
+   para mostrarlo. No pide datos nuevos al servidor: reutiliza lo
+   que actualizarTodo() ya trae en cada ciclo de refresco (cacheado
+   en window._kpi...).
+========================================================= */
+function _fechaHoyCl_() {
+  var d = new Date();
+  return String(d.getDate()).padStart(2, '0') + '/' + String(d.getMonth() + 1).padStart(2, '0') + '/' + d.getFullYear();
+}
+
+function mostrarOverlayDetalle_(titulo, bodyHtml, extraHeaderHtml) {
+  let el = document.getElementById('kpiDetalleOverlay');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'kpiDetalleOverlay';
+    el.className = 'dia-detalle-overlay';
+    el.addEventListener('click', function (e) { if (e.target === el) cerrarOverlayDetalle_(); });
+    document.body.appendChild(el);
+  }
+  el.innerHTML =
+    '<div class="dia-detalle-card">' +
+      '<div class="dia-detalle-head">' +
+        '<div style="display:flex;align-items:center;gap:1.6vw;min-width:0;">' +
+          '<div class="dia-detalle-titulo">' + titulo + '</div>' +
+          (extraHeaderHtml || '') +
+        '</div>' +
+        '<button class="dia-detalle-cerrar" onclick="cerrarOverlayDetalle_()">✕</button>' +
+      '</div>' +
+      bodyHtml +
+    '</div>';
+  el.classList.add('open');
+}
+function cerrarOverlayDetalle_() {
+  const el = document.getElementById('kpiDetalleOverlay');
+  if (el) el.classList.remove('open');
+}
+
+function _chipsPorCliente_(lista, campoN, campoM3) {
+  if (!lista || !lista.length) return '';
+  const chips = lista.map(function (c) {
+    const cliEsc = String(c.cliente || '').replace(/'/g, "\\'");
+    return '<div class="dia-detalle-chip" onclick="_filtrarChipCliente_(this, \'' + cliEsc + '\')">' +
+      '<span class="dot" style="background:' + colorCliente(c.cliente) + ';"></span>' +
+      '<span class="nombre">' + c.cliente + '</span>' +
+      (campoN ? '<span class="n">' + fmt(c[campoN]) + '</span>' : '') +
+      (campoM3 ? '<span class="m3">' + fmt(c[campoM3], 1) + ' m³</span>' : '') +
+    '</div>';
+  }).join('');
+  return '<div class="dia-detalle-resumen">' + chips +
+    (lista.length > 1 ? '<div class="dia-detalle-chip-hint">Toca un cliente para filtrar</div>' : '') +
+  '</div>';
+}
+
+/* Filtra la tabla del detalle abierto por cliente al tocar un chip.
+   Reutilizable entre Consolidados/Recepción/etc. — las filas de la
+   tabla llevan data-cliente-fila con el mismo nombre del chip. Tocar
+   el chip ya activo quita el filtro (vuelve a mostrar todo). */
+function _filtrarChipCliente_(el, cliente) {
+  const chips = el.parentElement.querySelectorAll('.dia-detalle-chip');
+  const yaActivo = el.classList.contains('activo');
+  chips.forEach(function (c) { c.classList.remove('activo'); });
+
+  const overlay = document.getElementById('kpiDetalleOverlay') || document.body;
+  const filas = overlay.querySelectorAll('[data-cliente-fila]');
+
+  if (yaActivo) {
+    filas.forEach(function (f) { f.style.display = ''; });
+    return;
+  }
+  el.classList.add('activo');
+  filas.forEach(function (f) {
+    f.style.display = (f.getAttribute('data-cliente-fila') === cliente) ? '' : 'none';
+  });
+}
+
+function mostrarDetalleConsolidadosHoy() {
+  const hoyCl = _fechaHoyCl_();
+  const porCliente = (window._kpiDataHoy && window._kpiDataHoy.consolidadoPorCliente) || [];
+  const detalleHoy = (window._kpiDetalleConsolidadoSemana || []).filter(function (d) { return d.fecha === hoyCl; });
+  const parciales = window._kpiParciales || [];
+
+  const filasHtml = detalleHoy.length ? detalleHoy.map(function (d) {
+    return '<tr data-cliente-fila="' + (d.cliente || '') + '">' +
+      '<td>' + (d.horaInicio || '—') + '</td>' +
+      '<td style="color:' + colorCliente(d.cliente || '') + ';font-weight:700;">' + (d.cliente || '—') + '</td>' +
+      '<td>' + (d.nave || '—') + '</td>' +
+      '<td>' + (d.contenedor || '—') + '</td>' +
+      '<td>' + (d.sello || '—') + '</td>' +
+      '<td>' + (d.entrega || '—') + '</td>' +
+      '<td>' + (d.producto || '—') + '</td>' +
+    '</tr>';
+  }).join('') : filaVacia(7, 'Sin consolidados confirmados hoy.');
+
+  const filasProceso = parciales.length ? parciales.map(function (p) {
+    return '<tr data-cliente-fila="' + (p.cliente || '') + '">' +
+      '<td>' + (p.horaInicio || '—') + '</td>' +
+      '<td>' + (p.contenedor || '—') + '</td>' +
+      '<td style="color:' + colorCliente(p.cliente || '') + ';font-weight:700;">' + (p.cliente || '—') + '</td>' +
+      '<td>' + (p.nave || '—') + '</td>' +
+      '<td>' + (p.supervisor || '—') + '</td>' +
+      '<td>' + fmt(p.totalLotes || 0) + '</td>' +
+      '<td>' + (p.totalPeso != null && p.totalPeso !== '' ? fmt(p.totalPeso, 1) : '—') + '</td>' +
+    '</tr>';
+  }).join('') : filaVacia(7, 'Sin contenedores en proceso.');
+
+  const body = _chipsPorCliente_(porCliente, 'contenedores', 'm3') +
+    '<div class="dia-detalle-scroll">' +
+      '<div class="kpi-detalle-sub">Confirmados hoy (' + detalleHoy.length + ')</div>' +
+      '<table class="act-table"><thead><tr><th>Hora</th><th>Cliente</th><th>Nave</th><th>Contenedor</th><th>Sello</th><th>Entrega</th><th>Producto</th></tr></thead>' +
+      '<tbody>' + filasHtml + '</tbody></table>' +
+      '<div class="kpi-detalle-sub">⏳ En proceso (' + parciales.length + ')</div>' +
+      '<table class="act-table"><thead><tr><th>Hora inicio</th><th>Contenedor</th><th>Cliente</th><th>Nave</th><th>Supervisor</th><th>Lotes</th><th>Peso (kg)</th></tr></thead>' +
+      '<tbody>' + filasProceso + '</tbody></table>' +
+    '</div>';
+
+  mostrarOverlayDetalle_('📦 Consolidados — Hoy', body);
+}
+
+function mostrarDetalleRecepcionHoy() {
+  const hoyCl = _fechaHoyCl_();
+  const porCliente = (window._kpiDataHoy && window._kpiDataHoy.recepcionPorCliente) || [];
+  const detalleHoy = (window._kpiDetalleRecepcionSemana || []).filter(function (d) { return d.fecha === hoyCl; });
+
+  const filasHtml = detalleHoy.length ? detalleHoy.map(function (d) {
+    return '<tr data-cliente-fila="' + (d.cliente || '') + '">' +
+      '<td>' + (d.horaInicio || '—') + '</td>' +
+      '<td>' + (d.horaTermino || '—') + '</td>' +
+      '<td style="color:' + colorCliente(d.cliente || '') + ';font-weight:700;">' + (d.cliente || '—') + '</td>' +
+      '<td>' + (d.patente || '—') + '</td>' +
+      '<td>' + (d.producto || '—') + '</td>' +
+      '<td>' + (d.proteccion || '—') + '</td>' +
+      '<td>' + fmt(d.m3, 1) + '</td>' +
+      '<td>' + (d.danio === 'SI' ? '⚠️ Sí' : 'No') + '</td>' +
+    '</tr>';
+  }).join('') : filaVacia(8, 'Sin recepciones hoy.');
+
+  const body = _chipsPorCliente_(porCliente, 'camiones', 'm3') +
+    '<div class="dia-detalle-scroll"><table class="act-table">' +
+      '<thead><tr><th>Hora inicio</th><th>Hora término</th><th>Cliente</th><th>Patente</th><th>Producto</th><th>Protección</th><th>m³</th><th>Daño</th></tr></thead>' +
+      '<tbody>' + filasHtml + '</tbody>' +
+    '</table></div>';
+
+  mostrarOverlayDetalle_('🚚 Recepción — Hoy', body);
+}
+
+function mostrarDetalleVolumenHoy() {
+  const d = window._kpiDataHoy || {};
+  const cons = d.consolidadoPorCliente || [];
+  const rec = d.recepcionPorCliente || [];
+  const reex = d.reexpedicionPorCliente || [];
+
+  const acc = {};
+  function sumar(arr, campo) {
+    arr.forEach(function (c) {
+      const k = c.cliente || 'Sin cliente';
+      if (!acc[k]) acc[k] = { cliente: k, con: 0, rec: 0, reex: 0 };
+      acc[k][campo] += Number(c.m3) || 0;
+    });
+  }
+  sumar(cons, 'con'); sumar(rec, 'rec'); sumar(reex, 'reex');
+
+  const filas = Object.keys(acc).map(function (k) { return acc[k]; })
+    .sort(function (a, b) { return (b.con + b.rec + b.reex) - (a.con + a.rec + a.reex); });
+
+  const sumaCol = function (campo) { return filas.reduce(function (s, c) { return s + c[campo]; }, 0); };
+  const totalGeneral = sumaCol('con') + sumaCol('rec') + sumaCol('reex');
+
+  const filasHtml = filas.length ? filas.map(function (c) {
+    const total = c.con + c.rec + c.reex;
+    return '<tr>' +
+      '<td style="color:' + colorCliente(c.cliente) + ';font-weight:700;">' + c.cliente + '</td>' +
+      '<td>' + fmt(c.con, 1) + '</td>' +
+      '<td>' + fmt(c.rec, 1) + '</td>' +
+      '<td>' + fmt(c.reex, 1) + '</td>' +
+      '<td style="font-weight:800;">' + fmt(total, 1) + '</td>' +
+    '</tr>';
+  }).join('') : filaVacia(5, 'Sin movimiento de volumen hoy.');
+
+  const body = '<div class="dia-detalle-scroll"><table class="act-table">' +
+    '<thead><tr><th>Cliente</th><th>Consolidado m³</th><th>Recepción m³</th><th>Reexpedición m³</th><th>Total m³</th></tr></thead>' +
+    '<tbody>' + filasHtml + '</tbody>' +
+    '<tfoot><tr style="font-weight:800;border-top:1px solid rgba(255,255,255,.15);">' +
+      '<td>TOTAL</td><td>' + fmt(sumaCol('con'), 1) + '</td><td>' + fmt(sumaCol('rec'), 1) + '</td>' +
+      '<td>' + fmt(sumaCol('reex'), 1) + '</td><td>' + fmt(totalGeneral, 1) + '</td>' +
+    '</tr></tfoot>' +
+  '</table></div>';
+
+  mostrarOverlayDetalle_('📊 Volumen Movilizado — Hoy', body);
+}
+
+function mostrarDetalleVaciosHoy() {
+  const vacios = window._kpiVacios || [];
+  const despachos = window._kpiDespachos || [];
+
+  function horaDe(m) {
+    if (!m.fecha) return '—';
+    try { return new Date(m.fecha).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit', hour12: false }); }
+    catch (e) { return '—'; }
+  }
+  function filasDe(lista) {
+    return lista.length ? lista.map(function (m) {
+      return '<tr>' +
+        '<td>' + horaDe(m) + '</td>' +
+        '<td style="color:' + colorCliente(m.cliente || '') + ';font-weight:700;">' + (m.cliente || '—') + '</td>' +
+        '<td>' + (m.patente || '—') + '</td>' +
+        '<td>' + (m.transportista || '—') + '</td>' +
+        '<td>' + (m.contenedor || '—') + '</td>' +
+      '</tr>';
+    }).join('') : filaVacia(5, 'Sin movimientos.');
+  }
+
+  const body = '<div class="dia-detalle-scroll">' +
+    '<div class="kpi-detalle-sub">🚛 Vacíos recibidos (' + vacios.length + ')</div>' +
+    '<table class="act-table"><thead><tr><th>Hora</th><th>Cliente</th><th>Patente</th><th>Transportista</th><th>Contenedor</th></tr></thead>' +
+    '<tbody>' + filasDe(vacios) + '</tbody></table>' +
+    '<div class="kpi-detalle-sub">📤 Despachos (' + despachos.length + ')</div>' +
+    '<table class="act-table"><thead><tr><th>Hora</th><th>Cliente</th><th>Patente</th><th>Transportista</th><th>Contenedor</th></tr></thead>' +
+    '<tbody>' + filasDe(despachos) + '</tbody></table>' +
+  '</div>';
+
+  mostrarOverlayDetalle_('🚛 Contenedores Vacíos y Despachos — Hoy', body);
+}
+
+function mostrarDetalleBodega() {
+  const st = (window._kpiDataHoy && window._kpiDataHoy.stock) || {};
+  const porCliente = st.porCliente || [];
+  const totalVol = Number(st.totalVolumen) || 0;
+
+  const filasHtml = porCliente.length ? porCliente.map(function (c) {
+    const pct = totalVol > 0 ? (c.volumen / totalVol) * 100 : 0;
+    return '<tr>' +
+      '<td style="color:' + colorCliente(c.cliente) + ';font-weight:700;">' + c.cliente + '</td>' +
+      '<td>' + fmt(c.volumen, 1) + '</td>' +
+      '<td>' + fmt(c.lotes) + '</td>' +
+      '<td>' + pct.toFixed(1) + '%</td>' +
+    '</tr>';
+  }).join('') : filaVacia(4, 'Sin stock vigente.');
+
+  const body =
+    '<div class="dia-detalle-scroll"><table class="act-table">' +
+      '<thead><tr><th>Cliente</th><th>m³</th><th>Lotes</th><th>% ocupación</th></tr></thead>' +
+      '<tbody>' + filasHtml + '</tbody>' +
+      '<tfoot><tr style="font-weight:800;border-top:1px solid rgba(255,255,255,.15);">' +
+        '<td>TOTAL (cap. ' + fmt(st.capacidadM3, 0) + ' m³ / ' + fmt(st.capacidadM2, 0) + ' m²)</td>' +
+        '<td>' + fmt(totalVol, 1) + '</td><td>' + fmt(st.totalLotes) + '</td><td>100%</td>' +
+      '</tr></tfoot>' +
+    '</table></div>';
+
+  mostrarOverlayDetalle_('🏬 Ocupación de Bodega por Cliente', body);
+}
+
+function mostrarDetalleResumenSemana() {
+  const d = window._kpiDataSemana || {};
+  const cons = d.consolidadoPorCliente || [];
+  const rec = d.recepcionPorCliente || [];
+  const reex = d.reexpedicionPorCliente || [];
+
+  const acc = {};
+  function sumar(arr, campoOrigenN, campoDestinoN, campoDestinoM3) {
+    arr.forEach(function (c) {
+      const k = c.cliente || 'Sin cliente';
+      if (!acc[k]) acc[k] = { cliente: k, conCont: 0, conM3: 0, recCam: 0, recM3: 0, reexM3: 0 };
+      if (campoDestinoN) acc[k][campoDestinoN] += Number(c[campoOrigenN]) || 0;
+      acc[k][campoDestinoM3] += Number(c.m3) || 0;
+    });
+  }
+  sumar(cons, 'contenedores', 'conCont', 'conM3');
+  sumar(rec, 'camiones', 'recCam', 'recM3');
+  sumar(reex, null, null, 'reexM3');
+
+  const filas = Object.keys(acc).map(function (k) { return acc[k]; })
+    .sort(function (a, b) { return (b.conM3 + b.recM3 + b.reexM3) - (a.conM3 + a.recM3 + a.reexM3); });
+
+  const sumaCol = function (campo) { return filas.reduce(function (s, c) { return s + c[campo]; }, 0); };
+  const totalGeneral = sumaCol('conM3') + sumaCol('recM3') + sumaCol('reexM3');
+
+  const filasHtml = filas.length ? filas.map(function (c) {
+    const total = c.conM3 + c.recM3 + c.reexM3;
+    return '<tr>' +
+      '<td style="color:' + colorCliente(c.cliente) + ';font-weight:700;">' + c.cliente + '</td>' +
+      '<td>' + fmt(c.conCont) + '</td>' +
+      '<td>' + fmt(c.conM3, 1) + '</td>' +
+      '<td>' + fmt(c.recCam) + '</td>' +
+      '<td>' + fmt(c.recM3, 1) + '</td>' +
+      '<td>' + fmt(c.reexM3, 1) + '</td>' +
+      '<td style="font-weight:800;">' + fmt(total, 1) + '</td>' +
+    '</tr>';
+  }).join('') : filaVacia(7, 'Sin movimiento esta semana.');
+
+  const body = '<div class="dia-detalle-scroll"><table class="act-table">' +
+    '<thead><tr><th>Cliente</th><th>Contenedores</th><th>Consolidado m³</th><th>Camiones</th><th>Recepción m³</th><th>Reexpedición m³</th><th>Total m³</th></tr></thead>' +
+    '<tbody>' + filasHtml + '</tbody>' +
+    '<tfoot><tr style="font-weight:800;border-top:1px solid rgba(255,255,255,.15);">' +
+      '<td>TOTAL</td><td>' + fmt(sumaCol('conCont')) + '</td><td>' + fmt(sumaCol('conM3'), 1) + '</td>' +
+      '<td>' + fmt(sumaCol('recCam')) + '</td><td>' + fmt(sumaCol('recM3'), 1) + '</td>' +
+      '<td>' + fmt(sumaCol('reexM3'), 1) + '</td><td>' + fmt(totalGeneral, 1) + '</td>' +
+    '</tr></tfoot>' +
+  '</table></div>';
+
+  mostrarOverlayDetalle_('📊 Resumen General — Semana', body);
+}
+
+/* Detalle al hacer clic en una tarjeta de "Naves de la semana". A
+   diferencia de las otras tarjetas, esto SÍ pide datos frescos al
+   servidor (informeConsolidado filtrado por nave, sin rango de fecha):
+   la tarjeta solo trae el conteo vs. meta, no el detalle por
+   contenedor, y una nave puede llevar varias semanas abierta. */
+async function mostrarDetalleNave(nave) {
+  const grupo = (window._navesPorNombre && window._navesPorNombre[nave]) || { clientes: [] };
+
+  const totalConsolidados = grupo.clientes.reduce(function (s, c) { return s + (Number(c.consolidados) || 0); }, 0);
+  const totalMeta = grupo.clientes.reduce(function (s, c) { return s + (Number(c.total) || 0); }, 0);
+
+  const chipsMeta = grupo.clientes.length ? '<div class="dia-detalle-resumen">' +
+    grupo.clientes.map(function (c) {
+      return '<div class="dia-detalle-chip">' +
+        '<span class="dot" style="background:' + colorCliente(c.cliente || '') + ';"></span>' +
+        '<span class="nombre">' + (c.cliente || 'Sin cliente') + '</span>' +
+        '<span class="n">' + fmt(c.consolidados) + '</span>' +
+        '<span class="m3">/ ' + fmt(c.total) + ' meta</span>' +
+      '</div>';
+    }).join('') +
+    (grupo.clientes.length > 1 ?
+      '<div class="dia-detalle-chip" style="border-color:rgba(255,255,255,.25);">' +
+        '<span class="nombre">TOTAL SEMANA</span>' +
+        '<span class="n">' + fmt(totalConsolidados) + '</span>' +
+        '<span class="m3">/ ' + fmt(totalMeta) + ' meta</span>' +
+      '</div>' : '') +
+  '</div>' : '';
+
+  mostrarOverlayDetalle_('🚢 ' + nave, chipsMeta +
+    '<div class="dia-detalle-scroll"><div class="act-empty">Cargando contenedores…</div></div>');
+
+  try {
+    const data = await pedirJSON('informeConsolidado', { filtros: { nave: nave } });
+    const detalle = (data && data.ok && Array.isArray(data.detalle)) ? data.detalle : [];
+    // Más reciente primero (el detalle viene en el orden de la hoja, que es cronológico)
+    detalle.reverse();
+
+    const filasHtml = detalle.length ? detalle.map(function (d) {
+      return '<tr>' +
+        '<td>' + (d.fecha || '—') + '</td>' +
+        '<td>' + (d.horaInicio || '—') + '</td>' +
+        '<td style="color:' + colorCliente(d.cliente || '') + ';font-weight:700;">' + (d.cliente || '—') + '</td>' +
+        '<td>' + (d.contenedor || '—') + '</td>' +
+        '<td>' + (d.sello || '—') + '</td>' +
+        '<td>' + (d.entrega || '—') + '</td>' +
+        '<td>' + (d.producto || '—') + '</td>' +
+      '</tr>';
+    }).join('') : '';
+
+    const notaSinDetalle = !detalle.length ?
+      '<div class="kpi-detalle-sub" style="color:var(--muted);text-transform:none;font-weight:600;">' +
+      'Sin contenedores con detalle disponible para esta nave (si ya se archivaron al histórico, el detalle línea por línea ya no queda accesible — solo el total que ves arriba).</div>'
+      : '';
+
+    const body = chipsMeta +
+      '<div class="dia-detalle-scroll">' +
+        notaSinDetalle +
+        (detalle.length ?
+          '<table class="act-table"><thead><tr><th>Fecha</th><th>Hora</th><th>Cliente</th><th>Contenedor</th><th>Sello</th><th>Entrega</th><th>Producto</th></tr></thead>' +
+          '<tbody>' + filasHtml + '</tbody></table>' : '') +
+      '</div>';
+
+    mostrarOverlayDetalle_('🚢 ' + nave, body);
+  } catch (e) {
+    mostrarOverlayDetalle_('🚢 ' + nave, chipsMeta +
+      '<div class="dia-detalle-scroll"><div class="act-empty">No se pudo cargar el detalle de esta nave.</div></div>');
+  }
+}
+
+/* Detalle al hacer clic en el encabezado "SEMANA WKxx" — todas las naves
+   de esa semana juntas. A diferencia de mostrarDetalleNave (que filtra
+   por nave, sin rango de fecha), aquí se pide informeConsolidado por el
+   RANGO DE FECHAS de la semana (lunes a domingo), sin filtrar por nave,
+   para traer los contenedores de todas las naves de esa semana en una
+   sola tabla (con columna Nave para distinguirlas). */
+async function mostrarDetalleSemanaNaves(wk) {
+  const grupo = (window._navesPorSemana && window._navesPorSemana[wk]) || { naves: [], totalCons: 0, totalMeta: 0 };
+  const titulo = '📅 Semana WK' + wk + ' · Todas las naves';
+
+  // Total de la semana (todas las naves y clientes juntos), arriba junto
+  // al título — ya venía calculado desde pintarNaves(), no hay que
+  // recalcularlo.
+  function statBox(valor, etiqueta, dorado) {
+    return '<div style="text-align:center;">' +
+      '<div style="font-family:var(--numfont);font-variant-numeric:tabular-nums;font-weight:800;font-size:1vw;' + (dorado ? 'color:var(--gold);' : '') + '">' + fmt(valor) + '</div>' +
+      '<div style="font-size:.6vw;color:var(--muted);letter-spacing:.04em;text-transform:uppercase;">' + etiqueta + '</div>' +
+    '</div>';
+  }
+  const saldoSemana = Math.max(0, (grupo.totalMeta || 0) - (grupo.totalCons || 0));
+  const totalHeaderHtml = '<div style="display:flex;gap:1.2vw;align-items:center;">' +
+    statBox(grupo.totalCons || 0, 'Consolidados') +
+    statBox(grupo.totalMeta || 0, 'Meta') +
+    statBox(saldoSemana, 'Saldo', true) +
+  '</div>';
+
+  const chipsNaves = grupo.naves.length ? '<div class="dia-detalle-resumen">' +
+    grupo.naves.map(function (n) {
+      const cons = n.clientes.reduce(function (s, c) { return s + (Number(c.consolidados) || 0); }, 0);
+      const meta = n.clientes.reduce(function (s, c) { return s + (Number(c.total) || 0); }, 0);
+      return '<div class="dia-detalle-chip">' +
+        '<span class="dot" style="background:' + colorCliente(n.nave) + ';"></span>' +
+        '<span class="nombre">' + n.nave + '</span>' +
+        '<span class="n">' + fmt(cons) + '</span>' +
+        '<span class="m3">/ ' + fmt(meta) + ' meta</span>' +
+      '</div>';
+    }).join('') + '</div>' : '';
+
+  mostrarOverlayDetalle_(titulo, chipsNaves +
+    '<div class="dia-detalle-scroll"><div class="act-empty">Cargando contenedores…</div></div>', totalHeaderHtml);
+
+  try {
+    // FIX: antes se pedía por rango de fechas (lunes-domingo de la
+    // semana), pero eso trae CUALQUIER contenedor consolidado en esos
+    // días, sea o no de una nave programada para esta semana — una nave
+    // de otra semana que por calendario cae en el mismo rango se colaba
+    // igual. Ahora se pide por cada nave programada de esta semana
+    // (mismo filtro que usa el detalle de una nave individual), sin
+    // importar cuándo se haya consolidado.
+    const respuestas = await Promise.all(grupo.naves.map(function (n) {
+      return pedirJSON('informeConsolidado', { filtros: { nave: n.nave } });
+    }));
+    var detalle = [];
+    respuestas.forEach(function (data) {
+      if (data && data.ok && Array.isArray(data.detalle)) detalle = detalle.concat(data.detalle);
+    });
+    detalle.reverse();
+
+    const filasHtml = detalle.length ? detalle.map(function (d) {
+      return '<tr>' +
+        '<td>' + (d.fecha || '—') + '</td>' +
+        '<td>' + (d.horaInicio || '—') + '</td>' +
+        '<td style="white-space:nowrap;">' + (d.nave || '—') + '</td>' +
+        '<td style="color:' + colorCliente(d.cliente || '') + ';font-weight:700;">' + (d.cliente || '—') + '</td>' +
+        '<td>' + (d.contenedor || '—') + '</td>' +
+        '<td>' + (d.sello || '—') + '</td>' +
+        '<td>' + (d.entrega || '—') + '</td>' +
+        '<td>' + (d.producto || '—') + '</td>' +
+      '</tr>';
+    }).join('') : '';
+
+    const notaSinDetalle = !detalle.length ?
+      '<div class="kpi-detalle-sub" style="color:var(--muted);text-transform:none;font-weight:600;">' +
+      'Sin contenedores con detalle disponible para esta semana (si ya se archivaron al histórico, el detalle línea por línea ya no queda accesible — solo los totales de arriba).</div>'
+      : '';
+
+    const body = chipsNaves +
+      '<div class="dia-detalle-scroll">' +
+        notaSinDetalle +
+        (detalle.length ?
+          '<table class="act-table">' +
+            '<colgroup><col style="width:9%"><col style="width:7%"><col style="width:18%">' +
+            '<col style="width:9%"><col style="width:11%"><col style="width:12%">' +
+            '<col style="width:10%"><col style="width:24%"></colgroup>' +
+            '<thead><tr><th>Fecha</th><th>Hora</th><th>Nave</th><th>Cliente</th><th>Contenedor</th><th>Sello</th><th>Entrega</th><th>Producto</th></tr></thead>' +
+            '<tbody>' + filasHtml + '</tbody>' +
+          '</table>' : '') +
+      '</div>';
+
+    mostrarOverlayDetalle_(titulo, body, totalHeaderHtml);
+  } catch (e) {
+    mostrarOverlayDetalle_(titulo, chipsNaves +
+      '<div class="dia-detalle-scroll"><div class="act-empty">No se pudo cargar el detalle de esta semana.</div></div>', totalHeaderHtml);
+  }
+}
+
+function filaVacia(cols, texto) {
+  return '<tr><td colspan="' + cols + '" class="act-empty">' + texto + '</td></tr>';
+}
+
+function pintarRecepciones(detalle) {
+  const ultimos = detalle.slice(-8).reverse();
+  const html = !ultimos.length ? filaVacia(6, 'Sin recepciones registradas esta semana.') :
+    ultimos.map(function (d) {
+      const hora = d.horaFin || d.horaTermino || d.hora || '\u2014';
+      return '<tr><td class="dotcell"><span class="rowdot"></span></td><td>' + (d.fecha || '\u2014') + '</td>' +
+        '<td>' + hora + '</td>' +
+        '<td>' + (d.patente || '\u2014') + '</td><td>' + (d.cliente || '\u2014') + '</td>' +
+        '<td>' + (d.m3 != null ? d.m3.toFixed(1) : '\u2014') + '</td></tr>';
+    }).join('');
+  pintarSiCambio('listRecepciones', 'recepciones', html);
+}
+
+function pintarConsolidados(detalle) {
+  const ultimos = detalle.slice(-8).reverse();
+
+  function filasCerradasHtml_() {
+    return ultimos.map(function (d) {
+      return '<tr><td class="dotcell"><span class="rowdot" style="background:#3fae6a;"></span></td>' +
+        '<td>' + (d.fecha || '\u2014') + '</td>' +
+        '<td>' + (d.horaInicio || '\u2014') + '</td>' +
+        '<td>' + (d.contenedor || '\u2014') + '</td><td>' + (d.cliente || '\u2014') + '</td><td>' + (d.nave || '\u2014') + '</td></tr>';
+    });
+  }
+
+  if (fechaVistaISO) {
+    // "En proceso" es un concepto solo de HOY en vivo \u2014 no tiene sentido
+    // mezclarlo con el hist\u00f3rico de otro d\u00eda.
+    var filasCerradas = filasCerradasHtml_();
+    var html = !filasCerradas.length ? filaVacia(6, 'Sin consolidados registrados esa semana.') : filasCerradas.join('');
+    pintarSiCambio('listConsolidados', 'consolidados', html);
+    return;
+  }
+
+  cargarParcialsDashboard().then(function(parciales) {
+    var filasCerradas = filasCerradasHtml_();
+
+    var filasParciales = (parciales || []).map(function (p) {
+      return '<tr style="background:rgba(224,138,43,.08);"><td class="dotcell"><span class="rowdot" style="background:#e0a52c;"></span></td>' +
+        '<td style="color:#e0a52c;">' + (p.fecha || '\u2014') + '</td>' +
+        '<td style="color:#e0a52c;">' + (p.horaInicio || '\u2014') + '</td>' +
+        '<td style="color:#e0a52c;">' + (p.contenedor || '\u2014') + '</td><td>' + (p.cliente || '\u2014') + '</td>' +
+        '<td style="color:#e0a52c;">' + (p.nave || '\u2014') + ' <span title="En proceso" style="margin-left:4px;">⏳</span></td></tr>';
+    });
+
+    var todas = filasParciales.concat(filasCerradas);
+    var html = !todas.length ? filaVacia(6, 'Sin consolidados registrados esta semana.') : todas.join('');
+    pintarSiCambio('listConsolidados', 'consolidados', html);
+  }).catch(function() {
+    var html = !ultimos.length ? filaVacia(6, 'Sin consolidados registrados esta semana.') :
+      ultimos.map(function (d) {
+        return '<tr><td class="dotcell"><span class="rowdot" style="background:#3fae6a;"></span></td>' +
+          '<td>' + (d.fecha || '\u2014') + '</td>' +
+          '<td>' + (d.horaInicio || '\u2014') + '</td>' +
+          '<td>' + (d.contenedor || '\u2014') + '</td><td>' + (d.cliente || '\u2014') + '</td><td>' + (d.nave || '\u2014') + '</td></tr>';
+      }).join('');
+    pintarSiCambio('listConsolidados', 'consolidados', html);
+  });
+}
+
+function pintarPreparados(items) {
+  // Los lotes con servicio adicional (Refrigerador, Rearmado, Revisi\u00f3n
+  // SAG, etc. \u2014 se cargan/preparan aparte, no en la l\u00ednea normal) quedan
+  // siempre arriba de los dem\u00e1s, para que no se pierdan entre los lotes
+  // reci\u00e9n agregados. Dentro de cada grupo se conserva el orden original
+  // (m\u00e1s reciente primero).
+  const conServicio = items.filter(function (p) { return p.servicios && p.servicios.length; });
+  const sinServicio = items.filter(function (p) { return !p.servicios || !p.servicios.length; });
+  const ordenados = conServicio.concat(sinServicio);
+
+  const html = !ordenados.length ? filaVacia(6, 'Sin lotes preparados registrados.') :
+    ordenados.map(function (p) {
+      const m3 = (p.m3 != null ? p.m3 : (p.volumen != null ? p.volumen : null));
+      const tieneServicio = p.servicios && p.servicios.length;
+      const colorDot = tieneServicio ? '#e0a52c' : '#3fae6a';
+      const filaEstilo = tieneServicio ? ' style="background:rgba(224,165,44,.08);"' : '';
+      const servicioTxt = tieneServicio
+        ? '<span style="color:#e0a52c;font-weight:700;">' + p.servicios.join(' + ') + '</span>'
+        : '<span style="color:var(--muted);">\u2014</span>';
+      return '<tr' + filaEstilo + '><td class="dotcell"><span class="rowdot" style="background:' + colorDot + ';"></span></td>' +
+        '<td>' + (p.lote || '\u2014') + '</td><td>' + (p.cliente || '\u2014') + '</td><td>' + (p.ubicacion || '\u2014') + '</td>' +
+        '<td>' + (m3 != null ? Number(m3).toFixed(1) : '\u2014') + '</td>' +
+        '<td>' + servicioTxt + '</td></tr>';
+    }).join('');
+  pintarSiCambio('listPreparados', 'preparados', html);
+}
+
+function pintarNaves(naves) {
+  const firma = JSON.stringify(naves);
+  if (ultimoSnapshot.naves === firma) return;
+  ultimoSnapshot.naves = firma;
+
+  const cont = document.getElementById('listNaves');
+  if (!naves.length) {
+    cont.innerHTML = '<div class="act-empty">Sin naves cargadas todavía.<br>Se agregan desde Herramientas → Metas de nave.</div>';
+    return;
+  }
+
+  // Agrupa por nave; cada cliente mantiene su propio desglose (no se suman entre sí)
+  const porNave = {};
+  naves.forEach(function (n) {
+    if (!porNave[n.nave]) porNave[n.nave] = { nave: n.nave, clientes: [], semana: n.semana || 0 };
+    porNave[n.nave].clientes.push(n);
+    // La semana de la nave: la que traiga cualquiera de sus filas
+    if (!porNave[n.nave].semana && n.semana) porNave[n.nave].semana = n.semana;
+  });
+
+  function filaCliente(n) {
+    const saldo = Math.max(0, n.total - n.consolidados);
+    const pct = n.total > 0 ? Math.min(100, (n.consolidados / n.total) * 100) : 0;
+    const color = pct >= 100 ? '#3fae6a' : (pct >= 60 ? '#e0a52c' : '#17a2a0');
+    return '<div class="nave-client-block">' +
+      '<div class="nave-client-name">' + (n.cliente || 'Sin cliente') + '</div>' +
+      '<div class="nave-bar-bg"><div class="nave-bar-fill" style="width:' + pct.toFixed(0) + '%;background:' + color + ';"></div></div>' +
+      '<div class="nave-stats">' +
+        '<div><div class="n">' + n.consolidados + '</div><div class="l">Consolidados</div></div>' +
+        '<div><div class="n">' + n.total + '</div><div class="l">Total</div></div>' +
+        '<div><div class="n gold">' + saldo + '</div><div class="l">Saldo</div></div>' +
+      '</div>' +
+    '</div>';
+  }
+
+  // Se guarda el agrupamiento para poder armar el modal de detalle al
+  // hacer clic (metas/consolidados/saldo por cliente ya calculados aquí,
+  // no hace falta recalcularlos al abrir el modal).
+  window._navesPorNombre = porNave;
+
+  function naveCardHtml(n) {
+    // Chip de semana: WK33. Se resalta en dorado si es la semana en curso.
+    var wk = n.semana
+      ? '<span class="nave-wk' + (n.semana === SEMANA_ACTUAL ? ' actual' : '') + '">WK' + n.semana + '</span>'
+      : '';
+    // Cada nave recibe un color propio (mismo hash que colorCliente) para
+    // distinguirse de las demás: barra lateral, borde y fondo tenue.
+    var col = colorCliente(n.nave);
+    var cardStyle = 'border-left:4px solid ' + col + ';background:' + hexToRgba_(col, .07) + ';border-color:' + hexToRgba_(col, .35) + ';';
+    return '<div class="nave-card clickable" data-nave="' + n.nave + '" style="' + cardStyle + '">' +
+      '<div class="nave-card-top">' +
+        '<span class="nave-card-name">' +
+          '<span style="display:inline-block;width:.55vw;height:.55vw;min-width:6px;min-height:6px;border-radius:50%;background:' + col + ';margin-right:.4vw;vertical-align:middle;"></span>' +
+          n.nave +
+        '</span>' +
+        '<span class="nave-card-tags">' + wk +
+          '<span class="nave-card-badge">' + n.clientes.length + ' cliente' + (n.clientes.length === 1 ? '' : 's') + '</span>' +
+        '</span>' +
+      '</div>' +
+      n.clientes.map(filaCliente).join('') +
+    '</div>';
+  }
+
+  // Agrupa las naves por semana: todo lo de la misma semana se suma junto
+  // en un encabezado (consolidados/meta/saldo totales de TODAS las naves
+  // y clientes de esa semana), con sus tarjetas de nave debajo.
+  const porSemana = {};
+  Object.values(porNave).forEach(function (n) {
+    const wk = n.semana || 0;
+    if (!porSemana[wk]) porSemana[wk] = { semana: wk, naves: [], totalCons: 0, totalMeta: 0 };
+    porSemana[wk].naves.push(n);
+    n.clientes.forEach(function (c) {
+      porSemana[wk].totalCons += Number(c.consolidados) || 0;
+      porSemana[wk].totalMeta += Number(c.total) || 0;
+    });
+  });
+
+  const semanasOrdenadas = Object.values(porSemana).sort(function (a, b) { return b.semana - a.semana; });
+
+  // Se guarda para poder armar el modal de "todas las naves de la semana"
+  // al hacer clic en el encabezado, sin recalcular nada.
+  window._navesPorSemana = porSemana;
+
+  cont.innerHTML = semanasOrdenadas.map(function (s) {
+    const saldo = Math.max(0, s.totalMeta - s.totalCons);
+    const esActual = s.semana === SEMANA_ACTUAL;
+    const headerHtml = s.semana ?
+      '<div class="semana-header clickable" data-semana="' + s.semana + '">' +
+        '<div class="tit' + (esActual ? ' actual' : '') + '">SEMANA WK' + s.semana + ' · ' + s.naves.length + ' nave' + (s.naves.length === 1 ? '' : 's') + '</div>' +
+        '<div class="stats">' +
+          '<div><div class="n">' + s.totalCons + '</div><div class="l">Consolidados</div></div>' +
+          '<div><div class="n">' + s.totalMeta + '</div><div class="l">Meta</div></div>' +
+          '<div><div class="n gold">' + saldo + '</div><div class="l">Saldo</div></div>' +
+        '</div>' +
+      '</div>' : '';
+    return headerHtml + s.naves.reverse().map(naveCardHtml).join('');
+  }).join('');
+
+  if (!cont._clickBound) {
+    cont.addEventListener('click', function (e) {
+      var header = e.target.closest('.semana-header');
+      if (header && header.dataset.semana) { mostrarDetalleSemanaNaves(Number(header.dataset.semana)); return; }
+      var card = e.target.closest('.nave-card');
+      if (card && card.dataset.nave) mostrarDetalleNave(card.dataset.nave);
+    });
+    cont._clickBound = true;
+  }
+}
+
+/* ============================================================
+   VISTA HISTÓRICA
+   Se construye con avanceNaves(), que ya entrega por cada nave:
+   semana, cliente, meta (total), consolidados y saldo.
+   No requiere llamadas extra al backend.
+   ============================================================ */
+let chartHistorico = null;
+let chartHistOcupacion = null;
+let histAutocloseTimer = null;
+let histCuenta = 0;
+
+const HIST_AUTOCLOSE_SEG = 90; // la TV vuelve sola al dashboard
+
+function abrirHistorico() {
+  document.getElementById('histOverlay').classList.add('open');
+  pintarHistorico();
+  iniciarAutocierre();
+}
+
+function cerrarHistorico() {
+  document.getElementById('histOverlay').classList.remove('open');
+  clearInterval(histAutocloseTimer);
+  histAutocloseTimer = null;
+  if (chartHistorico) { chartHistorico.destroy(); chartHistorico = null; }
+  if (chartHistOcupacion) { chartHistOcupacion.destroy(); chartHistOcupacion = null; }
+  // Fuerza un repintado completo la próxima vez que se abra (si no, el
+  // "no cambió nada" de pintarHistorico() lo dejaría con los gráficos
+  // recién destruidos y el canvas en blanco).
+  ultimoSnapshot.historico = null;
+}
+
+/* La TV no debe quedarse pegada en el histórico si alguien lo abre y se va.
+   Cualquier toque o movimiento reinicia la cuenta. */
+function iniciarAutocierre() {
+  clearInterval(histAutocloseTimer);
+  histCuenta = HIST_AUTOCLOSE_SEG;
+  const el = document.getElementById('histAutoclose');
+  histAutocloseTimer = setInterval(function () {
+    histCuenta--;
+    el.textContent = 'Vuelve al dashboard en ' + histCuenta + 's';
+    if (histCuenta <= 0) cerrarHistorico();
+  }, 1000);
+  el.textContent = 'Vuelve al dashboard en ' + histCuenta + 's';
+}
+['click', 'touchstart', 'mousemove', 'keydown'].forEach(function (ev) {
+  document.getElementById('histOverlay').addEventListener(ev, function () {
+    if (histAutocloseTimer) { histCuenta = HIST_AUTOCLOSE_SEG; }
+  }, { passive: true });
+});
+
+/* Muestra/oculta los inputs "desde semana ?? a semana ??" según si se
+   eligió "Rango de semanas…" en el select, con valores por defecto
+   razonables la primera vez que se activa (para no dejarlos vacíos). */
+function histCambioFiltroSemanas_() {
+  const sel = document.getElementById('histFiltroSemanas');
+  const rango = document.getElementById('histRango');
+  const esRango = sel && sel.value === 'rango';
+  if (rango) rango.classList.toggle('show', esRango);
+
+  if (esRango) {
+    const desdeEl = document.getElementById('histSemanaDesde');
+    const hastaEl = document.getElementById('histSemanaHasta');
+    if (desdeEl && !desdeEl.value) desdeEl.value = Math.max(1, SEMANA_ACTUAL - 11);
+    if (hastaEl && !hastaEl.value) hastaEl.value = SEMANA_ACTUAL;
+  }
+  pintarHistorico();
+}
+
+function pintarHistorico() {
+  const naves = navesCache || [];
+
+  if (!naves.length) {
+    document.getElementById('histNavesBody').innerHTML =
+      filaVacia(8, 'Sin naves cargadas. Se agregan desde Herramientas → Metas de nave.');
+    return;
+  }
+
+  // FIX: el refresco automático (cada REFRESCO_DATOS_MS) llama a esto de
+  // nuevo mientras el histórico sigue abierto, aunque nada haya cambiado
+  // — antes eso destruía y recreaba los 3 gráficos igual, con el "flash"
+  // de reinicio que se veía cada tres minutos aunque los datos fueran
+  // idénticos. Si ni las naves ni el filtro cambiaron desde la última
+  // vez, no se vuelve a pintar nada.
+  const _selHist = document.getElementById('histFiltroSemanas');
+  const _firmaHist = JSON.stringify(naves) + '|' + (_selHist ? _selHist.value : '') + '|' +
+    (document.getElementById('histSemanaDesde') || {}).value + '|' + (document.getElementById('histSemanaHasta') || {}).value;
+  if (ultimoSnapshot.historico === _firmaHist) return;
+  ultimoSnapshot.historico = _firmaHist;
+
+  // ---- Agrupar por semana (y por cliente dentro de cada semana, para
+  //      poder mostrar el reparto por cliente en las barras) ----
+  const porSemana = {};
+  naves.forEach(function (n) {
+    const wk = Number(n.semana) || 0;
+    if (!wk) return; // sin semana asignada no entra al histórico
+    if (!porSemana[wk]) porSemana[wk] = { semana: wk, consolidados: 0, meta: 0, naves: {}, filas: 0, porCliente: {} };
+    porSemana[wk].consolidados += Number(n.consolidados) || 0;
+    porSemana[wk].meta += Number(n.total) || 0;
+    porSemana[wk].naves[n.nave] = true;
+    porSemana[wk].filas++;   // cada fila es una combinación nave × cliente
+
+    const cli = n.cliente || 'Sin cliente';
+    if (!porSemana[wk].porCliente[cli]) porSemana[wk].porCliente[cli] = { consolidados: 0, meta: 0 };
+    porSemana[wk].porCliente[cli].consolidados += Number(n.consolidados) || 0;
+    porSemana[wk].porCliente[cli].meta += Number(n.total) || 0;
+  });
+
+  const semanas = Object.values(porSemana).sort(function (a, b) { return a.semana - b.semana; });
+
+  // Filtro de período (semanas/meses/rango) — un select en el header.
+  const filtroSel = document.getElementById('histFiltroSemanas');
+  const filtroVal = filtroSel ? filtroSel.value : '4';
+  var ultimas;
+  if (filtroVal === 'todo') {
+    ultimas = semanas;
+  } else if (filtroVal === 'rango') {
+    const desdeEl = document.getElementById('histSemanaDesde');
+    const hastaEl = document.getElementById('histSemanaHasta');
+    const desdeWk = Number(desdeEl && desdeEl.value) || 0;
+    const hastaWk = Number(hastaEl && hastaEl.value) || 999;
+    ultimas = semanas.filter(function (s) { return s.semana >= Math.min(desdeWk, hastaWk) && s.semana <= Math.max(desdeWk, hastaWk); });
+  } else {
+    ultimas = semanas.slice(-Number(filtroVal));
+  }
+
+  document.getElementById('histSubtitulo').textContent =
+    ultimas.length + ' de ' + semanas.length + ' semanas con naves asignadas · semana actual WK' + SEMANA_ACTUAL;
+
+  // ---- Gráfico por semana: apilado por cliente, con el % de cada uno
+  //      dentro de su tramo y el total de la semana arriba de la barra ----
+  const clientesCons = Array.from(new Set(
+    ultimas.reduce(function (acc, s) { return acc.concat(Object.keys(s.porCliente)); }, [])
+  )).sort();
+
+  const datasetsConsolidados = clientesCons.map(function (cli) {
+    return {
+      label: cli,
+      stack: 'cons',
+      data: ultimas.map(function (s) { return (s.porCliente[cli] && s.porCliente[cli].consolidados) || 0; }),
+      backgroundColor: colorCliente(cli),
+      maxBarThickness: 44
+    };
+  }).concat([{
+    label: 'Meta',
+    stack: 'meta',
+    data: ultimas.map(function (s) { return s.meta; }),
+    backgroundColor: 'rgba(255,255,255,.10)',
+    borderRadius: 6, maxBarThickness: 44
+  }]);
+
+  if (chartHistorico) chartHistorico.destroy();
+  chartHistorico = new Chart(document.getElementById('cvsHistorico'), {
+    type: 'bar',
+    data: {
+      labels: ultimas.map(function (s) { return 'WK' + s.semana; }),
+      datasets: datasetsConsolidados
+    },
+    plugins: [etiquetasPorcentajeStack({ id: 'Cons', stack: 'cons' })],
+    options: {
+      maintainAspectRatio: false,
+      layout: { padding: { top: 16 } },
+      plugins: {
+        legend: {
+          display: true, position: 'top',
+          labels: { color: '#7f92a3', boxWidth: 10, font: { size: 11 } }
+        },
+        tooltip: { enabled: true }
+      },
+      scales: {
+        y: { beginAtZero: true, stacked: true, ticks: { color: '#7f92a3', font: { size: 10 } }, grid: { color: 'rgba(255,255,255,.05)' } },
+        x: { stacked: true, ticks: { color: '#7f92a3', font: { size: 11 } }, grid: { display: false } }
+      }
+    }
+  });
+
+  // ---- Bloques nuevos: volumen semanal y récords ----
+  cargarDiasDestacados();
+  cargarVolumenSemanal(ultimas);
+  cargarOcupacionHistorica();
+
+  // ---- Tabla de naves por semana (más reciente primero) ----
+  const semanasFiltro = new Set(ultimas.map(function (s) { return s.semana; }));
+  const filas = naves
+    .filter(function (n) { return Number(n.semana) > 0 && semanasFiltro.has(Number(n.semana)); })
+    .sort(function (a, b) {
+      if (b.semana !== a.semana) return b.semana - a.semana;
+      return String(a.nave).localeCompare(String(b.nave));
+    })
+    .map(function (n) {
+      const total = Number(n.total) || 0;
+      const cons = Number(n.consolidados) || 0;
+      const saldo = Math.max(0, total - cons);
+      const pct = total > 0 ? Math.min(100, (cons / total) * 100) : 0;
+      const color = pct >= 100 ? '#3fae6a' : (pct >= 60 ? '#e0a52c' : '#17a2a0');
+
+      let estado;
+      if (n.semana === SEMANA_ACTUAL && pct < 100) estado = '<span class="pill-curso">En curso</span>';
+      else if (pct >= 100) estado = '<span class="pill-ok">Cumplida</span>';
+      else estado = '<span class="pill-no">' + pct.toFixed(0) + '%</span>';
+
+      const esActual = n.semana === SEMANA_ACTUAL;
+      return '<tr class="' + (esActual ? 'wk-actual' : '') + '">' +
+        '<td><span class="nave-wk' + (esActual ? ' actual' : '') + '">WK' + n.semana + '</span></td>' +
+        '<td style="font-weight:700;">' + (n.nave || '\u2014') + '</td>' +
+        '<td style="color:var(--gold);">' + (n.cliente || '\u2014') + '</td>' +
+        '<td style="font-weight:800;">' + cons + '</td>' +
+        '<td>' + total + '</td>' +
+        '<td style="color:var(--gold);font-weight:700;">' + saldo + '</td>' +
+        '<td><div class="mini-bar-bg"><div class="mini-bar-fill" style="width:' + pct.toFixed(0) + '%;background:' + color + ';"></div></div></td>' +
+        '<td>' + estado + '</td>' +
+      '</tr>';
+    }).join('');
+
+  // Diagnóstico: distinguir "el backend no envía el campo" de
+  // "el campo existe pero está vacío en la hoja".
+  var sinCampoSemana = naves.length > 0 &&
+    !naves.some(function (n) { return Object.prototype.hasOwnProperty.call(n, 'semana'); });
+
+  var msgVacio = sinCampoSemana
+    ? 'El servidor no está enviando el campo <b>semana</b>.<br>' +
+      'La URL del dashboard apunta a un despliegue antiguo de Apps Script.<br>' +
+      'Vuelve a implementar y actualiza URL_GAS en este archivo.'
+    : (naves.some(function (n) { return Number(n.semana) > 0; })
+        ? 'Sin naves en el período seleccionado (' + (filtroSel ? filtroSel.selectedOptions[0].text.toLowerCase() : '') + ').'
+        : 'Ninguna nave tiene semana asignada en Metas de nave.<br>' +
+          'Agrega el número de semana en Herramientas → Metas de nave.');
+
+  document.getElementById('histNavesBody').innerHTML =
+    filas || filaVacia(8, msgVacio);
+}
+
+/* =========================================================
+   DÍAS DESTACADOS
+   Analiza día por día del período: cuál rindió más en
+   consolidados, recepciones y volumen, y qué día de la
+   semana rinde mejor en promedio.
+========================================================= */
+async function cargarDiasDestacados() {
+  const cont = document.getElementById('histRecords');
+  try {
+    const hoy = new Date();
+    const inicio = new Date(hoy);
+    inicio.setDate(inicio.getDate() - 8 * 7); // últimas 8 semanas
+
+    const rango = { fechaDesde: fechaISO(inicio), fechaHasta: fechaISO(hoy) };
+
+    const [dEjec, dRecep] = await Promise.all([
+      pedirJSON('dashboardEjecutivo', rango),
+      pedirJSON('informeRecepcion', { filtros: rango }).catch(function () { return null; })
+    ]);
+
+    const dias = (dEjec && dEjec.ok && dEjec.contenedoresPorDia) ? dEjec.contenedoresPorDia : [];
+    if (!dias.length) {
+      cont.innerHTML = '<div class="act-empty">Sin movimiento en el período.</div>';
+      return;
+    }
+
+    // --- Día con más contenedores consolidados ---
+    const mejorDia = dias.reduce(function (a, b) {
+      return (Number(b.total) || 0) > (Number(a.total) || 0) ? b : a;
+    });
+
+    // --- Recepciones agrupadas por día (camiones únicos por patente+fecha) ---
+    const camionesPorDia = {};
+    const m3PorDia = {};
+    if (dRecep && dRecep.ok && Array.isArray(dRecep.detalle)) {
+      const vistos = {};
+      dRecep.detalle.forEach(function (r) {
+        const f = r.fecha;
+        if (!f) return;
+        m3PorDia[f] = (m3PorDia[f] || 0) + (Number(r.m3) || 0);
+        const clave = f + '|' + (r.patente || '') + '|' + (r.cliente || '');
+        if (!vistos[clave]) {
+          vistos[clave] = true;
+          camionesPorDia[f] = (camionesPorDia[f] || 0) + 1;
+        }
+      });
+    }
+
+    const diasCam = Object.keys(camionesPorDia);
+    const mejorRecep = diasCam.length
+      ? diasCam.reduce(function (a, b) { return camionesPorDia[b] > camionesPorDia[a] ? b : a; })
+      : null;
+
+    const diasM3 = Object.keys(m3PorDia);
+    const mejorM3 = diasM3.length
+      ? diasM3.reduce(function (a, b) { return m3PorDia[b] > m3PorDia[a] ? b : a; })
+      : null;
+
+    // --- Promedio diario (solo días con movimiento) ---
+    const conMov = dias.filter(function (d) { return (Number(d.total) || 0) > 0; });
+    const promDiario = conMov.length
+      ? conMov.reduce(function (a, d) { return a + (Number(d.total) || 0); }, 0) / conMov.length
+      : 0;
+
+    // --- Día de la semana más productivo ---
+    const NOMBRES = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+    const porDiaSemana = {};
+    conMov.forEach(function (d) {
+      const p = String(d.fecha).split('-');
+      if (p.length < 3) return;
+      const dow = new Date(Number(p[0]), Number(p[1]) - 1, Number(p[2])).getDay();
+      if (!porDiaSemana[dow]) porDiaSemana[dow] = { suma: 0, n: 0 };
+      porDiaSemana[dow].suma += Number(d.total) || 0;
+      porDiaSemana[dow].n++;
+    });
+    let mejorDow = null, mejorProm = 0;
+    Object.keys(porDiaSemana).forEach(function (k) {
+      const prom = porDiaSemana[k].suma / porDiaSemana[k].n;
+      if (prom > mejorProm) { mejorProm = prom; mejorDow = Number(k); }
+    });
+
+    function fechaCorta(iso) {
+      if (!iso) return '—';
+      const p = String(iso).split('-');
+      if (p.length < 3) return iso;
+      const f = new Date(Number(p[0]), Number(p[1]) - 1, Number(p[2]));
+      return f.toLocaleDateString('es-CL', { day: '2-digit', month: 'short' });
+    }
+    function diaSemanaDe(iso) {
+      if (!iso) return '';
+      const p = String(iso).split('-');
+      if (p.length < 3) return '';
+      return NOMBRES[new Date(Number(p[0]), Number(p[1]) - 1, Number(p[2])).getDay()];
+    }
+
+    function fila(color, label, valor, chip) {
+      return '<div class="rec-row" style="border-left-color:' + color + ';">' +
+        '<div class="rec-txt">' +
+          '<div class="l">' + label + '</div>' +
+          '<div class="v">' + valor + '</div>' +
+        '</div>' +
+        (chip ? '<span class="rec-wk">' + chip + '</span>' : '') +
+      '</div>';
+    }
+
+    cont.innerHTML =
+      fila('#17a2a0', 'Día con más consolidados',
+           fmt(mejorDia.total) + '<small>contenedores</small>',
+           fechaCorta(mejorDia.fecha)) +
+      (mejorRecep
+        ? fila('#3fae6a', 'Día con más recepciones',
+               fmt(camionesPorDia[mejorRecep]) + '<small>camiones</small>',
+               fechaCorta(mejorRecep))
+        : '') +
+      (mejorM3
+        ? fila('#e0a52c', 'Día con más volumen',
+               fmt(m3PorDia[mejorM3], 1) + '<small>m³ recibidos</small>',
+               fechaCorta(mejorM3))
+        : '') +
+      fila('#7c6cd8', 'Promedio por día activo',
+           promDiario.toFixed(1) + '<small>contenedores</small>', null) +
+      (mejorDow !== null
+        ? fila('#d98cc4', 'Mejor día de la semana',
+               NOMBRES[mejorDow] + '<small>' + mejorProm.toFixed(1) + ' prom.</small>', null)
+        : '');
+  } catch (e) {
+    console.error('Error cargando días destacados:', e);
+    cont.innerHTML = '<div class="act-empty">No se pudo calcular.</div>';
+  }
+}
+
+/* =========================================================
+   VOLUMEN m³ Y CAMIONES POR SEMANA
+   Requiere una consulta por semana (dashboardEjecutivo), así que
+   solo se hace al abrir el histórico, en paralelo.
+========================================================= */
+let chartHistVolumen = null;
+
+/* Lunes de una semana ISO — para armar el rango de fechas de cada semana */
+/* Plugin reutilizable: dibuja el valor encima de cada barra / punto.
+   Así las cifras se leen en la TV sin pasar el cursor. */
+function etiquetasValores(opts) {
+  var o = opts || {};
+  return {
+    id: 'etiquetasValores' + (o.id || ''),
+    afterDatasetsDraw: function (chart) {
+      var ctx = chart.ctx;
+      chart.data.datasets.forEach(function (dataset, di) {
+        // Permite omitir datasets (ej: las barras grises de "Meta")
+        if (o.omitir && o.omitir.indexOf(di) !== -1) return;
+        var meta = chart.getDatasetMeta(di);
+        if (meta.hidden) return;
+        meta.data.forEach(function (punto, i) {
+          var v = dataset.data[i];
+          if (v == null || v === 0) return;
+          var texto = o.formato ? o.formato(v, di) : String(v);
+          ctx.save();
+          ctx.fillStyle = (o.colores && o.colores[di]) || '#f2f6f9';
+          ctx.font = '800 ' + (o.tam || 11) + 'px "Segoe UI", Arial, sans-serif';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'bottom';
+          ctx.fillText(texto, punto.x, punto.y - 4);
+          ctx.restore();
+        });
+      });
+    }
+  };
+}
+
+/* Plugin para barras apiladas por cliente: dentro de cada tramo dibuja
+   qué % del total de esa barra representa (solo si el tramo es lo
+   bastante alto como para que el texto entre), y arriba de toda la
+   barra dibuja el total de la semana — igual que hacía antes
+   etiquetasValores con el valor absoluto, pero ahora sumando todos
+   los tramos del stack indicado. */
+function etiquetasPorcentajeStack(opts) {
+  var o = opts || {};
+  return {
+    id: 'pctStack' + (o.id || ''),
+    afterDatasetsDraw: function (chart) {
+      var ctx = chart.ctx;
+      var datasets = chart.data.datasets;
+      var incluidos = [];
+      datasets.forEach(function (ds, di) { if (ds.stack === o.stack) incluidos.push(di); });
+      if (!incluidos.length) return;
+
+      var totales = [];
+      incluidos.forEach(function (di) {
+        (datasets[di].data || []).forEach(function (v, i) { totales[i] = (totales[i] || 0) + (Number(v) || 0); });
+      });
+
+      incluidos.forEach(function (di) {
+        var meta = chart.getDatasetMeta(di);
+        if (meta.hidden) return;
+        meta.data.forEach(function (bar, i) {
+          var v = Number(datasets[di].data[i]) || 0;
+          if (!v || !totales[i]) return;
+          var pct = Math.round((v / totales[i]) * 100);
+          var altoPx = Math.abs(bar.base - bar.y);
+          if (altoPx < 15) return; // tramo muy angosto: se omite (etiqueta selectiva)
+          ctx.save();
+          ctx.fillStyle = '#f2f6f9';
+          ctx.font = '800 10px "Segoe UI", Arial, sans-serif';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(pct + '%', bar.x, (bar.y + bar.base) / 2);
+          ctx.restore();
+        });
+      });
+
+      // Total de la semana (m³ entero, sin decimales) + camiones al lado
+      // (ej. "3.335 / 88"), arriba del tramo más alto del stack. Antes el
+      // número de camiones se dibujaba aparte, siguiendo al punto de la
+      // línea — como esa línea tiene su propia escala (eje derecho), el
+      // número terminaba flotando en cualquier altura y se cruzaba con
+      // las barras o con este mismo total. Ahora van juntos, en un solo
+      // texto fijo arriba de la columna.
+      var diTope = incluidos[incluidos.length - 1];
+      chart.getDatasetMeta(diTope).data.forEach(function (bar, i) {
+        if (!totales[i]) return;
+        var texto = fmt(totales[i], 0) + (o.extra ? ' / ' + fmt(o.extra[i], 0) : '');
+        ctx.save();
+        ctx.fillStyle = '#f2f6f9';
+        ctx.font = '800 12px "Segoe UI", Arial, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'bottom';
+        ctx.fillText(texto, bar.x, bar.y - 5);
+        ctx.restore();
+      });
+    }
+  };
+}
+
+function lunesDeSemanaISO(anio, semana) {
+  const d = new Date(anio, 0, 4);
+  const diaSem = d.getDay() || 7;
+  d.setDate(d.getDate() - diaSem + 1);
+  d.setDate(d.getDate() + (semana - 1) * 7);
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
+// FIX: cada apertura/refresco del histórico (el refresco automático cada
+// REFRESCO_DATOS_MS llama a pintarHistorico() -> cargarVolumenSemanal()
+// de nuevo mientras la vista sigue abierta) dispara una tanda nueva de
+// llamadas a dashboardEjecutivo por cada semana. Como son requests HTTP
+// en paralelo, no hay garantía de que la tanda MÁS VIEJA termine antes
+// que la más nueva — si llega después, pisaba el gráfico ya actualizado
+// con datos de un filtro/momento anterior (el "desface" reportado: el
+// gráfico de camiones mostraba más semanas de las que el filtro pedía).
+// Con este token, solo la tanda más reciente puede pintar el gráfico.
+let _volSemanalToken = 0;
+
+async function cargarVolumenSemanal(semanas) {
+  const miToken = ++_volSemanalToken;
+  const anio = new Date().getFullYear();
+  // Máximo 8 semanas para no saturar Apps Script con consultas
+  const objetivo = semanas.slice(-8);
+
+  try {
+    const resultados = await Promise.all(objetivo.map(function (s) {
+      const lunes = lunesDeSemanaISO(anio, s.semana);
+      const domingo = new Date(lunes);
+      domingo.setDate(domingo.getDate() + 6);
+      return pedirJSON('dashboardEjecutivo', {
+        fechaDesde: fechaISO(lunes),
+        fechaHasta: fechaISO(domingo)
+      }).catch(function () { return null; });
+    }));
+
+    // Llegó una tanda más nueva mientras esta esperaba red: descartar
+    // esta respuesta, ya vieja, sin pintar nada con ella.
+    if (miToken !== _volSemanalToken) return;
+
+    const labels = objetivo.map(function (s) { return 'WK' + s.semana; });
+    const camiones = [];
+    // FIX: antes el bloque m³ usaba kpis.m3Movilizados, que suma
+    // Recepción + Consolidado + Reexpedición (tres flujos distintos) —
+    // comparado contra "camiones" (que solo cuenta Recepción), el
+    // promedio m³/camión salía inflado y no cuadraba con la realidad.
+    // Ahora las dos series salen del mismo dato (recepcionPorCliente),
+    // y además el m³ se reparte por cliente para mostrar el % de cada uno.
+    const porClienteM3 = {}; // cliente -> array paralelo a "objetivo"
+    const clientesVolSet = {};
+
+    resultados.forEach(function (r, idx) {
+      if (!r || !r.ok) { camiones.push(0); return; }
+      const rp = r.recepcionPorCliente || [];
+      camiones.push(rp.reduce(function (a, c) { return a + (Number(c.camiones) || 0); }, 0));
+      rp.forEach(function (c) {
+        const cli = c.cliente || 'Sin cliente';
+        clientesVolSet[cli] = true;
+        if (!porClienteM3[cli]) porClienteM3[cli] = new Array(objetivo.length).fill(0);
+        porClienteM3[cli][idx] += Number(c.m3) || 0;
+      });
+    });
+
+    const clientesVol = Object.keys(clientesVolSet).sort();
+    const datasetsM3 = clientesVol.map(function (cli) {
+      return {
+        type: 'bar', label: cli, stack: 'm3',
+        data: porClienteM3[cli],
+        backgroundColor: colorCliente(cli),
+        maxBarThickness: 34,
+        yAxisID: 'y'
+      };
+    });
+    if (chartHistVolumen) chartHistVolumen.destroy();
+    chartHistVolumen = new Chart(document.getElementById('cvsHistVolumen'), {
+      data: {
+        labels: labels,
+        datasets: datasetsM3.concat([
+          {
+            type: 'line',
+            label: 'Camiones',
+            data: camiones,
+            borderColor: '#7c6cd8',
+            backgroundColor: '#7c6cd8',
+            borderWidth: 2.5,
+            pointRadius: 3,
+            pointBackgroundColor: '#7c6cd8',
+            tension: .3,
+            yAxisID: 'y1'
+          }
+        ])
+      },
+      plugins: [
+        etiquetasPorcentajeStack({ id: 'Vol', stack: 'm3', extra: camiones })
+      ],
+      options: {
+        maintainAspectRatio: false,
+        layout: { padding: { top: 18 } },
+        plugins: {
+          legend: {
+            display: true, position: 'top',
+            labels: { color: '#7f92a3', boxWidth: 10, font: { size: 10 } }
+          },
+          tooltip: { enabled: true }
+        },
+        scales: {
+          y: {
+            beginAtZero: true, stacked: true, position: 'left',
+            ticks: { color: '#3fae6a', font: { size: 9 } },
+            grid: { color: 'rgba(255,255,255,.05)' }
+          },
+          y1: {
+            beginAtZero: true, position: 'right',
+            ticks: { color: '#7c6cd8', font: { size: 9 }, precision: 0 },
+            grid: { display: false }
+          },
+          x: { stacked: true, ticks: { color: '#7f92a3', font: { size: 10 } }, grid: { display: false } }
+        }
+      }
+    });
+  } catch (e) {
+    console.error('Error cargando volumen semanal:', e);
+  }
+}
+
+/* =========================================================
+   OCUPACIÓN DE BODEGA — HISTÓRICO DIARIO
+   Muestra la tendencia de m³ ocupados día a día (guardados por el
+   trigger diario del backend), para ver cuándo subió y cuándo
+   estuvo baja la ocupación. Independiente del filtro de semanas de
+   arriba: siempre trae los últimos 60 días con snapshot guardado.
+========================================================= */
+let _ocupacionToken = 0;
+async function cargarOcupacionHistorica() {
+  const miToken = ++_ocupacionToken;
+  const resumen = document.getElementById('histOcupacionResumen');
+
+  try {
+    const r = await pedirJSON('historicoOcupacionBodega', { dias: 60 });
+    if (miToken !== _ocupacionToken) return; // respuesta vieja, descartar
+
+    const items = (r && r.ok && Array.isArray(r.items)) ? r.items : [];
+    if (chartHistOcupacion) { chartHistOcupacion.destroy(); chartHistOcupacion = null; }
+
+    if (!items.length) {
+      if (resumen) resumen.textContent = '· sin snapshots guardados aún';
+      return;
+    }
+
+    if (resumen) {
+      const max = r.maxItem, min = r.minItem;
+      const fmtDia = function (f) { return new Date(f + 'T12:00:00').toLocaleDateString('es-CL', { day: '2-digit', month: 'short' }); };
+      resumen.textContent = max && min
+        ? '· máx ' + fmt(max.totalVolumen, 0) + ' m³ (' + max.pctOcupacion.toFixed(0) + '%) el ' + fmtDia(max.fecha) +
+          '  ·  mín ' + fmt(min.totalVolumen, 0) + ' m³ (' + min.pctOcupacion.toFixed(0) + '%) el ' + fmtDia(min.fecha)
+        : '';
+    }
+
+    const labels = items.map(function (it) { return new Date(it.fecha + 'T12:00:00').toLocaleDateString('es-CL', { day: '2-digit', month: 'short' }); });
+    const maxFecha = r.maxItem ? r.maxItem.fecha : null;
+    const minFecha = r.minItem ? r.minItem.fecha : null;
+
+    chartHistOcupacion = new Chart(document.getElementById('cvsHistOcupacion'), {
+      type: 'line',
+      data: {
+        labels: labels,
+        datasets: [{
+          label: 'm³ ocupados',
+          data: items.map(function (it) { return it.totalVolumen; }),
+          borderColor: '#17a2a0',
+          backgroundColor: 'rgba(23,162,160,.14)',
+          fill: true,
+          tension: .25,
+          borderWidth: 2.5,
+          pointRadius: items.map(function (it) { return (it.fecha === maxFecha || it.fecha === minFecha) ? 5 : 2; }),
+          pointBackgroundColor: items.map(function (it) {
+            return it.fecha === maxFecha ? '#3fae6a' : (it.fecha === minFecha ? '#e0546a' : '#17a2a0');
+          }),
+          pointBorderColor: '#101c2b',
+          pointBorderWidth: 1.5,
+          yAxisID: 'y'
+        }, {
+          label: '% ocupación',
+          data: items.map(function (it) { return it.pctOcupacion; }),
+          borderColor: '#e0a52c',
+          borderDash: [4, 3],
+          borderWidth: 1.75,
+          pointRadius: 0,
+          fill: false,
+          tension: .25,
+          yAxisID: 'y1'
+        }]
+      },
+      options: {
+        maintainAspectRatio: false,
+        layout: { padding: { top: 10 } },
+        plugins: {
+          legend: { display: true, position: 'top', labels: { color: '#7f92a3', boxWidth: 10, font: { size: 10 } } },
+          tooltip: {
+            enabled: true,
+            callbacks: {
+              label: function (ctx) {
+                return ctx.dataset.yAxisID === 'y1'
+                  ? '% ocupación: ' + ctx.parsed.y.toFixed(1) + '%'
+                  : 'm³ ocupados: ' + fmt(ctx.parsed.y, 0);
+              }
+            }
+          }
+        },
+        scales: {
+          y: {
+            beginAtZero: true, position: 'left',
+            ticks: { color: '#17a2a0', font: { size: 9 } },
+            grid: { color: 'rgba(255,255,255,.05)' }
+          },
+          y1: {
+            beginAtZero: true, position: 'right', min: 0, max: 100,
+            ticks: { color: '#e0a52c', font: { size: 9 }, callback: function (v) { return v + '%'; } },
+            grid: { display: false }
+          },
+          x: { ticks: { color: '#7f92a3', font: { size: 9 }, maxRotation: 0, autoSkip: true, maxTicksLimit: 15 }, grid: { display: false } }
+        }
+      }
+    });
+  } catch (e) {
+    console.error('Error cargando ocupación histórica:', e);
+  }
+}
+
+/* Cerrar con Escape */
+document.addEventListener('keydown', function (e) {
+  if (e.key === 'Escape') cerrarHistorico();
+});
+
+actualizarTodo();
+setInterval(actualizarTodo, REFRESCO_DATOS_MS);
+
+/* =========================================================
+   ANTI-SUSPENSIÓN DE PANTALLA (TV)
+   La TV detecta "inactividad" (nadie toca el control, ni el mouse/
+   teclado si es un mini PC) y pasa a modo ahorro de energía, aunque
+   la página siga viva y actualizándose sola. Dos capas, de más a
+   menos soportada:
+
+   1) Screen Wake Lock API: le pide al navegador que le diga al
+      sistema operativo "no apagues la pantalla por inactividad
+      mientras esta pestaña esté visible". Es el mecanismo estándar
+      y el que hay que preferir — funciona en Chrome/Chromium/Edge/
+      Android (la mayoría de TV boxes y mini PCs con Chrome/Kiosk).
+      Se libera solo si la pestaña deja de estar visible, así que se
+      vuelve a pedir apenas vuelve a estarlo.
+
+   2) Respaldo para navegadores sin esa API (Safari viejo, algunos
+      Smart TV embebidos): un video invisible en loop generado al
+      vuelo desde un <canvas> (no depende de ningún archivo externo).
+      Es la técnica clásica de librerías como NoSleep.js — un video
+      reproduciéndose "convence" a muchos sistemas de que la pantalla
+      está en uso y no debe apagarse, aunque no sea tan confiable
+      como el Wake Lock real.
+
+   Ninguna de las dos puede pisar un "modo ahorro" que el TELEVISOR
+   mismo (no el navegador) aplique a nivel de hardware/firmware sin
+   que el sistema operativo se entere — para eso hay que revisar la
+   configuración de energía/protector de pantalla del TV.
+========================================================= */
+let _wakeLock = null;
+
+async function _pedirWakeLock() {
+  try {
+    if (!('wakeLock' in navigator)) {
+      console.warn('Wake Lock API no soportada en este navegador — queda solo el respaldo de video.');
+      return;
+    }
+    _wakeLock = await navigator.wakeLock.request('screen');
+    console.log('✅ Wake Lock activo: la pantalla no debería apagarse por inactividad.');
+    _wakeLock.addEventListener('release', function () {
+      console.log('Wake Lock liberado — se reintenta al volver a estar visible.');
+    });
+  } catch (err) {
+    console.warn('No se pudo activar Wake Lock:', err && err.message);
+  }
+}
+
+function _crearVideoAntiSuspension() {
+  try {
+    const canvas = document.createElement('canvas');
+    canvas.width = 2; canvas.height = 2;
+    const ctx = canvas.getContext('2d');
+    ctx.fillRect(0, 0, 2, 2);
+    const stream = canvas.captureStream ? canvas.captureStream(1) : null;
+    if (!stream) return;
+
+    const video = document.createElement('video');
+    video.muted = true;
+    video.playsInline = true;
+    video.setAttribute('playsinline', '');
+    video.style.cssText = 'position:fixed;left:0;top:0;width:1px;height:1px;opacity:0;pointer-events:none;z-index:-1;';
+    video.srcObject = stream;
+    document.body.appendChild(video);
+    video.play().catch(function (e) {
+      console.warn('No se pudo reproducir el video anti-suspensión:', e && e.message);
+    });
+  } catch (e) {
+    console.warn('No se pudo crear el video anti-suspensión:', e && e.message);
+  }
+}
+
+_pedirWakeLock();
+_crearVideoAntiSuspension();
+
+document.addEventListener('visibilitychange', function () {
+  if (document.visibilityState === 'visible') _pedirWakeLock();
+});
+</script>
+</body>
+</html>
