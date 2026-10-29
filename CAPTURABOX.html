@@ -18528,7 +18528,7 @@ function pklg_construirDocumento(entregas, esMasivo) {
         : '<span style="color:#b45309;font-weight:700;">⏳ Pendiente</span>';
       return '<tr><td class="colnum">' + (i + 1) + '</td><td>' + pklg_esc(l.lote) + '</td>' +
         '<td>' + pklg_esc(l.material) + '</td>' +
-        '<td>' + pklg_esc(l.marca) + '</td><td>' + pklg_esc(l.producto) + '</td>' +
+        '<td class="ajusta">' + pklg_esc(l.marca) + '</td>' +
         '<td class="num">' + (Number(l.volumen) || 0).toFixed(3) + '</td>' +
         '<td class="num">' + Math.round(Number(l.peso) || 0).toLocaleString('es-CL') + '</td>' +
         '<td>' + pklg_esc(l.ubicacion) + '</td>' +
@@ -18539,6 +18539,7 @@ function pklg_construirDocumento(entregas, esMasivo) {
       cliente: ent.cliente, nave: ent.nave, reserva: ent.reserva,
       naviera: ent.naviera, ct: ent.ct, restriccionPeso: ent.restriccionPeso,
       entrega: ent.entrega, puertoEmbarque: ent.puertoEmbarque, puertoDestino: ent.destino,
+      producto: pklg_unicos(lotes.map(function (l) { return l.producto; })).join(' / '),
       filasHtml: filas, fechaEmision: fechaEmision,
       totales: {
         lotes: ent.totalLotes, m3: ent.totalM3, peso: ent.totalPeso,
@@ -18662,6 +18663,7 @@ function pklg_plantillaEntrega(d) {
         '<div class="info-item"><div class="l">Reserva</div><div class="v">' + pklg_esc(d.reserva) + '</div></div>' +
         (d.naviera ? '<div class="info-item"><div class="l">Naviera</div><div class="v">' + pklg_esc(d.naviera) + '</div></div>' : '') +
         '<div class="info-item"><div class="l">Entrega</div><div class="v">' + pklg_esc(d.entrega) + '</div></div>' +
+        '<div class="info-item"><div class="l">Producto</div><div class="v">' + pklg_esc(d.producto) + '</div></div>' +
         (d.ct ? '<div class="info-item"><div class="l">Contenedores</div><div class="v">' + pklg_esc(d.ct) + '</div></div>' : '') +
         '<div class="info-item"><div class="l">Puerto Embarque</div><div class="v">' + pklg_esc(d.puertoEmbarque) + '</div></div>' +
         '<div class="info-item"><div class="l">Puerto Destino</div><div class="v">' + pklg_esc(d.puertoDestino) + '</div></div>' +
@@ -18682,10 +18684,10 @@ function pklg_plantillaEntrega(d) {
           : '') +
       '</div>' +
       '<table class="tabla-lotes"><thead><tr>' +
-        '<th class="colnum" style="width:40px;">N\u00b0</th><th style="width:10%;">Lote</th><th style="width:10%;">Material</th>' +
-        '<th style="width:22%;">Marca</th><th style="width:14%;">Producto</th>' +
+        '<th class="colnum" style="width:40px;">N\u00b0</th><th style="width:13%;">Lote</th><th style="width:10%;">Material</th>' +
+        '<th style="width:34%;">Marca</th>' +
         '<th class="num" style="width:7%;">m\u00b3</th>' +
-        '<th class="num" style="width:6%;">Peso (kg)</th><th style="width:14%;">Ubicaci\u00f3n</th>' +
+        '<th class="num" style="width:6%;">Peso (kg)</th><th style="width:13%;">Ubicaci\u00f3n</th>' +
         '<th style="width:17%;">Estado</th>' +
       '</tr></thead><tbody>' + d.filasHtml + '</tbody></table>' +
     '</div>'
@@ -18738,6 +18740,7 @@ function pklg_css() {
     'table.tabla-lotes tbody td{padding:4px 6px;border-bottom:1px solid #e6ebee;' +
       'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}' +
     'table.tabla-lotes tbody td.num{text-align:right;font-variant-numeric:tabular-nums;}' +
+    'table.tabla-lotes tbody td.ajusta{white-space:normal;overflow-wrap:anywhere;}' +
     /* Columna N°: ancho fijo angosto, pero sin "…" — nunca debe recortar
        el correlativo aunque pase de 3 o 4 dígitos (bodegas con miles
        de lotes por packing list). */
