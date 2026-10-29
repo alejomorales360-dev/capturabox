@@ -18540,7 +18540,7 @@ function pklg_construirDocumento(entregas, esMasivo) {
     bloques += pklg_plantillaEntrega({
       cliente: ent.cliente, nave: ent.nave, reserva: ent.reserva,
       naviera: ent.naviera, ct: ent.ct, restriccionPeso: ent.restriccionPeso,
-      entrega: ent.entrega, puertoEmbarque: ent.puertoEmbarque, puertoDestino: ent.destino,
+      entrega: ent.entrega, puertoDestino: ent.destino,
       producto: pklg_unicos(lotes.map(function (l) { return l.producto; })).join(' / '),
       filasHtml: filas, fechaEmision: fechaEmision,
       totales: {
@@ -18667,7 +18667,6 @@ function pklg_plantillaEntrega(d) {
         '<div class="info-item"><div class="l">Entrega</div><div class="v">' + pklg_esc(d.entrega) + '</div></div>' +
         '<div class="info-item"><div class="l">Producto</div><div class="v">' + pklg_esc(d.producto) + '</div></div>' +
         (d.ct ? '<div class="info-item"><div class="l">Contenedores</div><div class="v">' + pklg_esc(d.ct) + '</div></div>' : '') +
-        '<div class="info-item"><div class="l">Puerto Embarque</div><div class="v">' + pklg_esc(d.puertoEmbarque) + '</div></div>' +
         '<div class="info-item"><div class="l">Puerto Destino</div><div class="v">' + pklg_esc(d.puertoDestino) + '</div></div>' +
         '<div class="info-item"><div class="l">Total lotes</div><div class="v">' + t.lotes + '</div></div>' +
         '<div class="info-item"><div class="l">Total m\u00b3</div><div class="v">' + (t.m3 || 0).toLocaleString('es-CL', {minimumFractionDigits:3}) + '</div></div>' +
