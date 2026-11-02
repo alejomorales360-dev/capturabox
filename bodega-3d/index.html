@@ -1,0 +1,884 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Bodega Cervantes 3D</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..100,400..800&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+/* Layout: one-screen tool — 3D site model fills the stage, a spec-sheet panel on the right (stacks below on phones) */
+:root{
+  --bg:#eceff2; --panel:#f8f9fa; --fg:#1b2129; --muted:#5b6672; --line:#d2d8de;
+  --ink:#24507f;            /* steel blue: controls */
+  --mark:#e5a900;           /* floor-marking yellow: selection, cotas */
+  --mark-ink:#8a6500;
+  --loc:#4a7fc0;            /* storage location blue (as in the plan) */
+  --scene:#dde3e9; --label-bg:rgba(255,255,255,.9);
+  --f-display:"Archivo","Arial Narrow",system-ui,sans-serif;
+  --f-body:"Archivo",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,"SFMono-Regular",Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#13171c; --panel:#192027; --fg:#e4e8ec; --muted:#97a3af; --line:#2b343e;
+  --ink:#8db4e8; --mark:#f2c230; --mark-ink:#f2c230; --loc:#5b8fd0;
+  --scene:#1a2129; --label-bg:rgba(22,27,33,.88); color-scheme:dark }}
+:root[data-theme="dark"]{
+  --bg:#13171c; --panel:#192027; --fg:#e4e8ec; --muted:#97a3af; --line:#2b343e;
+  --ink:#8db4e8; --mark:#f2c230; --mark-ink:#f2c230; --loc:#5b8fd0;
+  --scene:#1a2129; --label-bg:rgba(22,27,33,.88); color-scheme:dark }
+
+*,*::before,*::after{box-sizing:border-box}
+:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+[hidden]{display:none!important}
+html,body{height:100%}
+body{margin:0}
+body{background:var(--bg);color:var(--fg);font-family:var(--f-body);font-size:14px;
+  display:grid;grid-template-rows:auto 1fr;overflow:hidden}
+button,input{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+
+.bar{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px 24px;
+  padding-block:10px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
+  border-bottom:1px solid var(--line);background:var(--panel)}
+.bar h1{margin:0;font-family:var(--f-display);font-stretch:78%;font-weight:800;font-size:22px;letter-spacing:.01em;line-height:1.1}
+.bar .sub{font-family:var(--f-mono);font-size:11.5px;color:var(--muted);margin-top:2px}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:6px;overflow:hidden;background:var(--bg)}
+.seg button{border:0;background:transparent;padding:7px 12px;cursor:pointer;font-size:13px;font-weight:600;color:var(--muted)}
+.seg button+button{border-left:1px solid var(--line)}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--panel)}
+
+.app{display:grid;grid-template-columns:minmax(0,1fr) 360px;min-height:0}
+.view{position:relative;min-height:0;overflow:hidden;background:var(--scene)}
+.view canvas{display:block}
+.labels{position:absolute;inset:0;pointer-events:none}
+.lbl{font:600 11.5px/1.2 var(--f-body);background:var(--label-bg);color:var(--fg);padding:4px 7px;border-radius:3px;
+  border:1px solid var(--line);white-space:nowrap;text-align:center}
+.lbl b{display:block;font-weight:700}
+.lbl span{font:500 10.5px var(--f-mono);color:var(--muted)}
+.lbl.sel{border-color:var(--mark);box-shadow:0 0 0 2px var(--mark)}
+.lbl.tag{font-size:10.5px;padding:2px 6px;background:#f2c230;color:#1b1b1b;border-color:#c99d10}
+.street{font:600 11px var(--f-display);font-stretch:85%;letter-spacing:.18em;text-transform:uppercase;color:#f1f1ee;
+  text-shadow:0 1px 2px rgba(0,0,0,.6);white-space:nowrap}
+.dim{font:500 11px var(--f-mono);color:#1b1b1b;background:var(--mark);padding:1px 5px;border-radius:2px;white-space:nowrap}
+.labels.no-zones .lbl,.labels.no-zones .street{display:none}
+.labels.no-dims .dim{display:none}
+
+.chips{position:absolute;left:max(12px,env(safe-area-inset-left,0px));bottom:12px;display:flex;flex-wrap:wrap;gap:6px;max-width:calc(100% - 90px)}
+.chip{display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border-radius:999px;background:var(--label-bg);
+  border:1px solid var(--line);font-size:12.5px;font-weight:600;cursor:pointer;user-select:none}
+.chip input{accent-color:var(--ink);margin:0}
+.hint{position:absolute;left:max(12px,env(safe-area-inset-left,0px));top:10px;font-size:12px;color:var(--muted);
+  background:var(--label-bg);padding:4px 8px;border-radius:4px;border:1px solid var(--line)}
+.compass{position:absolute;right:max(12px,env(safe-area-inset-right,0px));bottom:12px;width:54px;height:54px;border-radius:50%;
+  background:var(--label-bg);border:1px solid var(--line);display:grid;place-items:center}
+.compass .needle{width:54px;height:54px;position:relative}
+.compass .needle::before{content:"";position:absolute;left:50%;top:7px;transform:translateX(-50%);
+  border-left:6px solid transparent;border-right:6px solid transparent;border-bottom:20px solid #c8372d}
+.compass .needle::after{content:"";position:absolute;left:50%;bottom:7px;transform:translateX(-50%);
+  border-left:6px solid transparent;border-right:6px solid transparent;border-top:20px solid var(--muted)}
+.compass .n{position:absolute;top:-1px;left:50%;transform:translateX(-50%);font:700 9px var(--f-mono);color:var(--fg)}
+.err{position:absolute;inset:0;display:grid;place-items:center;padding:24px;text-align:center;color:var(--muted)}
+
+.panel{border-left:1px solid var(--line);background:var(--panel);overflow-y:auto;min-width:0;
+  padding-block:16px 28px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
+  display:flex;flex-direction:column;gap:22px}
+.panel h2{margin:0 0 8px;font-family:var(--f-display);font-stretch:80%;font-weight:700;font-size:13px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.panel p{margin:0;line-height:1.5}
+table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
+td{padding:6px 4px;border-bottom:1px solid var(--line);vertical-align:middle}
+tbody tr{cursor:pointer}
+tbody tr:hover td{background:color-mix(in srgb,var(--ink) 7%,transparent)}
+tbody tr.sel td{background:color-mix(in srgb,var(--mark) 22%,transparent)}
+tbody tr.extra td{color:var(--muted)}
+td.sw{width:14px;padding-right:0}
+td.sw i{display:block;width:10px;height:10px;border-radius:2px;border:1px solid rgba(0,0,0,.2)}
+td.dm{font:400 11.5px var(--f-mono);color:var(--muted);white-space:nowrap}
+td.ar{font:500 12.5px var(--f-mono);text-align:right;white-space:nowrap}
+tfoot td{font-weight:700;border-bottom:0;border-top:2px solid var(--fg)}
+tfoot td.ar{font-size:13px}
+
+.card{border:1px solid var(--line);border-radius:6px;padding:12px 14px;background:var(--bg)}
+.card h3{margin:0;font-family:var(--f-display);font-stretch:82%;font-size:19px;font-weight:800;text-wrap:balance}
+.card .kv{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;margin-top:10px;font-size:13px}
+.card .kv dt{color:var(--muted)}
+.card .kv dd{margin:0;font-family:var(--f-mono);font-size:12.5px}
+.card .note{margin-top:10px;font-size:12.5px;color:var(--muted);line-height:1.45}
+.empty{color:var(--muted);font-size:13px}
+
+.search{display:flex;gap:6px}
+.search input{flex:1;min-width:0;padding:7px 10px;border:1px solid var(--line);border-radius:6px;background:var(--bg);font-family:var(--f-mono);text-transform:uppercase}
+.search input::placeholder{text-transform:none;color:var(--muted)}
+.search button{padding:7px 12px;border:0;border-radius:6px;background:var(--ink);color:var(--panel);font-weight:600;cursor:pointer}
+.msg{font-size:12.5px;color:var(--muted);margin-top:6px;min-height:1.2em}
+.locmap{margin-top:10px;border:1px solid var(--line);border-radius:6px;padding:8px;background:var(--bg)}
+.locmap .edge{font:600 9.5px var(--f-mono);color:var(--muted);text-align:center;letter-spacing:.08em;text-transform:uppercase}
+.locgrid{display:grid;grid-template-columns:repeat(6,1fr);gap:3px;margin:6px 0}
+.locgrid button{border:1px solid color-mix(in srgb,var(--loc) 55%,transparent);background:color-mix(in srgb,var(--loc) 18%,transparent);
+  border-radius:3px;padding:4px 0;font:500 10.5px var(--f-mono);cursor:pointer;color:var(--fg)}
+.locgrid button:hover{background:color-mix(in srgb,var(--loc) 32%,transparent)}
+.locgrid button.thin{padding:1px 0;font-size:9.5px}
+.locgrid button.sel{background:var(--mark);border-color:var(--mark);color:#1b1b1b;font-weight:600}
+.locgrid .gap{grid-column:1/-1;height:4px}
+.locgrid .doors{grid-column:1/-1;display:grid;grid-template-columns:repeat(6,1fr);font:600 9px var(--f-mono);color:var(--mark-ink)}
+.locgrid .doors span{text-align:right;transform:translateX(50%)}
+.small{font-size:12.5px;color:var(--muted);line-height:1.45;margin-top:8px}
+ul.list{margin:0;padding-left:18px;line-height:1.5;font-size:13px}
+ul.list li+li{margin-top:5px}
+
+@media (max-width:880px){
+  body{overflow:auto;display:block;height:auto}
+  .app{display:block}
+  .view{height:62vh;min-height:340px}
+  .panel{border-left:0;border-top:1px solid var(--line);overflow:visible}
+}
+</style>
+</head>
+<body>
+
+<header class="bar">
+  <div>
+    <h1>Bodega Cervantes</h1>
+    <div class="sub">Pedro Montt × Cervantes × Juan Macaya · terreno 14.000 m² · modelo 3D</div>
+  </div>
+  <div class="seg" role="group" aria-label="Vista">
+    <button id="v-general" type="button" aria-pressed="true">General</button>
+    <button id="v-planta" type="button" aria-pressed="false">Planta</button>
+    <button id="v-frente" type="button" aria-pressed="false">Frente</button>
+    <button id="v-interior" type="button" aria-pressed="false">Interior</button>
+  </div>
+</header>
+
+<main class="app">
+  <div class="view" id="view">
+    <div class="hint" id="hint">Arrastra para girar · rueda o pellizco para zoom · toca una zona o ubicación</div>
+    <div class="chips">
+      <label class="chip"><input id="t-roof" type="checkbox" checked> Techo</label>
+      <label class="chip"><input id="t-labels" type="checkbox" checked> Etiquetas</label>
+      <label class="chip"><input id="t-dims" type="checkbox" checked> Cotas</label>
+      <label class="chip"><input id="t-locs" type="checkbox" checked> Ubicaciones</label>
+      <label class="chip"><input id="t-trucks" type="checkbox" checked> Camiones y contenedores</label>
+    </div>
+    <div class="compass" title="Norte"><div class="needle" id="needle"><span class="n">N</span></div></div>
+  </div>
+
+  <aside class="panel">
+    <section>
+      <h2>Superficies (planilla)</h2>
+      <table>
+        <tbody id="zone-rows"></tbody>
+        <tfoot><tr><td></td><td>Total terreno</td><td class="dm">100 × 140 m</td><td class="ar">14.000 m²</td></tr></tfoot>
+      </table>
+    </section>
+
+    <section>
+      <h2>Selección</h2>
+      <div id="info" class="card"><p class="empty">Toca una zona o una ubicación en el modelo, en la tabla o en el mapa de abajo.</p></div>
+    </section>
+
+    <section>
+      <h2>Ubicaciones de la bodega</h2>
+      <form class="search" id="loc-form">
+        <input id="loc-q" type="text" placeholder="Buscar, ej. C-7" autocomplete="off" aria-label="Buscar ubicación" maxlength="5">
+        <button type="submit">Ir</button>
+      </form>
+      <div class="msg" id="loc-msg"></div>
+      <div class="locmap">
+        <div class="edge">Fondo · bodega pequeña</div>
+        <div class="locgrid" id="locgrid"></div>
+        <div class="edge">Alero · Pedro Montt</div>
+      </div>
+      <p class="small" id="loc-sum"></p>
+    </section>
+
+    <section>
+      <h2>Supuestos del modelo</h2>
+      <ul class="list">
+        <li>Bodega principal de 10 m al alero y 12,5 m en la cumbrera, con 6 naves.</li>
+        <li>Alero en voladizo a 8 m, sin pilares.</li>
+        <li>5 portones de 5,5 × 5 m frente a los pasillos, como en el plano.</li>
+        <li>Las ubicaciones A–F se muestran como bloques de 3 m de alto, con medidas tomadas a escala del plano.</li>
+        <li>Oficina de 1 piso; camarines y pañol de 3 m de alto.</li>
+        <li>Garita de guardias de 2 × 2 m (la caseta del gate mide 3 × 3 m) y baños de conductores de 5 × 8 m.</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>Por confirmar</h2>
+      <ul class="list">
+        <li>En el muro del fondo, el plano tiene 5 marcas amarillas alineadas con los portones. ¿Son portones traseros?</li>
+        <li>A lo largo, patio + alero + bodega + patio trasero suman 136,3 m, frente a los 140 m de Cervantes.</li>
+        <li>Alturas reales de la bodega, el alero y las oficinas.</li>
+      </ul>
+    </section>
+  </aside>
+</main>
+
+<script type="importmap">
+{"imports":{
+  "three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+}}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
+
+const $ = s => document.querySelector(s);
+const fmt = (n, d = 0) => n.toLocaleString('es-CL', { minimumFractionDigits: d, maximumFractionDigits: d });
+const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/* ---------- Site plan (metres), following "Layout def" ----------
+   Local coords: x from Cervantes (0) toward Juan Macaya (100); z from Pedro Montt (0) toward the vacant lot (140).
+   The whole site sits in a group mirrored on x so that, seen from Pedro Montt, Cervantes is on the left. */
+const W = 100, D = 140;
+const R = {
+  patio:   { x0: 0,    x1: 100,  z0: 0,     z1: 48,     h: 0.3 },
+  alero:   { x0: 0.5,  x1: 94.3, z0: 48,    z1: 61.3,   h: 8.4 },
+  bodega:  { x0: 0.5,  x1: 94.3, z0: 61.3,  z1: 123,    h: 12.5 },
+  est:     { x0: 94.6, x1: 98.8, z0: 61.3,  z1: 123.79, h: 1.6 },
+  peq:     { x0: 5,    x1: 67.5, z0: 123,   z1: 131,    h: 6.4 },
+  trasero: { x0: 0,    x1: 100,  z0: 123,   z1: 136.3,  h: 0.3 },
+  oficina: { x0: 85,   x1: 100,  z0: 0,     z1: 30,     h: 3.8 },
+  gate:    { x0: 2,    x1: 15,   z0: 24.5,  z1: 32,     h: 3.0 },
+  garita:  { x0: 6,    x1: 8,    z0: 26,    z1: 28,     h: 2.6 },
+  banos:   { x0: 0.6,  x1: 5.6,  z0: 50,    z1: 58,     h: 3.2 },
+  descanso:{ x0: 85.2, x1: 91.8, z0: 2.4,   z1: 12.7,   h: 1.2 },
+  camaras: { x0: 85.3, x1: 87.3, z0: 2.5,   z1: 4.5,    h: 2.6 },
+  verde:   { x0: 93.4, x1: 99.7, z0: 13.2,  z1: 27.2,   h: 0.8 },
+  segC:    { x0: 0.4,  x1: 6,    z0: 45.4,  z1: 49.7,   h: 0.4 },
+  segM:    { x0: 94.4, x1: 99.6, z0: 28.3,  z1: 32.6,   h: 0.4 },
+  peatonal:{ x0: 88.6, x1: 90.6, z0: -0.2,  z1: 2.4,    h: 2.6 },
+};
+const ZONES = {
+  bodega:  { name: 'Bodega principal', dims: '93,8 × 61,7 m', area: 5787,   color: '#55698a',
+             note: '5 portones hacia el alero. Altura supuesta: 10 m al alero y 12,5 m en la cumbrera.' },
+  alero:   { name: 'Alero',            dims: '93,8 × 13,3 m', area: 1247,   color: '#8592a0',
+             note: 'Cubierta en voladizo, sin pilares, sobre los 5 portones.' },
+  peq:     { name: 'Bodega pequeña',   dims: '62,5 × 8 m',    area: 506.25, color: '#a3998a',
+             note: 'Adosada al muro del fondo de la bodega principal, hacia el sitio eriazo. Altura supuesta: 6 m.' },
+  oficina: { name: 'Sector oficinas',  dims: '15 × 30 m',     area: 450,    color: '#bcd3e6',
+             note: 'Esquina Pedro Montt con Juan Macaya. Incluye la oficina, los camarines, el pañol y el camarín de mujeres.' },
+  est:     { name: 'Estacionamiento',  dims: '4,2 × 62,49 m', area: 262.4,  color: '#3f444b',
+             note: 'Franja junto al costado de la bodega hacia Juan Macaya. 11 puestos en fila.' },
+  patio:   { name: 'Patio delantero',  dims: '92 × 48 m',     area: 4416,   color: '#5d6168',
+             note: 'Patio de maniobras con portones a Cervantes y a Juan Macaya. Aquí están los camiones, los contenedores y el gate.' },
+  trasero: { name: 'Patio trasero',    dims: '100 × 13,3 m',  area: 1331,   color: '#7b7d7f',
+             note: 'Franja detrás de la bodega, donde también está la bodega pequeña.' },
+  gate:    { name: 'Gate control y caseta', dims: 'junto al portón Cervantes', area: null, color: '#f2b705',
+             note: 'Control de acceso de camiones y caseta del guardia que controla el portón, junto a la entrada por Cervantes.', short: 'acceso Cervantes' },
+  garita:  { name: 'Garita de guardias', dims: 'detrás del gate', area: null, color: '#d9d2c3',
+             note: 'Garita donde están los guardias, detrás del gate control. Tamaño supuesto: 2 × 2 m, más pequeña que la caseta del gate.', short: 'tras el gate' },
+  banos:   { name: 'Baños de conductores', dims: 'bajo el alero, junto a la muralla de Cervantes', area: null, color: '#7fa7c9',
+             note: 'Baños para los conductores, bajo el alero y apegados a la muralla de calle Cervantes. Tamaño supuesto: 5 × 8 m.', short: 'bajo el alero' },
+  descanso:{ name: 'Zona de descanso', dims: 'frente a la oficina, bordeada por el sendero', area: null, color: '#c9c1b0',
+             note: 'Zona de descanso con bancas frente a la oficina, bordeada por el sendero peatonal.', short: 'frente a oficina' },
+  camaras: { name: 'Garita de cámaras', dims: 'junto a la zona de descanso, pegada al sendero', area: null, color: '#3d4a5c',
+             note: 'Garita donde están los monitores de las cámaras de seguridad. Tamaño supuesto: 2 × 2 m.', short: 'junto al sendero' },
+  verde:   { name: 'Área verde', dims: 'al costado de los camarines', area: null, color: '#6f9a4f',
+             note: 'Área verde al costado de los camarines, entre la oficina y el camarín de mujeres. El sendero peatonal llega hasta aquí.', short: 'junto a camarines' },
+  peatonal:{ name: 'Portón peatonal', dims: 'entre la garita de cámaras y la oficina', area: null, color: '#f2c230',
+             note: 'Acceso peatonal desde calle Pedro Montt, entre la garita de cámaras y la oficina. Entra directo a la zona de descanso. Ancho supuesto: 2 m.', short: 'a Pedro Montt' },
+  segC:    { name: 'Zona segura Cervantes', dims: 'al costado del portón Cervantes', area: null, color: '#2e9d57',
+             note: 'Zona segura para peatones al costado del portón Cervantes, junto a los baños de conductores. Tamaño supuesto: 5,6 × 4,3 m.', short: 'portón Cervantes' },
+  segM:    { name: 'Zona segura Macaya', dims: 'al costado del portón Macaya', area: null, color: '#2e9d57',
+             note: 'Zona segura para peatones al costado del portón Macaya, del lado de Pedro Montt, junto al área verde. Tamaño supuesto: 5,2 × 4,3 m.', short: 'portón Macaya' },
+};
+const ORDER = ['bodega', 'alero', 'peq', 'oficina', 'est', 'patio', 'trasero'];
+
+// Storage locations measured off the plan (pixel coords → metres)
+const bx = px => 0.5 + (px - 52) / 751 * 93.8;
+const bz = py => 123 - (py - 160) / 545 * 61.7;
+const COLS = { A: [55, 143], B: [193, 281], C: [330, 417], D: [465, 553], E: [606, 658], F: [708, 797] };
+const ROWS = { 12: [165, 208], 11: [212, 255], 10: [260, 303], 9: [306, 349], 8: [353, 396], 7: [399, 425],
+               6: [438, 482], 5: [485, 528], 4: [531, 574], 3: [578, 621], 2: [626, 669], 1: [674, 699] };
+const LOCS = {};
+for (const [c, [a, b]] of Object.entries(COLS)) for (const [r, [t, u]] of Object.entries(ROWS)) {
+  LOCS[`${c}-${r}`] = { col: c, row: +r, x0: bx(a), x1: bx(b), z0: bz(u), z1: bz(t), h: 3 };
+}
+const DOORS = [15.1, 32.1, 49.1, 66.3, 79.3]; // portón centres (x), between columns
+
+/* ---------- Renderer / scene ---------- */
+const view = $('#view');
+let renderer;
+try { renderer = new THREE.WebGLRenderer({ antialias: true }); }
+catch (e) {
+  view.insertAdjacentHTML('beforeend', '<div class="err">Este navegador no pudo iniciar WebGL, así que el modelo 3D no se puede mostrar. La tabla y las ubicaciones siguen disponibles.</div>');
+  throw e;
+}
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+view.prepend(renderer.domElement);
+const labelR = new CSS2DRenderer();
+labelR.domElement.className = 'labels';
+view.insertBefore(labelR.domElement, renderer.domElement.nextSibling);
+
+const scene = new THREE.Scene();
+const root = new THREE.Group(); root.scale.x = -1; scene.add(root);
+const L2W = (x, y, z) => new THREE.Vector3(-x, y, z);
+const camera = new THREE.PerspectiveCamera(38, 1, 0.5, 3000);
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.maxPolarAngle = Math.PI / 2 - 0.04;
+controls.minDistance = 5;
+controls.maxDistance = 700;
+
+const CX = W / 2, CZ = 70;
+scene.add(new THREE.HemisphereLight(0xffffff, 0x857c6c, 0.95));
+const sun = new THREE.DirectionalLight(0xffffff, 1.7);
+sun.position.copy(L2W(CX - 90, 150, CZ - 75)); // sun from the north (southern hemisphere)
+sun.target.position.copy(L2W(CX, 0, CZ));
+sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048);
+Object.assign(sun.shadow.camera, { left: -130, right: 130, top: 130, bottom: -130, near: 10, far: 420 });
+sun.shadow.bias = -0.0004;
+sun.shadow.normalBias = 0.04;
+scene.add(sun, sun.target);
+
+function applyTheme() {
+  const c = getComputedStyle(document.documentElement).getPropertyValue('--scene').trim() || '#dde3e9';
+  scene.background = new THREE.Color(c);
+  scene.fog = new THREE.Fog(c, 380, 1100);
+}
+applyTheme();
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applyTheme);
+new MutationObserver(applyTheme).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+
+/* ---------- Helpers ---------- */
+const matCache = new Map();
+const mat = (color, extra = {}) => {
+  const key = color + JSON.stringify(extra);
+  if (!matCache.has(key)) matCache.set(key, new THREE.MeshStandardMaterial({ color, roughness: 0.85, metalness: 0.05, ...extra }));
+  return matCache.get(key);
+};
+const pickables = [];
+function box(parent, w, h, d, color, x, y, z, { cast = true, receive = true, zone, material } = {}) {
+  const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), material || mat(color));
+  m.position.set(x, y, z);
+  m.castShadow = cast; m.receiveShadow = receive;
+  if (zone) { m.userData.zone = zone; pickables.push(m); }
+  parent.add(m);
+  return m;
+}
+const rbox = (parent, r, h, color, y0 = 0, opts) => box(parent, r.x1 - r.x0, h, r.z1 - r.z0, color, (r.x0 + r.x1) / 2, y0 + h / 2, (r.z0 + r.z1) / 2, opts);
+function floor(parent, r, color, y, zone, material) {
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(r.x1 - r.x0, r.z1 - r.z0), material || mat(color));
+  m.rotation.x = -Math.PI / 2;
+  m.position.set((r.x0 + r.x1) / 2, y, (r.z0 + r.z1) / 2);
+  m.receiveShadow = true;
+  if (zone) { m.userData.zone = zone; pickables.push(m); }
+  parent.add(m);
+  return m;
+}
+function label(parent, html, cls, x, y, z, zone) {
+  const el = document.createElement('div');
+  el.className = cls; el.innerHTML = html;
+  if (zone) el.dataset.zone = zone;
+  const o = new CSS2DObject(el);
+  o.position.set(x, y, z);
+  parent.add(o);
+  return o;
+}
+const dimMat = new THREE.LineBasicMaterial({ color: 0xe5a900 });
+function dim(parent, a, b, text) {
+  const A = new THREE.Vector3(...a), B = new THREE.Vector3(...b), up = new THREE.Vector3(0, 1, 0);
+  const pts = [A, B, A.clone().sub(up), A.clone().add(up), B.clone().sub(up), B.clone().add(up)];
+  parent.add(new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(pts), dimMat));
+  const m = A.clone().lerp(B, 0.5);
+  label(parent, text, 'dim', m.x, m.y, m.z);
+}
+function hatchTexture() {
+  const c = document.createElement('canvas'); c.width = c.height = 64;
+  const g = c.getContext('2d');
+  g.fillStyle = '#f2c230'; g.fillRect(0, 0, 64, 64);
+  g.strokeStyle = '#ffffff'; g.lineWidth = 12;
+  for (let i = -64; i < 128; i += 32) { g.beginPath(); g.moveTo(i, 64); g.lineTo(i + 64, 0); g.stroke(); }
+  const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
+function codeTexture(text) {
+  const c = document.createElement('canvas'); c.width = 256; c.height = 128;
+  const g = c.getContext('2d');
+  g.fillStyle = '#4a7fc0'; g.fillRect(0, 0, 256, 128);
+  g.strokeStyle = 'rgba(255,255,255,.55)'; g.lineWidth = 6; g.strokeRect(5, 5, 246, 118);
+  g.fillStyle = '#ffffff'; g.font = '700 64px Archivo, Arial, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.fillText(text, 128, 68);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4;
+  t.flipY = false; // reads correctly from Pedro Montt in the mirrored site
+  return t;
+}
+
+/* ---------- Surroundings ---------- */
+const world = new THREE.Group(); root.add(world);
+{
+  const g = new THREE.Mesh(new THREE.PlaneGeometry(2400, 2400), mat('#a8a294'));
+  g.rotation.x = -Math.PI / 2; g.position.set(CX, -0.02, CZ); g.receiveShadow = true; world.add(g);
+  floor(world, { x0: 0, x1: W, z0: 0, z1: D }, '#928c80', 0.005);
+  floor(world, { x0: 0, x1: W, z0: D, z1: D + 45 }, '#9c8f74', 0.004); // sitio eriazo
+  const road = '#3b3e43', walk = '#b9b5ac';
+  floor(world, { x0: -60, x1: W + 80, z0: -16, z1: -3 }, road, 0.01);
+  floor(world, { x0: -60, x1: W + 80, z0: -3, z1: 0 }, walk, 0.012);
+  floor(world, { x0: -14, x1: -2, z0: -80, z1: D + 80 }, road, 0.011);
+  floor(world, { x0: -2, x1: 0, z0: -3, z1: D + 80 }, walk, 0.013);
+  floor(world, { x0: W + 2, x1: W + 12, z0: -80, z1: D + 80 }, road, 0.011);
+  floor(world, { x0: W, x1: W + 2, z0: -3, z1: D + 80 }, walk, 0.013);
+  const dash = mat('#e9e6dc');
+  for (let x = -55; x < W + 75; x += 8) box(world, 4, 0.02, 0.18, null, x, 0.03, -9.5, { cast: false, material: dash });
+  for (let z = -75; z < D + 75; z += 8) {
+    box(world, 0.18, 0.02, 4, null, -8, 0.03, z, { cast: false, material: dash });
+    box(world, 0.18, 0.02, 4, null, W + 7, 0.03, z, { cast: false, material: dash });
+  }
+  label(world, 'Calle Pedro Montt', 'street', 30, 0.5, -9.5);
+  label(world, 'Calle Cervantes', 'street', -8, 0.5, 92);
+  label(world, 'Calle Juan Macaya', 'street', W + 7, 0.5, 92);
+  label(world, 'Sitio eriazo', 'street', CX, 0.5, D + 20);
+  const nb = '#b3ada2';
+  box(world, 60, 9, 60, nb, -50, 4.5, 40); box(world, 50, 6, 55, nb, -45, 3, 115);
+  box(world, 40, 7, 45, nb, CX, 3.5, -50); box(world, 45, 6, 50, nb, W + 40, 3, 40);
+  box(world, 40, 8, 70, nb, W + 38, 4, 120);
+}
+
+/* ---------- Site ---------- */
+const site = new THREE.Group(); root.add(site);
+const dims = new THREE.Group(); root.add(dims);
+const locsG = new THREE.Group(); root.add(locsG);
+const trucksG = new THREE.Group(); root.add(trucksG);
+const hl = new THREE.Group(); root.add(hl);
+let roofG, wallMat;
+{
+  const B = R.bodega, A = R.alero, P = R.peq, E = R.est, T = R.trasero, O = R.oficina;
+
+  // floors
+  floor(site, R.patio, ZONES.patio.color, 0.03, 'patio');
+  floor(site, T, ZONES.trasero.color, 0.03, 'trasero');
+  floor(site, E, ZONES.est.color, 0.035, 'est');
+  floor(site, A, '#a7a49c', 0.035, 'alero');
+  floor(site, B, '#c9c6be', 0.04, 'bodega');
+  floor(site, O, '#9d9a92', 0.035, 'oficina');
+
+  // yellow hatched band (as drawn in the plan)
+  const hatch = hatchTexture();
+  // sendero peatonal: along Pedro Montt and Cervantes, then up beside the office sector and into the rest area
+  [[0.4, 85, 0.4, 2.2], [0.4, 2.2, 2.2, 26], [83.2, 85, 2.2, 13.9], [85, 93.3, 12.9, 13.9]].forEach(([x0, x1, z0, z1]) => {
+    const t = hatch.clone(); t.needsUpdate = true; t.repeat.set((x1 - x0) / 2, (z1 - z0) / 2);
+    floor(site, { x0, x1, z0, z1 }, null, 0.05, null, new THREE.MeshStandardMaterial({ map: t, roughness: 0.9 }));
+  });
+
+  // perimeter wall with portones on Cervantes (z 32–45) and Juan Macaya (z 33–45)
+  const pw = '#cfcac0', WH = 2.6;
+  box(site, 88.6, WH, 0.25, pw, 44.3, WH / 2, 0);
+  box(site, W - 90.6, WH, 0.25, pw, (90.6 + W) / 2, WH / 2, 0);
+  box(site, W, WH, 0.25, pw, CX, WH / 2, D);
+  // pedestrian gate on Pedro Montt
+  [88.6, 90.6].forEach(x => box(site, 0.3, 2.9, 0.3, null, x, 1.45, 0, { material: mat('#f2c230'), zone: 'peatonal' }));
+  const leaf = new THREE.Group();
+  box(leaf, 1.9, 0.08, 0.06, '#55595f', 0.95, 2.1, 0); box(leaf, 1.9, 0.08, 0.06, '#55595f', 0.95, 0.15, 0);
+  for (let i = 0; i <= 9; i++) box(leaf, 0.04, 1.95, 0.04, '#55595f', 0.05 + i * 0.2, 1.12, 0, { cast: false });
+  leaf.position.set(88.75, 0, 0.1); leaf.rotation.y = -1.1; site.add(leaf);
+  floor(site, { x0: 88.6, x1: 90.6, z0: 0.15, z1: 2.4 }, '#c9c1b0', 0.075);
+  box(site, 0.25, WH, 32, pw, 0, WH / 2, 16);
+  box(site, 0.25, WH, D - 45, pw, 0, WH / 2, 45 + (D - 45) / 2);
+  box(site, 0.25, WH, 33, pw, W, WH / 2, 16.5);
+  box(site, 0.25, WH, D - 45, pw, W, WH / 2, 45 + (D - 45) / 2);
+  const gp = mat('#f2c230');
+  [[0, 32], [0, 45], [W, 33], [W, 45]].forEach(([x, z]) => box(site, 0.5, 3.2, 0.5, null, x, 1.6, z, { material: gp }));
+  label(site, 'Portón Cervantes', 'lbl tag', 0, 4.2, 38.5);
+  label(site, 'Portón Macaya', 'lbl tag', W, 4.2, 39);
+
+  // --- Bodega principal
+  wallMat = new THREE.MeshStandardMaterial({ color: '#dcd8d0', roughness: 0.9 });
+  const H = 10, t = 0.3, bw = B.x1 - B.x0, bd = B.z1 - B.z0, bcx = (B.x0 + B.x1) / 2, bcz = (B.z0 + B.z1) / 2;
+  [[bw, t, bcx, B.z0 + t / 2], [bw, t, bcx, B.z1 - t / 2], [t, bd, B.x0 + t / 2, bcz], [t, bd, B.x1 - t / 2, bcz]]
+    .forEach(([w, d, x, z]) => box(site, w, H, d, null, x, H / 2, z, { material: wallMat, zone: 'bodega' }));
+  DOORS.forEach((x, i) => {
+    box(site, 5.5, 5, 0.14, '#56606b', x, 2.5, B.z0 - 0.08, { zone: 'bodega' });
+    box(site, 5.5, 0.02, 1.4, '#e5a900', x, 0.06, B.z0 - 0.8, { cast: false });
+    label(site, `Portón ${i + 1}`, 'lbl tag', x, 6, B.z0 - 0.3);
+  });
+  roofG = new THREE.Group(); site.add(roofG);
+  const naves = 6, nw = bw / naves, rise = 2.5, roofMat = mat('#55698a', { roughness: 0.6, metalness: 0.25 });
+  const sky = mat('#eef3f8', { emissive: '#b8c8da', emissiveIntensity: 0.25, roughness: 0.3 });
+  const ang = Math.atan2(rise, nw / 2), slopeLen = Math.hypot(rise, nw / 2);
+  for (let i = 0; i < naves; i++) {
+    const s = new THREE.Shape();
+    s.moveTo(0, 0); s.lineTo(nw, 0); s.lineTo(nw / 2, rise); s.closePath();
+    const m = new THREE.Mesh(new THREE.ExtrudeGeometry(s, { depth: bd, bevelEnabled: false }), roofMat);
+    const xs = B.x0 + i * nw;
+    m.position.set(xs, H, B.z0); m.castShadow = true; m.receiveShadow = true; m.userData.zone = 'bodega';
+    roofG.add(m); pickables.push(m);
+    for (let j = 0; j < 6; j++) {
+      const zc = B.z0 + (bd / 6) * (j + 0.5);
+      [[xs + nw / 4, ang], [xs + 3 * nw / 4, -ang]].forEach(([x, a]) => {
+        const k = new THREE.Mesh(new THREE.BoxGeometry(slopeLen * 0.22, 0.08, 7.2), sky);
+        k.position.set(x, H + rise / 2 + 0.06, zc); k.rotation.z = a; roofG.add(k);
+      });
+    }
+  }
+
+  // --- Alero: cantilever, no pillars
+  box(site, A.x1 - A.x0, 0.5, A.z1 - A.z0, '#7f8b98', (A.x0 + A.x1) / 2, 8.25, (A.z0 + A.z1) / 2, { zone: 'alero' });
+  box(site, A.x1 - A.x0, 0.9, 0.2, '#6c7680', (A.x0 + A.x1) / 2, 8.0, A.z0 + 0.1, { zone: 'alero' }); // fascia
+
+  // --- Bodega pequeña (behind the main warehouse)
+  rbox(site, P, 6, '#cfc7b8', 0, { zone: 'peq' });
+  box(site, P.x1 - P.x0 + 0.4, 0.3, P.z1 - P.z0 + 0.4, ZONES.peq.color, (P.x0 + P.x1) / 2, 6.15, (P.z0 + P.z1) / 2, { zone: 'peq' });
+
+  // --- Sector oficinas: oficina + camarines / pañol / camarín mujer
+  const of = { x0: 92, x1: 99.7, z0: 0.3, z1: 12.8 };
+  rbox(site, of, 3.6, '#bcd3e6', 0, { zone: 'oficina' });
+  box(site, of.x1 - of.x0 + 0.3, 0.3, of.z1 - of.z0 + 0.3, '#8fa9c2', (of.x0 + of.x1) / 2, 3.75, (of.z0 + of.z1) / 2, { zone: 'oficina' });
+  box(site, 0.08, 1.3, 10, '#2c3a4b', of.x0 - 0.04, 2, (of.z0 + of.z1) / 2, { cast: false });
+  box(site, 6, 1.3, 0.08, '#2c3a4b', (of.x0 + of.x1) / 2, 2, of.z1 + 0.04, { cast: false });
+  rbox(site, { x0: 85, x1: 93, z0: 14, z1: 21.5 }, 3, '#a7a29a', 0, { zone: 'oficina' });
+  rbox(site, { x0: 85, x1: 93, z0: 21.5, z1: 24.8 }, 3, '#5b86c0', 0, { zone: 'oficina' });
+  rbox(site, { x0: 85, x1: 93, z0: 24.8, z1: 27.2 }, 3, '#bdb7ae', 0, { zone: 'oficina' });
+
+  // --- Gate control y caseta (Cervantes side, by the portón)
+  rbox(site, { x0: 10.5, x1: 13.5, z0: 25.5, z1: 28.5 }, 2.8, '#f2b705', 0, { zone: 'gate' });
+  box(site, 3.4, 0.25, 3.4, '#5b5f66', 12, 2.9, 27, { zone: 'gate' });
+  box(site, 3.02, 0.9, 3.02, '#2c3a4b', 12, 1.8, 27, { cast: false, zone: 'gate' });
+  box(site, 0.35, 1.1, 0.35, '#e8e3d6', 3, 0.55, 30.5, { zone: 'gate' });
+  const arm = new THREE.Mesh(new THREE.BoxGeometry(7, 0.12, 0.12), mat('#d6362b'));
+  arm.position.set(6.6, 1.05, 30.5); site.add(arm);
+  floor(site, { x0: 0.4, x1: 30, z0: 29.6, z1: 30 }, null, 0.06, null, mat('#f2f0e8'));
+
+  // --- Garita de guardias (behind the gate)
+  const G = R.garita, gcx = (G.x0 + G.x1) / 2, gcz = (G.z0 + G.z1) / 2;
+  rbox(site, G, 2.3, '#e6e0d3', 0, { zone: 'garita' });
+  box(site, G.x1 - G.x0 + 0.4, 0.2, G.z1 - G.z0 + 0.4, '#5b6f8a', gcx, 2.4, gcz, { zone: 'garita' });
+  box(site, 1.4, 0.8, 0.06, '#2c3a4b', gcx, 1.5, G.z1 + 0.03, { cast: false });
+  box(site, 0.06, 0.8, 1.4, '#2c3a4b', G.x1 + 0.03, 1.5, gcz, { cast: false });
+  box(site, 0.8, 1.9, 0.06, '#6b4e33', G.x1 - 0.6, 0.95, G.z0 - 0.03, { cast: false });
+
+  // --- Baños de conductores (under the alero, against the Cervantes wall)
+  const Bn = R.banos;
+  rbox(site, Bn, 3.0, '#dfe7ee', 0, { zone: 'banos' });
+  box(site, Bn.x1 - Bn.x0 + 0.3, 0.2, Bn.z1 - Bn.z0 + 0.3, '#7fa7c9', (Bn.x0 + Bn.x1) / 2, 3.1, (Bn.z0 + Bn.z1) / 2, { zone: 'banos' });
+  [52, 56].forEach(z => box(site, 0.06, 2.0, 0.9, '#3d5a78', Bn.x1 + 0.03, 1.0, z, { cast: false }));
+
+  // --- Zonas seguras al costado de ambos portones
+  const safeTex = () => {
+    const c = document.createElement('canvas'); c.width = 256; c.height = 200;
+    const g = c.getContext('2d');
+    g.fillStyle = '#2e9d57'; g.fillRect(0, 0, 256, 200);
+    g.strokeStyle = '#ffffff'; g.lineWidth = 12; g.strokeRect(8, 8, 240, 184);
+    g.fillStyle = '#ffffff'; g.font = '800 40px Archivo, Arial, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.fillText('ZONA', 128, 78); g.fillText('SEGURA', 128, 124);
+    const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.flipY = false; t.anisotropy = 4;
+    return t;
+  };
+  ['segC', 'segM'].forEach(id => {
+    const r = R[id], sideM = mat('#2e9d57');
+    const m = new THREE.Mesh(new THREE.BoxGeometry(r.x1 - r.x0, 0.04, r.z1 - r.z0),
+      [sideM, sideM, new THREE.MeshStandardMaterial({ map: safeTex(), roughness: 0.8 }), sideM, sideM, sideM]);
+    m.position.set((r.x0 + r.x1) / 2, 0.07, (r.z0 + r.z1) / 2); m.receiveShadow = true;
+    m.userData.zone = id; pickables.push(m); site.add(m);
+  });
+
+  // --- Zona de descanso, garita de cámaras y área verde (sector oficinas)
+  const tree = (x, z, s = 1) => {
+    const tr = new THREE.Mesh(new THREE.CylinderGeometry(0.15 * s, 0.2 * s, 2.2 * s, 8), mat('#6b4e33'));
+    tr.position.set(x, 1.1 * s, z); tr.castShadow = true; site.add(tr);
+    const cn = new THREE.Mesh(new THREE.IcosahedronGeometry(1.5 * s, 1), mat('#4f7f3a', { flatShading: true }));
+    cn.position.set(x, 2.9 * s, z); cn.castShadow = true; site.add(cn);
+  };
+  const Dz = R.descanso, Vz = R.verde, Cm = R.camaras;
+  floor(site, Dz, '#c9c1b0', 0.07, 'descanso');
+  floor(site, Vz, '#6f9a4f', 0.07, 'verde');
+  box(site, Vz.x1 - Vz.x0, 0.2, 0.15, '#bdb7ae', (Vz.x0 + Vz.x1) / 2, 0.1, Vz.z1, { cast: false });
+  box(site, 0.15, 0.2, Vz.z1 - Vz.z0 - 1.2, '#bdb7ae', Vz.x0, 0.1, (Vz.z0 + Vz.z1) / 2 + 0.6, { cast: false });
+  const bench = (x, z, rotY) => {
+    const g = new THREE.Group();
+    box(g, 1.8, 0.08, 0.45, '#8a6440', 0, 0.45, 0); box(g, 1.8, 0.4, 0.06, '#8a6440', 0, 0.75, -0.22);
+    box(g, 0.08, 0.45, 0.4, '#3c4148', -0.8, 0.22, 0); box(g, 0.08, 0.45, 0.4, '#3c4148', 0.8, 0.22, 0);
+    g.position.set(x, 0, z); g.rotation.y = rotY; site.add(g);
+  };
+  bench(86.3, 6.2, Math.PI / 2); bench(86.3, 9.6, Math.PI / 2); bench(90.9, 7.4, -Math.PI / 2); bench(90.9, 10.6, -Math.PI / 2);
+  box(site, 1.2, 0.75, 1.2, '#8a6440', 88.6, 0.375, 8.2);
+  tree(88.6, 11.4, 0.7);
+  tree(97.8, 16.6, 0.9); tree(94.8, 21, 0.85); tree(98.3, 25.2, 0.9);
+  [[99, 19.4], [94.3, 17.4], [96.8, 23.2]].forEach(([x, z]) => {
+    const sh = new THREE.Mesh(new THREE.IcosahedronGeometry(0.6, 1), mat('#5f8c45', { flatShading: true }));
+    sh.position.set(x, 0.45, z); sh.castShadow = true; site.add(sh);
+  });
+  rbox(site, Cm, 2.3, '#e6e0d3', 0, { zone: 'camaras' });
+  box(site, 2.4, 0.2, 2.4, '#3d4a5c', (Cm.x0 + Cm.x1) / 2, 2.4, (Cm.z0 + Cm.z1) / 2, { zone: 'camaras' });
+  box(site, 1.4, 0.8, 0.06, '#2c3a4b', (Cm.x0 + Cm.x1) / 2, 1.5, Cm.z1 + 0.03, { cast: false });
+  box(site, 0.06, 0.8, 1.4, '#2c3a4b', Cm.x0 - 0.03, 1.5, (Cm.z0 + Cm.z1) / 2, { cast: false });
+  box(site, 0.12, 4.5, 0.12, '#55595f', Cm.x1 - 0.2, 2.25, Cm.z0 + 0.2);
+  box(site, 0.25, 0.25, 0.5, '#e8e8e8', Cm.x1 - 0.2, 4.45, Cm.z0 - 0.1);
+
+
+  // --- Estacionamiento: 11 stalls in a row, cars in the front half (as in the plan)
+  const stall = mat('#f2f0e8'), sl = (E.z1 - E.z0) / 11;
+  for (let i = 0; i <= 11; i++) box(site, E.x1 - E.x0 - 0.4, 0.02, 0.12, null, (E.x0 + E.x1) / 2, 0.06, E.z0 + i * sl, { cast: false, material: stall });
+  ['#9aa3ad', '#e8e8e8', '#2f3a48', '#7a1f1f', '#d8d4cc', '#5b6470'].forEach((c, i) => {
+    const z = E.z0 + (i + 0.5) * sl, cx = (E.x0 + E.x1) / 2;
+    box(site, 1.8, 1.0, 4.4, c, cx, 0.65, z); box(site, 1.6, 0.6, 2.3, c, cx, 1.45, z + 0.2);
+  });
+
+  // --- Zone labels
+  const lbl = (id, x, y, z) => label(site, `<b>${ZONES[id].name}</b>${ZONES[id].area ? `<span>${fmt(ZONES[id].area, ZONES[id].area % 1 ? 2 : 0)} m²</span>` : ''}`, 'lbl', x, y, z, id);
+  lbl('bodega', bcx, 15, bcz); lbl('alero', 40, 10, (A.z0 + A.z1) / 2);
+  lbl('peq', (P.x0 + P.x1) / 2, 8.5, (P.z0 + P.z1) / 2); lbl('oficina', 92.5, 6.5, 14);
+  lbl('est', (E.x0 + E.x1) / 2, 3.5, 112); lbl('patio', 45, 1.5, 20); lbl('trasero', 84, 1.5, 130);
+  lbl('gate', 12, 5.2, 27);
+  lbl('garita', 7, 3.8, 27);
+  lbl('banos', 3.1, 4.8, 54);
+  lbl('descanso', 88.4, 2.2, 7);
+  lbl('camaras', 86.3, 5.4, 3.5);
+  lbl('verde', 96.5, 4.5, 19);
+  lbl('peatonal', 89.6, 3.6, 0);
+  lbl('segC', 3.2, 2.4, 47.5);
+  lbl('segM', 97, 2.4, 30.4);
+  label(site, 'Sendero peatonal', 'lbl tag', 40, 1.2, 1.3);
+  label(site, 'Oficina', 'lbl tag', (of.x0 + of.x1) / 2, 4.8, 6.5);
+  label(site, 'Camarines · Pañol · Camarín mujer', 'lbl tag', 89, 4.4, 20.6);
+
+  // --- Dimensions
+  dim(dims, [B.x0, 14, B.z1 + 0.5], [B.x1, 14, B.z1 + 0.5], '93,8 m');
+  dim(dims, [B.x0 - 0.5, 14, B.z0], [B.x0 - 0.5, 14, B.z1], '61,7 m');
+  dim(dims, [60, 0.4, 0.5], [60, 0.4, 48], '48 m');
+  dim(dims, [70, 9.4, A.z0], [70, 9.4, A.z1], '13,3 m');
+  dim(dims, [P.x0, 7.5, P.z1 + 0.6], [P.x1, 7.5, P.z1 + 0.6], '62,5 m');
+  dim(dims, [P.x1 + 0.6, 7.5, P.z0], [P.x1 + 0.6, 7.5, P.z1], '8 m');
+  dim(dims, [W - 1.5, 0.4, T.z0], [W - 1.5, 0.4, T.z1], '13,3 m');
+  dim(dims, [0, 0.4, -12.5], [W, 0.4, -12.5], 'Pedro Montt · 100 m');
+  dim(dims, [-12, 0.4, 0], [-12, 0.4, D], 'Cervantes · 140 m');
+  dim(dims, [O.x0, 5.5, O.z1 + 0.5], [O.x1, 5.5, O.z1 + 0.5], '15 m');
+  dim(dims, [O.x0 - 0.5, 5.5, O.z0], [O.x0 - 0.5, 5.5, O.z1], '30 m');
+}
+
+/* ---------- Storage locations A–F ---------- */
+{
+  const side = new THREE.MeshStandardMaterial({ color: '#4a7fc0', roughness: 0.7, transparent: true, opacity: 0.9 });
+  const lineM = mat('#f2c230');
+  for (const [code, r] of Object.entries(LOCS)) {
+    const top = new THREE.MeshStandardMaterial({ map: codeTexture(code), roughness: 0.7 });
+    const m = new THREE.Mesh(new THREE.BoxGeometry(r.x1 - r.x0 - 0.3, r.h, r.z1 - r.z0 - 0.3), [side, side, top, side, side, side]);
+    m.position.set((r.x0 + r.x1) / 2, r.h / 2, (r.z0 + r.z1) / 2);
+    m.castShadow = m.receiveShadow = true;
+    m.userData.loc = code;
+    locsG.add(m); pickables.push(m);
+    // floor outline
+    const w = r.x1 - r.x0, d = r.z1 - r.z0, cx = (r.x0 + r.x1) / 2, cz = (r.z0 + r.z1) / 2;
+    [[w, 0.1, cx, r.z0], [w, 0.1, cx, r.z1], [0.1, d, r.x0, cz], [0.1, d, r.x1, cz]]
+      .forEach(([a, b, x, z]) => box(locsG, a, 0.02, b, null, x, 0.06, z, { cast: false, material: lineM }));
+  }
+}
+
+/* ---------- Vehicles (scale reference, as drawn in the plan) ---------- */
+{
+  const truckZ = (x, zRear, cab) => { // trailer along z, rear against the portón
+    const g = new THREE.Group();
+    box(g, 2.5, 3.0, 13.6, '#f1efea', 0, 2.6, -6.8); box(g, 2.5, 0.9, 13.6, '#3c4148', 0, 0.75, -6.8);
+    box(g, 2.5, 3.0, 2.4, cab, 0, 1.9, -15.2);
+    g.position.set(x, 0, zRear); trucksG.add(g);
+  };
+  const truckX = (xTail, z, len, cabRight, cab, load) => { // along x
+    const g = new THREE.Group();
+    const dir = cabRight ? 1 : -1;
+    box(g, len, 1.3, 2.5, '#9a9ea4', dir * len / 2, 0.85, 0);
+    if (load) box(g, len - 0.6, 1.6, 2.3, load, dir * len / 2, 2.3, 0);
+    box(g, 2.4, 3.0, 2.5, cab, dir * (len + 1.4), 1.8, 0);
+    g.position.set(xTail, 0, z); trucksG.add(g);
+  };
+  // trucks parked by Cervantes (3 with timber, 1 with an empty trailer)
+  truckX(4, 21.9, 12.5, true, '#f2f2f0', '#e4c48f');
+  truckX(4, 17.7, 12.5, true, '#f2f2f0', '#e4c48f');
+  truckX(4, 13.3, 12.5, true, '#f2f2f0', '#e4c48f');
+  truckX(4, 9.2, 12.5, true, '#c23b2e', null);
+  truckX(78, 27, 13, false, '#c23b2e', null);
+  // 15 containers (40') in a row in front of the alero, as drawn in the plan
+  const cc = document.createElement('canvas'); cc.width = 128; cc.height = 32;
+  const cg = cc.getContext('2d'); cg.fillStyle = '#a9adb1'; cg.fillRect(0, 0, 128, 32);
+  cg.fillStyle = '#8d9196'; for (let i = 0; i < 128; i += 8) cg.fillRect(i, 0, 3, 32);
+  const ct = new THREE.CanvasTexture(cc); ct.wrapS = ct.wrapT = THREE.RepeatWrapping; ct.colorSpace = THREE.SRGBColorSpace;
+  const sideT = ct.clone(); sideT.needsUpdate = true; sideT.repeat.set(6, 1);
+  const ribbed = new THREE.MeshStandardMaterial({ map: sideT, roughness: 0.7, metalness: 0.2 });
+  const plain = mat('#a3a7ab', { metalness: 0.2, roughness: 0.7 }), doorEnd = mat('#8a8e93', { metalness: 0.2, roughness: 0.7 });
+  for (let i = 0; i < 15; i++) {
+    const m = new THREE.Mesh(new THREE.BoxGeometry(2.44, 2.59, 12.19), [ribbed, ribbed, plain, plain, doorEnd, doorEnd]);
+    m.position.set(23.5 + i * 3.05, 1.295, 38.2); m.castShadow = m.receiveShadow = true; trucksG.add(m);
+  }
+  label(trucksG, 'Contenedores', 'lbl tag', 45, 4, 38.2);
+  // container handler next to the trailers
+  const rs = new THREE.Group();
+  box(rs, 3.8, 2.2, 8, '#d9a400', 0, 1.6, 0); box(rs, 2.2, 2.2, 2.6, '#2c3a4b', 0, 3.8, 1.5);
+  const boom = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 10), mat('#d9a400')); boom.position.set(0, 5, -3); boom.rotation.x = 0.35; rs.add(boom);
+  box(rs, 6, 0.4, 0.6, '#3c4148', 0, 6.4, -7.5);
+  rs.position.set(73, 0, 39); trucksG.add(rs);
+}
+
+/* ---------- Selection ---------- */
+let selected = null;
+const markColor = () => new THREE.Color(getComputedStyle(document.documentElement).getPropertyValue('--mark').trim() || '#e5a900');
+function highlight(r) {
+  hl.traverse(o => o.geometry && o.geometry.dispose()); hl.clear();
+  const c = markColor(), w = r.x1 - r.x0, d = r.z1 - r.z0, h = r.h;
+  const e = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(w + 0.6, h + 0.3, d + 0.6)), new THREE.LineBasicMaterial({ color: c }));
+  e.position.set((r.x0 + r.x1) / 2, (h + 0.3) / 2, (r.z0 + r.z1) / 2); hl.add(e);
+  const f = new THREE.Mesh(new THREE.PlaneGeometry(w, d), new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity: 0.3, depthWrite: false }));
+  f.rotation.x = -Math.PI / 2; f.position.set((r.x0 + r.x1) / 2, 0.09, (r.z0 + r.z1) / 2); hl.add(f);
+}
+function markUI(id) {
+  document.querySelectorAll('#zone-rows tr').forEach(tr => tr.classList.toggle('sel', tr.dataset.id === id));
+  document.querySelectorAll('.lbl[data-zone]').forEach(el => el.classList.toggle('sel', el.dataset.zone === id));
+  document.querySelectorAll('#locgrid button').forEach(b => b.classList.toggle('sel', 'loc:' + b.dataset.code === id));
+}
+function flyToRect(r, k = 0.95) {
+  const ctr = L2W((r.x0 + r.x1) / 2, r.h / 3, (r.z0 + r.z1) / 2);
+  const size = Math.max(r.x1 - r.x0, r.z1 - r.z0) + r.h * 2;
+  fly(ctr.clone().add(new THREE.Vector3(-0.45, 0.85, -0.75).multiplyScalar(size * k + 12)), ctr);
+}
+function selectZone(id, flyTo = true) {
+  selected = id; const r = R[id], Z = ZONES[id];
+  highlight(r); markUI(id);
+  $('#info').innerHTML = `<h3>${Z.name}</h3>
+    <dl class="kv"><dt>${Z.area ? 'Medidas' : 'Ubicación'}</dt><dd>${Z.dims}</dd>
+    ${Z.area ? `<dt>Superficie</dt><dd>${fmt(Z.area, Z.area % 1 ? 2 : 0)} m²</dd><dt>Del terreno</dt><dd>${fmt(Z.area / 140, 1)} %</dd>` : ''}</dl>
+    <p class="note">${Z.note}</p>`;
+  if (flyTo) flyToRect(r);
+}
+function selectLoc(code, flyTo = true) {
+  const r = LOCS[code]; if (!r) return false;
+  selected = 'loc:' + code;
+  if (!$('#t-locs').checked) $('#t-locs').checked = true;
+  if (!interior) {
+    interior = true;
+    ['general', 'planta', 'frente', 'interior'].forEach(n => $('#v-' + n).setAttribute('aria-pressed', String(n === 'interior')));
+  }
+  applyToggles();
+  highlight(r); markUI(selected);
+  const w = r.x1 - r.x0, d = r.z1 - r.z0;
+  const doorIdx = DOORS.map((x, i) => [Math.abs(x - (r.x0 + r.x1) / 2), i]).sort((a, b) => a[0] - b[0])[0][1];
+  $('#info').innerHTML = `<h3>Ubicación ${code}</h3>
+    <dl class="kv"><dt>Columna · fila</dt><dd>${r.col} · ${r.row}</dd>
+    <dt>Medidas aprox.</dt><dd>${fmt(w, 1)} × ${fmt(d, 1)} m</dd>
+    <dt>Superficie aprox.</dt><dd>${fmt(w * d, 0)} m²</dd>
+    <dt>Portón más cercano</dt><dd>Portón ${doorIdx + 1}</dd></dl>
+    <p class="note">Medidas tomadas a escala del plano. Fila 1 junto al alero y fila 12 junto al fondo.</p>`;
+  if (flyTo) flyToRect(r, 2.2);
+  return true;
+}
+
+/* ---------- Camera ---------- */
+let anim = null;
+function fly(pos, target, ms = 850) {
+  if (reduce) ms = 0;
+  const p0 = camera.position.clone(), t0 = controls.target.clone(), start = performance.now();
+  anim = now => {
+    const k = ms ? Math.min(1, (now - start) / ms) : 1, e = k < .5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2;
+    camera.position.lerpVectors(p0, pos, e); controls.target.lerpVectors(t0, target, e);
+    if (k >= 1) anim = null;
+  };
+}
+const views = {
+  general:  () => [L2W(W + 60, 100, -70), L2W(46, 0, 62)],
+  planta:   () => [L2W(CX, 275, CZ - 0.5), L2W(CX, 0, CZ)],
+  frente:   () => [L2W(CX - 8, 26, -60), L2W(CX, 6, 58)],
+  interior: () => { const B = R.bodega; return [L2W(B.x1 + 4, 24, B.z0 - 6), L2W(44, 1, 96)]; },
+};
+let interior = false;
+function setView(name) {
+  ['general', 'planta', 'frente', 'interior'].forEach(n => $('#v-' + n).setAttribute('aria-pressed', String(n === name)));
+  interior = name === 'interior';
+  applyToggles();
+  const [p, t] = views[name]();
+  fly(p, t);
+}
+function applyToggles() {
+  roofG.visible = $('#t-roof').checked && !interior;
+  wallMat.transparent = interior; wallMat.opacity = interior ? 0.16 : 1; wallMat.depthWrite = !interior; wallMat.needsUpdate = true;
+  labelR.domElement.classList.toggle('no-zones', !$('#t-labels').checked);
+  labelR.domElement.classList.toggle('no-dims', !$('#t-dims').checked);
+  dims.visible = $('#t-dims').checked;
+  locsG.visible = $('#t-locs').checked;
+  trucksG.visible = $('#t-trucks').checked;
+}
+
+/* ---------- Panel ---------- */
+$('#zone-rows').innerHTML = ORDER.map(id => {
+  const Z = ZONES[id];
+  return `<tr data-id="${id}" tabindex="0"><td class="sw"><i style="background:${Z.color}"></i></td><td>${Z.name}</td><td class="dm">${Z.dims}</td><td class="ar">${fmt(Z.area, Z.area % 1 ? 2 : 0)} m²</td></tr>`;
+}).join('') + ['gate', 'garita', 'banos', 'descanso', 'camaras', 'verde', 'peatonal', 'segC', 'segM'].map(id => `<tr data-id="${id}" tabindex="0" class="extra"><td class="sw"><i style="background:${ZONES[id].color}"></i></td><td>${ZONES[id].name}</td><td class="dm">${ZONES[id].short}</td><td class="ar">—</td></tr>`).join('');
+const onRow = e => { const tr = e.target.closest('tr'); if (tr) selectZone(tr.dataset.id); };
+$('#zone-rows').addEventListener('click', onRow);
+$('#zone-rows').addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onRow(e); } });
+
+{
+  let html = '';
+  for (let r = 12; r >= 1; r--) {
+    html += Object.keys(COLS).map(c => `<button type="button" data-code="${c}-${r}" class="${r === 7 || r === 1 ? 'thin' : ''}">${c}-${r}</button>`).join('');
+    if (r === 7) html += '<div class="gap"></div>';
+  }
+  html += '<div class="doors">' + ['P1', 'P2', 'P3', 'P4', 'P5', ''].map(s => `<span>${s}</span>`).join('') + '</div>';
+  $('#locgrid').innerHTML = html;
+  $('#locgrid').addEventListener('click', e => { const b = e.target.closest('button'); if (b) { selectLoc(b.dataset.code); $('#loc-msg').textContent = ''; } });
+  const total = Object.values(LOCS).reduce((a, r) => a + (r.x1 - r.x0) * (r.z1 - r.z0), 0);
+  $('#loc-sum').textContent = `72 ubicaciones (columnas A–F, filas 1–12). Ocupan unos ${fmt(total)} m², el ${fmt(total / 5787 * 100, 0)} % de la bodega; el resto son pasillos.`;
+}
+$('#loc-form').addEventListener('submit', e => {
+  e.preventDefault();
+  const m = $('#loc-q').value.trim().toUpperCase().match(/^([A-F])\s*-?\s*(\d{1,2})$/);
+  const code = m ? `${m[1]}-${+m[2]}` : null;
+  if (code && selectLoc(code)) $('#loc-msg').textContent = '';
+  else $('#loc-msg').textContent = 'No existe esa ubicación. Usa una letra de la A a la F y un número del 1 al 12, por ejemplo C-7.';
+});
+
+['general', 'planta', 'frente', 'interior'].forEach(n => $('#v-' + n).addEventListener('click', () => setView(n)));
+['#t-roof', '#t-labels', '#t-dims', '#t-locs', '#t-trucks'].forEach(s => $(s).addEventListener('change', () => {
+  if (s === '#t-roof' && $('#t-roof').checked && interior) setView('general'); else applyToggles();
+}));
+
+// picking
+const ray = new THREE.Raycaster(), ptr = new THREE.Vector2();
+let down = null;
+const isShown = o => { for (let p = o; p; p = p.parent) if (!p.visible) return false; return true; };
+renderer.domElement.addEventListener('pointerdown', e => { down = [e.clientX, e.clientY]; $('#hint').hidden = true; });
+renderer.domElement.addEventListener('pointerup', e => {
+  if (!down || Math.hypot(e.clientX - down[0], e.clientY - down[1]) > 5) return;
+  const r = renderer.domElement.getBoundingClientRect();
+  ptr.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+  ray.setFromCamera(ptr, camera);
+  const hit = ray.intersectObjects(pickables.filter(isShown), false)
+    .find(h => !(interior && h.object.material === wallMat));
+  if (!hit) return;
+  if (hit.object.userData.loc) selectLoc(hit.object.userData.loc, false);
+  else if (hit.object.userData.zone) selectZone(hit.object.userData.zone, false);
+});
+
+function resize() {
+  const w = view.clientWidth, h = view.clientHeight;
+  renderer.setSize(w, h); labelR.setSize(w, h);
+  camera.aspect = w / h; camera.updateProjectionMatrix();
+}
+new ResizeObserver(resize).observe(view);
+resize();
+
+// compass: local north is (-1, 0, -1) → world (1, 0, -1)
+const north = new THREE.Vector3(1, 0, -1).normalize(), fwd = new THREE.Vector3(), right = new THREE.Vector3(), upv = new THREE.Vector3();
+function updateCompass() {
+  camera.matrixWorld.extractBasis(right, upv, fwd);
+  const screenUp = upv.clone().sub(fwd); screenUp.y = 0; screenUp.normalize();
+  right.y = 0; right.normalize();
+  $('#needle').style.transform = `rotate(${Math.atan2(north.dot(right), north.dot(screenUp)) * 180 / Math.PI}deg)`;
+}
+
+applyToggles();
+const [p0, t0] = views.general();
+camera.position.copy(p0); controls.target.copy(t0);
+renderer.setAnimationLoop(now => {
+  if (anim) anim(now);
+  controls.update();
+  updateCompass();
+  renderer.render(scene, camera);
+  labelR.render(scene, camera);
+});
+</script>
+
+</body>
+</html>
