@@ -29506,5 +29506,100 @@ if ("serviceWorker" in navigator) {
 
 </script>
 
+<script>
+/* Desplegables propios en PC: en Windows, con la ventana maximizada o en
+   pantalla completa, Chrome/Edge a veces dibujan vacía la lista nativa del
+   <select>. Con mouse abrimos una lista HTML; en celular sigue la nativa. */
+(function () {
+  if (!window.matchMedia || !matchMedia('(pointer: fine)').matches) return;
+  var abierto = null;
+  var estilo = document.createElement('style');
+  estilo.textContent =
+    '.cbSelLista { position: fixed; z-index: 2147483600; background: #fff; border: 1px solid #c9d3dc; border-radius: 8px; ' +
+    'box-shadow: 0 10px 28px rgba(0,0,0,.22); overflow-y: auto; padding: 4px 0; box-sizing: border-box; ' +
+    'font: 15px/1.3 -apple-system, \'Segoe UI\', Roboto, Arial, sans-serif; color: #1d2b36; } ' +
+    '.cbSelOp { padding: 8px 14px; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } ' +
+    '.cbSelOp:hover { background: #e6f2fb; } ' +
+    '.cbSelOp.sel { background: #0b3c5d; color: #fff; font-weight: 600; } ' +
+    '.cbSelOp.dis { color: #a5b1bb; cursor: default; background: none; } ' +
+    '.cbSelGrupo { padding: 8px 12px 4px; font-size: 12px; font-weight: 800; color: #6b7c88; text-transform: uppercase; } ';
+  document.head.appendChild(estilo);
+
+  function cerrar() {
+    if (!abierto) return;
+    abierto.lista.remove();
+    window.removeEventListener('resize', cerrar);
+    window.removeEventListener('scroll', alScroll, true);
+    abierto = null;
+  }
+  function alScroll(e) { if (abierto && !abierto.lista.contains(e.target)) cerrar(); }
+
+  function elegir(sel, idx) {
+    cerrar();
+    sel.focus();
+    if (sel.selectedIndex === idx) return;
+    sel.selectedIndex = idx;
+    sel.dispatchEvent(new Event('input', { bubbles: true }));
+    sel.dispatchEvent(new Event('change', { bubbles: true }));
+  }
+
+  function abrir(sel) {
+    cerrar();
+    var r = sel.getBoundingClientRect();
+    var lista = document.createElement('div');
+    lista.className = 'cbSelLista';
+    var items = [];
+    Array.prototype.forEach.call(sel.children, function (hijo) {
+      if (hijo.tagName === 'OPTGROUP') {
+        var g = document.createElement('div');
+        g.className = 'cbSelGrupo';
+        g.textContent = hijo.label;
+        lista.appendChild(g);
+        Array.prototype.forEach.call(hijo.children, agregar);
+      } else if (hijo.tagName === 'OPTION') agregar(hijo);
+    });
+    function agregar(op) {
+      if (op.hidden) return;
+      var d = document.createElement('div');
+      d.className = 'cbSelOp' + (op.selected ? ' sel' : '') + (op.disabled ? ' dis' : '');
+      d.textContent = op.textContent;
+      if (!op.disabled) d.onmousedown = function (e) { e.preventDefault(); elegir(sel, op.index); };
+      lista.appendChild(d);
+      items.push({ el: d, op: op });
+    }
+    document.body.appendChild(lista);
+    var abajo = window.innerHeight - r.bottom - 8, arriba = r.top - 8;
+    var alto = Math.min(lista.scrollHeight, 320);
+    var haciaArriba = abajo < alto && arriba > abajo;
+    lista.style.left = Math.max(4, r.left) + 'px';
+    lista.style.minWidth = r.width + 'px';
+    lista.style.maxWidth = Math.max(r.width, window.innerWidth - r.left - 8) + 'px';
+    lista.style.maxHeight = Math.max(120, Math.min(320, haciaArriba ? arriba : abajo)) + 'px';
+    if (haciaArriba) lista.style.bottom = (window.innerHeight - r.top + 2) + 'px';
+    else lista.style.top = (r.bottom + 2) + 'px';
+    var actual = lista.querySelector('.sel');
+    if (actual) lista.scrollTop = actual.offsetTop - lista.clientHeight / 2;
+    abierto = { sel: sel, lista: lista };
+    window.addEventListener('resize', cerrar);
+    window.addEventListener('scroll', alScroll, true);
+  }
+
+  document.addEventListener('mousedown', function (e) {
+    var sel = e.target.closest && e.target.closest('select');
+    if (abierto && !abierto.lista.contains(e.target)) {
+      var mismo = sel === abierto.sel;
+      cerrar();
+      if (mismo) { e.preventDefault(); return; }
+    }
+    if (!sel || e.button !== 0 || sel.disabled || sel.multiple || sel.size > 1) return;
+    e.preventDefault();
+    sel.focus();
+    abrir(sel);
+  }, true);
+  document.addEventListener('keydown', function (e) {
+    if (abierto && e.key === 'Escape') { e.preventDefault(); cerrar(); }
+  }, true);
+})();
+</script>
 </body>
 </html>
