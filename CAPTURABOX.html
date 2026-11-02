@@ -25169,8 +25169,33 @@ async function cb_fetchConReintento_(body, intentos, onIntento) {
 async function cb_ejecutarStock() {
   var _cliSel = (document.getElementById('cb_clienteStock') || {}).value || '';
 
+  // El cliente demora en actualizar su planilla: un lote que ya
+  // consolidamos puede seguir apareciendo "En stock". Si se sube tal
+  // cual, el cruce lo deja vigente. Se saca del archivo antes de subir,
+  // as\u00ed el cruce lo da como salido por consolidado.
+  mostrarCargando('Revisando lotes ya consolidados...');
+  await precargarLotesConsolidados(true);
+  ocultarCargando();
+  var yaConsolidados = [];
+  if (_lotesConsolidadosCache) {
+    cb_filas = cb_filas.filter(function (f) {
+      var k = String(f.Lote || '').trim().toUpperCase();
+      if (_lotesConsolidadosCache[k]) { yaConsolidados.push(k); return false; }
+      return true;
+    });
+  }
+  if (!cb_filas.length) {
+    mostrarAlerta('\u2139\ufe0f Nada que cargar',
+      'Los ' + yaConsolidados.length + ' lotes del archivo ya est\u00e1n consolidados.');
+    return;
+  }
+
   var ok = await mostrarConfirm('\ud83d\udce5 Actualizar stock del cliente',
     (_cliSel ? 'Cliente: <b>' + _cliSel + '</b><br><br>' : '') +
+    (yaConsolidados.length
+      ? '\ud83d\udce6 <b>' + yaConsolidados.length + ' lotes</b> del archivo ya est\u00e1n consolidados ' +
+        'y no se cargan como stock.<br><br>'
+      : '') +
     'Se procesar\u00e1n <b>' + cb_filas.length + ' lotes</b> del archivo.' +
     '<br><br>\u2022 Los lotes nuevos se agregan' +
     '<br>\u2022 Los que ya est\u00e1n conservan su ubicaci\u00f3n' +
