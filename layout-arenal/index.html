@@ -220,9 +220,9 @@ const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
    x: a lo largo del cerco de la vía férrea, de SO (punta Área A) a NE (calle Maritano).
    z: desde el cerco de la vía hacia calle Antonio de la Fuente (SE).
    Medido sobre la imagen satelital girada para dejar la vía horizontal. */
-const SITE = [[-10, 0], [576, 0], [578, 229], [120, 203], [100, 146], [-4, 6]];
+const SITE = [[-10, 0], [576, 0], [576, 222], [126.6, 222], [100, 146], [-4, 6]];   // borde de Antonio de la Fuente recto y paralelo a la vía
 const soX = z => -4 + (z - 6) * 104 / 140;               // borde SO (pasaje Uno)
-const seZ = x => 202 + (x - 118) * 27 / 460;          // borde SE (calle Antonio de la Fuente)
+const seZ = x => 222;                                   // borde SE (calle Antonio de la Fuente), paralelo a la vía
 
 const R = {
   b1a:    { x0: 10,  x1: 90,  z0: 3,   z1: 23,  h: 8,   rise: 2.4, naves: 1 },
@@ -491,20 +491,20 @@ const world = new THREE.Group(); scene.add(world);
   });
   // calles exteriores
   const road = '#45484d';
-  floorPoly(world, [[100, 206], [600, 233], [600, 247], [100, 220]], road, 0.02);                  // Antonio de la Fuente
-  floorPoly(world, [[582, -2], [596, -2], [600, 247], [586, 247]], road, 0.02);                    // Maritano
-  floorPoly(world, [[-6, 4], [100, 146], [120, 203], [106, 208], [86, 150], [-18, 8]], road, 0.02);   // Nuressa
-  floorPoly(world, [[106, 208], [120, 203], [60, 330], [46, 330]], road, 0.021);                      // Pasaje Uno
+  floorPoly(world, [[100, 224], [596, 224], [596, 238], [100, 238]], road, 0.02);                  // Antonio de la Fuente
+  floorPoly(world, [[582, -2], [596, -2], [596, 238], [582, 238]], road, 0.02);                    // Maritano
+  floorPoly(world, [[-6, 4], [100, 146], [126.6, 222], [112, 226], [86, 150], [-18, 8]], road, 0.02);   // Nuressa
+  floorPoly(world, [[112, 226], [126.6, 222], [66, 340], [52, 340]], road, 0.021);                      // Pasaje Uno
   label(world, 'Pasaje Uno', 'street', 40, 0.6, 80);
   for (let i = 0; i < 6; i++) { const z = 30 + i * 13; box(world, 8 + rng() * 6, 3 + rng() * 3, 8 + rng() * 4, nb[i % 4], soX(z) - 30 - rng() * 10, 2.5, z); }
   const dash = mat('#e9e6dc');
-  for (let x = 110; x < 590; x += 9) { const z = 213 + (x - 100) * 27 / 500; const b = box(world, 4, 0.03, 0.2, null, x, 0.04, z, { cast: false, material: dash }); b.rotation.y = -Math.atan2(27, 500); }
-  label(world, 'Calle Antonio de la Fuente', 'street', 360, 0.6, 229);
+  for (let x = 110; x < 590; x += 9) { const z = 231; box(world, 4, 0.03, 0.2, null, x, 0.04, z, { cast: false, material: dash }); }
+  label(world, 'Calle Antonio de la Fuente', 'street', 360, 0.6, 231);
   label(world, 'Calle Maritano', 'street', 591, 0.6, 120);
   label(world, 'Vía férrea · Santiago ↔ San Antonio', 'street', 320, 0.6, -30);
   for (let i = 0; i < 70; i++) {
     const x = 60 + (i % 14) * 38 + rng() * 8, z = 268 + Math.floor(i / 14) * 30 + rng() * 6;
-    box(world, 9 + rng() * 9, 3 + rng() * 3, 8 + rng() * 7, nb[i % 4], x, 2.5, z + (x - 100) * 0.054);
+    box(world, 9 + rng() * 9, 3 + rng() * 3, 8 + rng() * 7, nb[i % 4], x, 2.5, z);
   }
   for (let i = 0; i < 36; i++) {
     const x = -200 + (i % 18) * 52 + rng() * 10, z = -110 - Math.floor(i / 18) * 36 - rng() * 8;
@@ -524,10 +524,10 @@ const hl = new THREE.Group(); scene.add(hl);
   // piso del site
   floorPoly(site, SITE, null, 0.03, null, yardMat);
   // caminos interiores (asfalto)
-  floorPoly(site, [[118, 190], [578, 217], [578, 229], [118, 202]], null, 0.05, null, asphaltMat);       // perimetral SE
-  floorRect(site, { x0: 126, x1: 138, z0: 20, z1: 196 }, null, 0.05, null, asphaltMat);                  // camino oeste bodegas 4-6
-  floorRect(site, { x0: 240, x1: 244, z0: 17, z1: 196 }, null, 0.05, null, asphaltMat);
-  floorRect(site, { x0: 297, x1: 306, z0: 3, z1: 214 }, null, 0.05, null, asphaltMat);                   // Calle 3
+  floorPoly(site, [[122, 210], [576, 210], [576, 222], [126.6, 222]], null, 0.05, null, asphaltMat);       // perimetral SE
+  floorRect(site, { x0: 126, x1: 138, z0: 20, z1: 210 }, null, 0.05, null, asphaltMat);                  // camino oeste bodegas 4-6
+  floorRect(site, { x0: 240, x1: 244, z0: 17, z1: 210 }, null, 0.05, null, asphaltMat);
+  floorRect(site, { x0: 297, x1: 306, z0: 3, z1: 210 }, null, 0.05, null, asphaltMat);                   // Calle 3
   // línea férrea interna: entra por la esquina NE y corre junto al cerco hasta la zona de consolidación para descargar
   floorRect(site, { x0: 246, x1: 576, z0: 2.5, z1: 11 }, null, 0.05, null, ballastMat);
   {
@@ -548,8 +548,8 @@ const hl = new THREE.Group(); scene.add(hl);
   }
   floorRect(site, { x0: 306, x1: 556, z0: 59, z1: 68 }, null, 0.05, null, asphaltMat);                   // Calle B
   floorRect(site, { x0: 306, x1: 556, z0: 114, z1: 123 }, null, 0.05, null, asphaltMat);                 // Calle C
-  floorRect(site, { x0: 429, x1: 438, z0: 11, z1: 212 }, null, 0.05, null, asphaltMat);                  // Calle 2, hasta el camino perimetral
-  floorRect(site, { x0: 556, x1: 572, z0: 3, z1: 226 }, null, 0.05, null, asphaltMat);                   // Calle 1
+  floorRect(site, { x0: 429, x1: 438, z0: 11, z1: 210 }, null, 0.05, null, asphaltMat);                  // Calle 2, hasta el camino perimetral
+  floorRect(site, { x0: 556, x1: 572, z0: 3, z1: 222 }, null, 0.05, null, asphaltMat);                   // Calle 1
   floorRect(site, { x0: 306, x1: 556, z0: 158, z1: 168 }, null, 0.05, null, asphaltMat);
   const dash = mat('#f1efe6');
   const dashes = (x0, x1, z, horiz = true) => { for (let t = x0; t < x1; t += 9) horiz ? box(site, 4.5, 0.02, 0.2, null, t, 0.07, z, { cast: false, material: dash }) : box(site, 0.2, 0.02, 4.5, null, z, 0.07, t, { cast: false, material: dash }); };
@@ -557,10 +557,9 @@ const hl = new THREE.Group(); scene.add(hl);
   [['Calle B', 370, 63.5], ['Calle C', 370, 118.5]].forEach(([t, x, z]) => label(site, t, 'calle', x, 0.4, z));
   label(site, 'Línea férrea interna de descarga', 'lbl tag', 470, 4, 7);
   [['Calle 3', 301.5, 90], ['Calle 2', 433.5, 90], ['Calle 1', 564, 90]].forEach(([t, x, z]) => label(site, t, 'calle', x, 0.4, z));
-  label(site, 'Camino perimetral', 'calle', 330, 0.4, 211);
+  label(site, 'Camino perimetral', 'calle', 390, 0.4, 216);
   // sentido de circulación: perimetral hacia el oriente, calle 1 al norte, calles B y C al poniente, calles 2 y 3 al sur, camino oeste al norte
-  const pa = Math.atan2(27, 460);
-  [200, 300, 400, 500].forEach(x => arrow(site, x, 202 + (x - 118) * 27 / 460 - 6.5, pa));
+  [200, 300, 400, 500].forEach(x => arrow(site, x, 216, 0));
   [180, 120, 60].forEach(z => { arrow(site, 564, z, -Math.PI / 2); arrow(site, 132, z, -Math.PI / 2); });
   [520, 400].forEach(x => { arrow(site, x, 63.5, Math.PI); arrow(site, x, 118.5, Math.PI); });
   [40, 150].forEach(z => { arrow(site, 301.5, z, Math.PI / 2); arrow(site, 433.5, z + 10, Math.PI / 2); });
@@ -598,9 +597,9 @@ const hl = new THREE.Group(); scene.add(hl);
     gaps.forEach(([g0, g1]) => [g0, g1].forEach(t => box(site, 0.6, 3.2, 0.6, null, x0 + Math.cos(ang) * t, 1.6, z0 + Math.sin(ang) * t, { material: postM })));
   };
   fence([-10, 0], [576, 0]);
-  fence([576, 0], [578, 229], [[1, 12]]);        // portón de la línea férrea interna
-  fence([578, 229], [120, 203]);
-  fence([120, 203], [100, 146], [[42.4, 61]]);   // entrada principal, junto al vértice
+  fence([576, 0], [576, 222], [[1, 12]]);        // portón de la línea férrea interna
+  fence([576, 222], [126.6, 222]);
+  fence([126.6, 222], [100, 146], [[62.3, 80.5]]);   // entrada principal, junto al vértice
   fence([100, 146], [-4, 6], [[152, 168]]);      // acceso Área A, junto a la punta
   {
     const pm = new THREE.InstancedMesh(new THREE.BoxGeometry(0.12, 2.9, 0.12), postM, fencePosts.length);
@@ -894,7 +893,7 @@ const hl = new THREE.Group(); scene.add(hl);
 /* ---------- Camiones y tren ---------- */
 {
   const truck = (x, z, rot, cab, load) => { const g = makeTruck(cab, load); g.position.set(x, 0, z); g.rotation.y = rot; trucksG.add(g); };
-  truck(250, 194.5, 0.06, '#2f6db3', '#f2f4f5'); truck(330, 199, 0.06, '#f2c230', '#b5402f'); 
+  truck(250, 216, 0, '#2f6db3', '#f2f4f5'); truck(340, 216, 0, '#f2c230', '#b5402f'); 
   truck(118, 85, 0, '#c23b2e', '#2f6db3'); truck(118, 98, 0, '#f2c230', '#f2f4f5'); truck(132, 160, -Math.PI / 2, '#f2f2f0', '#e4e7ea');
   truck(301.5, 140, -Math.PI / 2, '#2f6db3', '#f2f4f5'); truck(564, 120, Math.PI / 2, '#27ae60', '#f2f4f5'); truck(380, 163, Math.PI, '#c23b2e', '#8e3b33');
   // tren en la vía principal y vagones en el desvío
