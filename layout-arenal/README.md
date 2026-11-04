@@ -32,6 +32,17 @@ Es una sola página (`index.html`), sin instalación ni compilación. Usa [three
   - Se pueden mostrar u ocultar los techos, las etiquetas, las cotas, los contenedores y los camiones y el tren.
   - Al tocar una bodega o una zona se ve su ficha.
 
+## Boceto e informe
+
+- **Boceto:** el botón **Boceto** cambia a vista de planta y abre una barra de herramientas.
+  - **Zona:** arrastras un rectángulo y muestra sus medidas y m².
+  - **Medir:** arrastras una línea y muestra su largo.
+  - **Texto:** tocas el plano y escribes una nota.
+  - **Mover:** desplaza el plano.
+  - **Colores, Deshacer e Imagen:** eliges el color de lo que dibujas, deshaces lo último o descargas un PNG de la vista con las etiquetas.
+- **Dónde se guardan los bocetos:** en el navegador. En el panel puedes renombrarlos, ir a cada uno, borrarlos, y exportarlos o importarlos como JSON para compartirlos.
+- **Informe:** abre un informe imprimible (o lo descarga, si el navegador bloquea la ventana). Incluye la imagen de la vista actual, las notas, el boceto con sus m², los datos del site, las bodegas con su porcentaje y las demás instalaciones. Desde ahí se puede guardar como PDF.
+
 ## Cómo editar
 
 Todo está en `index.html`:

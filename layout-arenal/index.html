@@ -112,6 +112,28 @@ tfoot td.ar{font-size:13px}
 ul.list{margin:0;padding-left:18px;line-height:1.5;font-size:13px}
 ul.list li+li{margin-top:5px}
 
+/* Boceto e informe */
+.acts{display:flex;gap:6px}
+.acts button{border:1px solid var(--line);background:var(--bg);border-radius:6px;padding:7px 12px;cursor:pointer;font-size:13px;font-weight:700;color:var(--fg)}
+.acts button[aria-pressed="true"]{background:var(--mark);border-color:var(--mark);color:#1b1b1b}
+.skbar{position:absolute;left:max(12px,env(safe-area-inset-left,0px));top:44px;display:flex;flex-wrap:wrap;gap:6px;max-width:calc(100% - 24px);
+  background:var(--label-bg);border:1px solid var(--line);border-radius:8px;padding:6px;align-items:center}
+.skbar button{border:1px solid var(--line);background:var(--bg);border-radius:6px;padding:6px 10px;font-size:12.5px;font-weight:600;cursor:pointer;color:var(--fg)}
+.skbar button[aria-pressed="true"]{background:var(--ink);color:var(--panel);border-color:var(--ink)}
+.skbar .sw{width:24px;height:24px;border-radius:50%;border:2px solid #fff;box-shadow:0 0 0 1px var(--line);padding:0}
+.skbar .sw[aria-pressed="true"]{box-shadow:0 0 0 3px var(--fg)}
+.skbar .sep{width:1px;align-self:stretch;background:var(--line)}
+.lbl.sk{border-width:2px}
+#sk-list{list-style:none;margin:0;padding:0;font-size:13px}
+#sk-list li{display:grid;grid-template-columns:12px 1fr auto auto;gap:8px;align-items:center;padding:6px 0;border-bottom:1px solid var(--line)}
+#sk-list li i{width:10px;height:10px;border-radius:2px}
+#sk-list li span{font:400 11.5px var(--f-mono);color:var(--muted)}
+#sk-list li button{border:0;background:transparent;cursor:pointer;color:var(--ink);font-size:12.5px;font-weight:600;padding:2px 4px}
+#sk-list li .nm{cursor:pointer;text-decoration:underline dotted}
+.skio{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.skio button,.skio label{border:1px solid var(--line);background:var(--bg);border-radius:6px;padding:6px 10px;font-size:12.5px;font-weight:600;cursor:pointer;color:var(--fg)}
+textarea#rep-notes{width:100%;min-height:80px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--fg);padding:8px;font:inherit;font-size:13px}
+
 @media (max-width:880px){
   body{overflow:auto;display:block;height:auto}
   .app{display:block}
@@ -135,6 +157,10 @@ ul.list li+li{margin-top:5px}
     <button id="v-oficinas" type="button" aria-pressed="false">Oficinas</button>
     <button id="v-patio" type="button" aria-pressed="false">Patio</button>
   </div>
+  <div class="acts">
+    <button id="b-sketch" type="button" aria-pressed="false">Boceto</button>
+    <button id="b-report" type="button">Informe</button>
+  </div>
 </header>
 
 <main class="app">
@@ -147,10 +173,42 @@ ul.list li+li{margin-top:5px}
       <label class="chip"><input id="t-cont" type="checkbox" checked> Contenedores</label>
       <label class="chip"><input id="t-trucks" type="checkbox" checked> Camiones y tren</label>
     </div>
+    <div class="skbar" id="skbar" hidden>
+      <button type="button" data-tool="rect" aria-pressed="true">Zona</button>
+      <button type="button" data-tool="line" aria-pressed="false">Medir</button>
+      <button type="button" data-tool="text" aria-pressed="false">Texto</button>
+      <button type="button" data-tool="pan" aria-pressed="false">Mover</button>
+      <span class="sep"></span>
+      <button type="button" class="sw" data-color="#e5484d" aria-pressed="true" style="background:#e5484d" aria-label="Rojo"></button>
+      <button type="button" class="sw" data-color="#2f7fd1" aria-pressed="false" style="background:#2f7fd1" aria-label="Azul"></button>
+      <button type="button" class="sw" data-color="#30a46c" aria-pressed="false" style="background:#30a46c" aria-label="Verde"></button>
+      <button type="button" class="sw" data-color="#f2a900" aria-pressed="false" style="background:#f2a900" aria-label="Amarillo"></button>
+      <button type="button" class="sw" data-color="#8e4ec6" aria-pressed="false" style="background:#8e4ec6" aria-label="Morado"></button>
+      <span class="sep"></span>
+      <button type="button" id="sk-undo">Deshacer</button>
+      <button type="button" id="sk-png">Imagen</button>
+    </div>
     <div class="compass" title="Norte"><div class="needle" id="needle"><span class="n">N</span></div></div>
   </div>
 
   <aside class="panel">
+    <section id="sk-sec" hidden>
+      <h2>Bocetos</h2>
+      <p class="small" style="margin:0 0 8px">Arrastra sobre el plano para dibujar una zona (con sus m²) o una medida. Toca un nombre para cambiarlo. Los bocetos se guardan en este navegador; usa «Exportar boceto» para compartirlos.</p>
+      <ul id="sk-list"></ul>
+      <p class="small" id="sk-sum"></p>
+      <div class="skio">
+        <button type="button" id="sk-export">Exportar boceto</button>
+        <label>Importar boceto<input type="file" id="sk-import" accept="application/json,.json" hidden></label>
+        <button type="button" id="sk-clear">Borrar todo</button>
+      </div>
+    </section>
+
+    <section>
+      <h2>Notas para el informe</h2>
+      <textarea id="rep-notes" placeholder="Ideas, comentarios o decisiones que quieras que salgan en el informe"></textarea>
+    </section>
+
     <section>
       <h2>Bodegas</h2>
       <table>
@@ -981,6 +1039,7 @@ let down = null;
 const isShown = o => { for (let p = o; p; p = p.parent) if (!p.visible) return false; return true; };
 renderer.domElement.addEventListener('pointerdown', e => { down = [e.clientX, e.clientY]; $('#hint').hidden = true; });
 renderer.domElement.addEventListener('pointerup', e => {
+  if (sk.on) return;
   if (!down || Math.hypot(e.clientX - down[0], e.clientY - down[1]) > 5) return;
   const r = renderer.domElement.getBoundingClientRect();
   ptr.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
@@ -988,6 +1047,226 @@ renderer.domElement.addEventListener('pointerup', e => {
   const hit = ray.intersectObjects(pickables.filter(isShown), false)[0];
   if (hit && hit.object.userData.zone) selectZone(hit.object.userData.zone, false);
 });
+
+/* ---------- Boceto: dibujar zonas, medidas y textos sobre el plano ---------- */
+const SK_KEY = 'arenal-bocetos-v1';
+const sk = { on: false, tool: 'rect', color: '#e5484d', items: [], drag: null };
+try { sk.items = JSON.parse(localStorage.getItem(SK_KEY) || '[]') || []; } catch (e) { sk.items = []; }
+const skSave = () => { try { localStorage.setItem(SK_KEY, JSON.stringify(sk.items)); } catch (e) {} };
+const skG = new THREE.Group(), skTmp = new THREE.Group(); scene.add(skG, skTmp);
+const groundPl = new THREE.Plane(new THREE.Vector3(0, 1, 0), -0.3);
+const esc = t => String(t).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const snap = v => Math.round(v * 2) / 2;
+function skHit(e) {
+  const r = renderer.domElement.getBoundingClientRect();
+  ptr.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+  ray.setFromCamera(ptr, camera);
+  const p = new THREE.Vector3();
+  return ray.ray.intersectPlane(groundPl, p) ? { x: snap(p.x), z: snap(p.z) } : null;
+}
+const rectInfo = it => { const w = Math.abs(it.x1 - it.x0), d = Math.abs(it.z1 - it.z0); return { w, d, a: w * d }; };
+const lineLen = it => Math.hypot(it.x1 - it.x0, it.z1 - it.z0);
+function clearGroup(g) { g.traverse(o => { if (o.geometry) o.geometry.dispose(); if (o.element) o.element.remove(); }); g.clear(); }
+function drawItem(g, it) {
+  const col = new THREE.Color(it.color);
+  if (it.type === 'rect') {
+    const x0 = Math.min(it.x0, it.x1), x1 = Math.max(it.x0, it.x1), z0 = Math.min(it.z0, it.z1), z1 = Math.max(it.z0, it.z1);
+    const { w, d, a } = rectInfo(it);
+    const f = new THREE.Mesh(new THREE.PlaneGeometry(Math.max(w, 0.1), Math.max(d, 0.1)), new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.32, depthWrite: false }));
+    f.rotation.x = -Math.PI / 2; f.position.set((x0 + x1) / 2, 0.32, (z0 + z1) / 2); f.renderOrder = 5; g.add(f);
+    const pts = [[x0, z0], [x1, z0], [x1, z1], [x0, z1], [x0, z0]].map(([x, z]) => new THREE.Vector3(x, 0.36, z));
+    g.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineBasicMaterial({ color: col })));
+    const o = label(g, `<b>${esc(it.name || 'Zona')}</b><span>${fmt(w, 1)} × ${fmt(d, 1)} m · ${fmt(a)} m²</span>`, 'lbl sk', (x0 + x1) / 2, 2, (z0 + z1) / 2);
+    o.element.style.borderColor = it.color;
+  } else if (it.type === 'line') {
+    const L = lineLen(it), a = Math.atan2(it.z1 - it.z0, it.x1 - it.x0);
+    const b = new THREE.Mesh(new THREE.BoxGeometry(Math.max(L, 0.1), 0.08, 0.5), new THREE.MeshBasicMaterial({ color: col }));
+    b.position.set((it.x0 + it.x1) / 2, 0.36, (it.z0 + it.z1) / 2); b.rotation.y = -a; g.add(b);
+    [[it.x0, it.z0], [it.x1, it.z1]].forEach(([x, z]) => { const c = new THREE.Mesh(new THREE.CylinderGeometry(0.7, 0.7, 0.1, 16), new THREE.MeshBasicMaterial({ color: col })); c.position.set(x, 0.37, z); g.add(c); });
+    const o = label(g, `<b>${fmt(L, 1)} m</b>`, 'lbl sk', (it.x0 + it.x1) / 2, 2, (it.z0 + it.z1) / 2); o.element.style.borderColor = it.color;
+  } else if (it.type === 'text') {
+    const c = new THREE.Mesh(new THREE.CylinderGeometry(0.8, 0.8, 0.1, 16), new THREE.MeshBasicMaterial({ color: col })); c.position.set(it.x, 0.37, it.z); g.add(c);
+    const o = label(g, `<b>${esc(it.text)}</b>`, 'lbl sk', it.x, 3, it.z); o.element.style.borderColor = it.color;
+  }
+}
+function skRender() {
+  clearGroup(skG); sk.items.forEach(it => drawItem(skG, it));
+  const list = $('#sk-list');
+  list.innerHTML = sk.items.map((it, i) => {
+    const info = it.type === 'rect' ? (() => { const { w, d, a } = rectInfo(it); return `${fmt(w, 1)} × ${fmt(d, 1)} m · ${fmt(a)} m²`; })()
+      : it.type === 'line' ? `${fmt(lineLen(it), 1)} m` : 'texto';
+    const nm = it.type === 'rect' ? (it.name || 'Zona') : it.type === 'line' ? (it.name || 'Medida') : it.text;
+    return `<li data-i="${i}"><i style="background:${it.color}"></i><div><div class="nm">${esc(nm)}</div><span>${info}</span></div><button type="button" data-act="go">Ver</button><button type="button" data-act="del" aria-label="Borrar">✕</button></li>`;
+  }).join('') || '<li style="display:block;color:var(--muted)">Todavía no hay bocetos.</li>';
+  const rects = sk.items.filter(i => i.type === 'rect'), tot = rects.reduce((a, i) => a + rectInfo(i).a, 0);
+  $('#sk-sum').textContent = tot ? `Superficie bocetada: ${fmt(tot)} m² en ${rects.length} zona(s).` : '';
+}
+function skApplyTool() {
+  document.querySelectorAll('#skbar [data-tool]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.tool === sk.tool)));
+  document.querySelectorAll('#skbar [data-color]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.color === sk.color)));
+  if (!sk.on) {
+    controls.enableRotate = true;
+    controls.mouseButtons = { LEFT: THREE.MOUSE.ROTATE, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.PAN };
+    controls.touches = { ONE: THREE.TOUCH.ROTATE, TWO: THREE.TOUCH.DOLLY_PAN };
+    return;
+  }
+  controls.enableRotate = false;
+  const pan = sk.tool === 'pan';
+  controls.mouseButtons = { LEFT: pan ? THREE.MOUSE.PAN : null, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.PAN };
+  controls.touches = { ONE: pan ? THREE.TOUCH.PAN : null, TWO: THREE.TOUCH.DOLLY_PAN };
+}
+function skToggle(on) {
+  sk.on = on;
+  $('#b-sketch').setAttribute('aria-pressed', String(on));
+  $('#skbar').hidden = !on; $('#sk-sec').hidden = !on;
+  $('#hint').hidden = false;
+  $('#hint').textContent = on ? 'Modo boceto: arrastra para dibujar · dos dedos o «Mover» para desplazar · rueda o pellizco para zoom'
+    : 'Arrastra para girar · rueda o pellizco para zoom · toca una bodega o zona';
+  if (on) setView('planta');
+  skApplyTool();
+}
+$('#b-sketch').addEventListener('click', () => skToggle(!sk.on));
+$('#skbar').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  if (b.dataset.tool) sk.tool = b.dataset.tool;
+  if (b.dataset.color) sk.color = b.dataset.color;
+  skApplyTool();
+});
+$('#sk-undo').addEventListener('click', () => { sk.items.pop(); skSave(); skRender(); });
+renderer.domElement.addEventListener('pointerdown', e => {
+  if (!sk.on || sk.tool === 'pan' || e.button > 0) return;
+  const p = skHit(e); if (!p) return;
+  if (sk.tool === 'text') {
+    const t = prompt('Texto para el plano:', '');
+    if (t && t.trim()) { sk.items.push({ type: 'text', x: p.x, z: p.z, text: t.trim().slice(0, 80), color: sk.color }); skSave(); skRender(); }
+    return;
+  }
+  sk.drag = { type: sk.tool, x0: p.x, z0: p.z, x1: p.x, z1: p.z, color: sk.color };
+  try { renderer.domElement.setPointerCapture(e.pointerId); } catch (err) {}
+});
+renderer.domElement.addEventListener('pointermove', e => {
+  if (!sk.drag) return;
+  const p = skHit(e); if (!p) return;
+  sk.drag.x1 = p.x; sk.drag.z1 = p.z;
+  clearGroup(skTmp); drawItem(skTmp, sk.drag);
+});
+renderer.domElement.addEventListener('pointerup', () => {
+  if (!sk.drag) return;
+  const it = sk.drag; sk.drag = null; clearGroup(skTmp);
+  const big = it.type === 'rect' ? rectInfo(it).w >= 1 && rectInfo(it).d >= 1 : lineLen(it) >= 1;
+  if (!big) return;
+  if (it.type === 'rect') {
+    const n = sk.items.filter(i => i.type === 'rect').length + 1;
+    const nm = prompt('Nombre de la zona:', `Zona ${n}`); if (nm === null) return;
+    it.name = (nm.trim() || `Zona ${n}`).slice(0, 60);
+  }
+  sk.items.push(it); skSave(); skRender();
+});
+renderer.domElement.addEventListener('pointercancel', () => { sk.drag = null; clearGroup(skTmp); });
+$('#sk-list').addEventListener('click', e => {
+  const li = e.target.closest('li[data-i]'); if (!li) return;
+  const i = +li.dataset.i, it = sk.items[i];
+  const act = e.target.closest('button') && e.target.closest('button').dataset.act;
+  if (act === 'del') { sk.items.splice(i, 1); skSave(); skRender(); return; }
+  if (act === 'go') {
+    const cx = it.type === 'text' ? it.x : (it.x0 + it.x1) / 2, cz = it.type === 'text' ? it.z : (it.z0 + it.z1) / 2;
+    fly(new THREE.Vector3(cx, 140, cz + 0.5), new THREE.Vector3(cx, 0, cz)); return;
+  }
+  if (e.target.closest('.nm')) {
+    const cur = it.type === 'text' ? it.text : (it.name || '');
+    const nm = prompt(it.type === 'text' ? 'Texto:' : 'Nombre:', cur); if (nm === null || !nm.trim()) return;
+    if (it.type === 'text') it.text = nm.trim().slice(0, 80); else it.name = nm.trim().slice(0, 60);
+    skSave(); skRender();
+  }
+});
+$('#sk-clear').addEventListener('click', () => { if (sk.items.length && confirm('¿Borrar todos los bocetos?')) { sk.items = []; skSave(); skRender(); } });
+function download(name, href) { const a = document.createElement('a'); a.href = href; a.download = name; document.body.appendChild(a); a.click(); a.remove(); }
+$('#sk-export').addEventListener('click', () => {
+  const url = URL.createObjectURL(new Blob([JSON.stringify({ site: 'Arenal', fecha: new Date().toISOString(), items: sk.items }, null, 2)], { type: 'application/json' }));
+  download('boceto-arenal.json', url); setTimeout(() => URL.revokeObjectURL(url), 2000);
+});
+$('#sk-import').addEventListener('change', async e => {
+  const f = e.target.files[0]; if (!f) return;
+  try {
+    const data = JSON.parse(await f.text()); const items = Array.isArray(data) ? data : data.items;
+    if (!Array.isArray(items)) throw new Error('formato');
+    sk.items = sk.items.concat(items.filter(i => i && ['rect', 'line', 'text'].includes(i.type))); skSave(); skRender();
+  } catch (err) { alert('No se pudo leer el archivo de boceto.'); }
+  e.target.value = '';
+});
+
+/* ---------- Captura de la vista (canvas 3D + etiquetas) ---------- */
+function capture() {
+  renderer.render(scene, camera);
+  const src = renderer.domElement, c = document.createElement('canvas');
+  c.width = src.width; c.height = src.height;
+  const g = c.getContext('2d'); g.drawImage(src, 0, 0);
+  const k = src.width / src.clientWidth, v = new THREE.Vector3();
+  const tag = (x, y, z, t, col) => {
+    v.set(x, y, z).project(camera); if (v.z > 1 || Math.abs(v.x) > 1 || Math.abs(v.y) > 1) return;
+    const px = (v.x + 1) / 2 * c.width, py = (1 - v.y) / 2 * c.height;
+    g.font = `700 ${12 * k}px Archivo, Arial, sans-serif`;
+    const w = g.measureText(t).width + 10 * k, h = 18 * k;
+    g.fillStyle = 'rgba(255,255,255,.92)'; g.strokeStyle = col; g.lineWidth = 2 * k;
+    g.fillRect(px - w / 2, py - h / 2, w, h); g.strokeRect(px - w / 2, py - h / 2, w, h);
+    g.fillStyle = '#1b2129'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(t, px, py + 1);
+  };
+  ORDER.forEach(id => { const r = R[id]; tag((r.x0 + r.x1) / 2, r.h + r.rise + 3, (r.z0 + r.z1) / 2, ZONES[id].name, '#9aa3ad'); });
+  sk.items.forEach(it => {
+    if (it.type === 'rect') tag((it.x0 + it.x1) / 2, 2, (it.z0 + it.z1) / 2, `${it.name || 'Zona'} · ${fmt(rectInfo(it).a)} m²`, it.color);
+    else if (it.type === 'line') tag((it.x0 + it.x1) / 2, 2, (it.z0 + it.z1) / 2, `${fmt(lineLen(it), 1)} m`, it.color);
+    else tag(it.x, 3, it.z, it.text, it.color);
+  });
+  return c.toDataURL('image/png');
+}
+$('#sk-png').addEventListener('click', () => download('boceto-arenal.png', capture()));
+
+/* ---------- Informe imprimible ---------- */
+function reportHTML() {
+  const img = capture();
+  const hoy = new Date().toLocaleDateString('es-CL', { day: '2-digit', month: 'long', year: 'numeric' });
+  const datos = [...document.querySelectorAll('.kvs dt')].map(dt => `<tr><th>${esc(dt.textContent)}</th><td>${esc(dt.nextElementSibling.textContent)}</td></tr>`).join('');
+  const tot = ORDER.reduce((a, id) => a + ZONES[id].area, 0);
+  const bod = ORDER.map(id => `<tr><td>${esc(ZONES[id].name)}</td><td>${esc(ZONES[id].dims)}</td><td class="n">${fmt(ZONES[id].area)}</td><td class="n">${fmt(ZONES[id].area / tot * 100, 1)} %</td></tr>`).join('');
+  const otras = EXTRA.map(id => `<tr><td>${esc(ZONES[id].name)}</td><td>${esc(ZONES[id].dims || '')}</td><td class="n">${ZONES[id].area ? fmt(ZONES[id].area) + ' m²' : '—'}</td></tr>`).join('');
+  const rects = sk.items.filter(i => i.type === 'rect'), lines = sk.items.filter(i => i.type === 'line'), texts = sk.items.filter(i => i.type === 'text');
+  const skTot = rects.reduce((a, i) => a + rectInfo(i).a, 0);
+  const skRows = rects.map(i => { const r = rectInfo(i); return `<tr><td><i style="background:${i.color}"></i>${esc(i.name || 'Zona')}</td><td>${fmt(r.w, 1)} × ${fmt(r.d, 1)} m</td><td class="n">${fmt(r.a)}</td></tr>`; }).join('')
+    + lines.map(i => `<tr><td><i style="background:${i.color}"></i>Medida</td><td>${fmt(lineLen(i), 1)} m</td><td class="n">—</td></tr>`).join('')
+    + texts.map(i => `<tr><td><i style="background:${i.color}"></i>Nota en el plano</td><td colspan="2">${esc(i.text)}</td></tr>`).join('');
+  const notas = $('#rep-notes').value.trim();
+  return `<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Informe Site Arenal · ${esc(hoy)}</title>
+<style>
+body{font-family:Archivo,Arial,sans-serif;color:#1b2129;background:#fff;padding:24px;max-width:960px;margin:0 auto}
+h1{font-size:24px;margin:0}h2{font-size:14px;letter-spacing:.08em;text-transform:uppercase;color:#5b6672;margin:26px 0 8px;border-bottom:2px solid #1b2129;padding-bottom:4px}
+.sub{color:#5b6672;font-size:13px;margin-top:4px}img{width:100%;border:1px solid #d2d8de;border-radius:6px;margin-top:16px}
+table{width:100%;border-collapse:collapse;font-size:13px}th,td{text-align:left;padding:6px;border-bottom:1px solid #e1e5e9}th{color:#5b6672;font-weight:600}
+td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}tfoot td{font-weight:700;border-top:2px solid #1b2129}
+td i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:8px;vertical-align:middle}
+.notes{white-space:pre-wrap;font-size:14px;line-height:1.5;background:#f6f7f8;border:1px solid #e1e5e9;border-radius:6px;padding:12px}
+.bar{margin-top:12px}.bar button{padding:8px 14px;border-radius:6px;border:0;background:#24507f;color:#fff;font-weight:700;cursor:pointer}
+@media print{.bar{display:none}body{padding:0}h2{break-after:avoid}tr{break-inside:avoid}}
+</style></head><body>
+<h1>Informe · Site Arenal, Depot Talcahuano</h1>
+<div class="sub">Generado el ${esc(hoy)} desde el modelo 3D · imagen de la vista actual</div>
+<div class="bar"><button onclick="print()">Imprimir o guardar como PDF</button></div>
+<img src="${img}" alt="Vista del modelo 3D del Site Arenal">
+${notas ? `<h2>Notas</h2><div class="notes">${esc(notas)}</div>` : ''}
+${sk.items.length ? `<h2>Boceto de distribución</h2><table><thead><tr><th>Elemento</th><th>Medidas</th><th class="n">m²</th></tr></thead><tbody>${skRows}</tbody>${rects.length ? `<tfoot><tr><td>Superficie bocetada</td><td></td><td class="n">${fmt(skTot)}</td></tr></tfoot>` : ''}</table>` : ''}
+<h2>Datos del site</h2><table>${datos}</table>
+<h2>Bodegas</h2><table><thead><tr><th>Bodega</th><th>Medidas</th><th class="n">m²</th><th class="n">% del total</th></tr></thead><tbody>${bod}</tbody><tfoot><tr><td>Total</td><td></td><td class="n">${fmt(tot)}</td><td class="n">100 %</td></tr></tfoot></table>
+<h2>Otras instalaciones y zonas</h2><table><thead><tr><th>Instalación</th><th>Ubicación / medidas</th><th class="n">m²</th></tr></thead><tbody>${otras}</tbody></table>
+</body></html>`;
+}
+$('#b-report').addEventListener('click', () => {
+  const html = reportHTML();
+  const url = URL.createObjectURL(new Blob([html], { type: 'text/html' }));
+  const w = window.open(url, '_blank');
+  if (!w) download('informe-site-arenal.html', url);
+  setTimeout(() => URL.revokeObjectURL(url), 60000);
+});
+window.__reportHTML = reportHTML;
+skRender();
 
 function resize() {
   const w = view.clientWidth, h = view.clientHeight;
