@@ -19,7 +19,7 @@ Es una sola página (`index.html`), sin instalación ni compilación. Usa [three
   - N°5 (96 × 20 m) y N°6 (100 × 60 m, 3 naves).
   - N°7 (77 × 20 m) en el sector oriente.
 - **Otras instalaciones:**
-  - Bodega Modular N°8: queda operativa la mitad hacia las bodegas, 1.500 m². La N°9 ya no existe.
+  - Bodega Modular N°8: queda operativa la mitad hacia las bodegas, 48 × 31,25 m (1.500 m²), sin invadir la Calle 3. La N°9 ya no existe.
   - Zonas: pre stacking full, zona de consolidación, zona de fumigado y consolidado.
   - Patio de contenedores con las calles B y C paralelas a la vía y las calles 1, 2 y 3 perpendiculares, más el bloque reefer.
   - Línea férrea interna: entra por la esquina NE y corre junto al cerco hasta la zona de consolidación para descargar.
