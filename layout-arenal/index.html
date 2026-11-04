@@ -184,14 +184,13 @@ ul.list li+li{margin-top:5px}
         <li>El bloque de 96 × 40 m detrás de la Bodega N°2 se reparte en Bodega N°4 (48 × 40) y Galpón de reparaciones (48 × 40).</li>
         <li>Bodega N°2 de 110 × 11,5 m y N°3 de 45 × 10,7 m, para cumplir los m² del letrero.</li>
         <li>Alturas supuestas: bodegas 8–11 m al alero; pilas de contenedores hasta 5 alturas.</li>
-        <li>Bodega Modular N°9 desarmada; de la N°8 queda la mitad (1.500 m²).</li>
+        <li>Bodega Modular N°9 desarmada; de la N°8 queda operativa la mitad hacia las bodegas (1.500 m²).</li>
       </ul>
     </section>
 
     <section>
       <h2>Por confirmar</h2>
       <ul class="list">
-        <li>Qué mitad de la Bodega Modular N°8 quedó en pie.</li>
         <li>Si el acceso del Área A sigue habilitado.</li>
         <li>Posición exacta de camarines, sala eléctrica, comedor 2 y bodega chica a lo largo del deslinde.</li>
       </ul>
@@ -232,8 +231,7 @@ const R = {
   b5:     { x0: 144, x1: 240, z0: 57,  z1: 77,  h: 9,   rise: 2.4, naves: 1 },
   b6:     { x0: 139, x1: 239, z0: 77,  z1: 137, h: 11,  rise: 2.8, naves: 3 },
   b7:     { x0: 332, x1: 409, z0: 170, z1: 190, h: 8,   rise: 2.2, naves: 1 },
-  m8:     { x0: 244, x1: 304, z0: 165, z1: 190, h: 6 },
-  m8x:    { x0: 244, x1: 304, z0: 140, z1: 165, h: 0.2 },
+  m8:     { x0: 244, x1: 304, z0: 140, z1: 165, h: 6 },
   consol: { x0: 244, x1: 296, z0: 18,  z1: 56,  h: 0.2 },
   pre:    { x0: 20,  x1: 124, z0: 28,  z1: 178, h: 0.2 },
   yard:   { x0: 307, x1: 556, z0: 12,  z1: 158, h: 0.2 },
@@ -260,10 +258,10 @@ const ZONES = {
   b5:     { name: 'Bodega N°5',   dims: '96 × 20 m', area: 1920, color: '#9aa7ae', bod: true, note: 'Entre la N°4 y la N°6.' },
   b6:     { name: 'Bodega N°6',   dims: '100 × 60 m', area: 6000, color: '#9aa7ae', bod: true, note: 'La bodega más grande, de 3 naves. Andenes hacia el camino oeste.' },
   b7:     { name: 'Bodega N°7',   dims: '77 × 20 m', area: 1540, color: '#9aa7ae', bod: true, note: 'Sector oriente, junto al camino perimetral. Consolidado al frente.' },
-  m8:     { name: 'Bodega Modular N°8', dims: '60 × 25 m', area: 1500, color: '#dfe3e6', note: 'Quedó la mitad (1.500 m²). La otra mitad, desarmada, se marca con línea punteada.' },
+  m8:     { name: 'Bodega Modular N°8', dims: '60 × 25 m', area: 1500, color: '#dfe3e6', note: 'Queda operativa la mitad hacia las bodegas (1.500 m²); la otra mitad se desarmó.' },
   consol: { name: 'Zona de consolidación', dims: 'pavimentada', area: null, color: '#c9a77a', note: 'Zona de consolidación pavimentada, junto al acceso ferroviario del sector WnD.' },
   pre:    { name: 'Pre Stacking Full', dims: 'patio oeste', area: null, color: '#d9b48a', note: 'Patio de pre-apilamiento de contenedores full, entre las bodegas 1-A/1-B y el borde SO.' },
-  yard:   { name: 'Sector apilamiento depot', dims: 'H = 5', area: null, color: '#b9b4a8', note: 'Patio de contenedores vacíos. Calles A, B y C paralelas a la vía; calles 1, 2 y 3 perpendiculares. Bloque reefer junto a la vía (46 conexiones).' },
+  yard:   { name: 'Sector apilamiento depot', dims: 'H = 5', area: null, color: '#b9b4a8', note: 'Patio de contenedores vacíos. Calles B y C paralelas a la vía; calles 1, 2 y 3 perpendiculares. Junto al cerco corre la línea férrea interna de descarga. Bloque reefer junto a la línea (46 conexiones).' },
   fumig:  { name: 'Zona de fumigado', dims: 'esquina NE', area: null, color: '#e8c95a', note: 'Zona de fumigado de contenedores en la esquina NE del patio.' },
   lavado: { name: 'Estación de lavado', dims: '20 posiciones', area: null, color: '#6fa5cf', note: 'Lavado de contenedores dry y reefer.' },
   garage: { name: 'Garage', dims: 'junto a la Bodega N°6', area: null, color: '#c7ccd1', note: 'Garage de equipos.' },
@@ -457,7 +455,24 @@ const hl = new THREE.Group(); scene.add(hl);
   floorRect(site, { x0: 126, x1: 138, z0: 20, z1: 196 }, null, 0.05, null, asphaltMat);                  // camino oeste bodegas 4-6
   floorRect(site, { x0: 240, x1: 244, z0: 17, z1: 196 }, null, 0.05, null, asphaltMat);
   floorRect(site, { x0: 297, x1: 306, z0: 3, z1: 214 }, null, 0.05, null, asphaltMat);                   // Calle 3
-  floorRect(site, { x0: 286, x1: 576, z0: 3, z1: 11 }, null, 0.05, null, asphaltMat);                    // Calle A
+  // línea férrea interna: entra por la esquina NE y corre junto al cerco hasta la zona de consolidación para descargar
+  floorRect(site, { x0: 246, x1: 576, z0: 2.5, z1: 11 }, null, 0.05, null, ballastMat);
+  {
+    const railM = mat('#4a4a4a', { metalness: 0.6, roughness: 0.4 }), tieM = mat('#6b5a47');
+    const pts = [];
+    for (let x = 250; x <= 560; x += 2) pts.push([x, 7]);
+    for (let t = 0; t <= 1; t += 0.05) { const x = 560 + t * 80, z = 7 - 17 * (3 * t * t - 2 * t * t * t); pts.push([x, z]); }
+    const ties = new THREE.InstancedMesh(new THREE.BoxGeometry(0.25, 0.12, 2.4), tieM, pts.length * 3);
+    const o = new THREE.Object3D(); let n = 0;
+    for (let i = 1; i < pts.length; i++) {
+      const [xa, za] = pts[i - 1], [xb, zb] = pts[i], L = Math.hypot(xb - xa, zb - za), a = Math.atan2(zb - za, xb - xa);
+      for (const d of [-0.72, 0.72]) { const r = box(site, L + 0.05, 0.18, 0.12, null, (xa + xb) / 2 - Math.sin(a) * d, 0.22, (za + zb) / 2 + Math.cos(a) * d, { cast: false, material: railM }); r.rotation.y = -a; }
+      for (let k = 0; k < 3; k++) { const f = k / 3; o.position.set(xa + (xb - xa) * f, 0.1, za + (zb - za) * f); o.rotation.y = -a; o.updateMatrix(); ties.setMatrixAt(n++, o.matrix); }
+    }
+    ties.count = n; ties.receiveShadow = true; site.add(ties);
+    // tope al final de la línea
+    box(site, 1.2, 1.4, 3, '#c0392b', 248, 0.7, 7);
+  }
   floorRect(site, { x0: 306, x1: 556, z0: 59, z1: 68 }, null, 0.05, null, asphaltMat);                   // Calle B
   floorRect(site, { x0: 306, x1: 556, z0: 114, z1: 123 }, null, 0.05, null, asphaltMat);                 // Calle C
   floorRect(site, { x0: 429, x1: 438, z0: 11, z1: 158 }, null, 0.05, null, asphaltMat);                  // Calle 2
@@ -465,8 +480,9 @@ const hl = new THREE.Group(); scene.add(hl);
   floorRect(site, { x0: 306, x1: 556, z0: 158, z1: 168 }, null, 0.05, null, asphaltMat);
   const dash = mat('#f1efe6');
   const dashes = (x0, x1, z, horiz = true) => { for (let t = x0; t < x1; t += 9) horiz ? box(site, 4.5, 0.02, 0.2, null, t, 0.07, z, { cast: false, material: dash }) : box(site, 0.2, 0.02, 4.5, null, z, 0.07, t, { cast: false, material: dash }); };
-  dashes(310, 552, 63.5); dashes(310, 552, 118.5); dashes(290, 570, 7); dashes(8, 210, 301.5, false); dashes(14, 222, 433.5, false); dashes(8, 222, 564, false); dashes(24, 192, 132, false);
-  [['Calle A', 470, 7], ['Calle B', 370, 63.5], ['Calle C', 370, 118.5]].forEach(([t, x, z]) => label(site, t, 'calle', x, 0.4, z));
+  dashes(310, 552, 63.5); dashes(310, 552, 118.5); dashes(8, 210, 301.5, false); dashes(14, 222, 433.5, false); dashes(8, 222, 564, false); dashes(24, 192, 132, false);
+  [['Calle B', 370, 63.5], ['Calle C', 370, 118.5]].forEach(([t, x, z]) => label(site, t, 'calle', x, 0.4, z));
+  label(site, 'Línea férrea interna de descarga', 'lbl tag', 470, 4, 7);
   [['Calle 3', 301.5, 90], ['Calle 2', 433.5, 90], ['Calle 1', 564, 90]].forEach(([t, x, z]) => label(site, t, 'calle', x, 0.4, z));
   label(site, 'Camino perimetral', 'calle', 330, 0.4, 211);
 
@@ -495,7 +511,7 @@ const hl = new THREE.Group(); scene.add(hl);
     gaps.forEach(([g0, g1]) => [g0, g1].forEach(t => box(site, 0.6, 3.2, 0.6, null, x0 + Math.cos(ang) * t, 1.6, z0 + Math.sin(ang) * t, { material: postM })));
   };
   fence([-10, 0], [576, 0]);
-  fence([576, 0], [578, 229]);
+  fence([576, 0], [578, 229], [[1, 12]]);        // portón de la línea férrea interna
   fence([578, 229], [120, 203]);
   fence([120, 203], [100, 146], [[8, 34]]);      // acceso principal (Área E), en la esquina con pasaje Nuressa
   fence([100, 146], [-4, 6], [[6, 22]]);          // acceso Área A, junto a la punta
@@ -542,13 +558,10 @@ const hl = new THREE.Group(); scene.add(hl);
   // andenes de la Bodega N°6 hacia el camino oeste
   box(site, 3, 1.2, 50, '#b8b4ab', R.b6.x0 - 1.5, 0.6, 107);
 
-  // --- Bodega Modular N°8 (mitad que queda) + huella de la mitad desarmada
+  // --- Bodega Modular N°8 (mitad operativa)
   rbox(site, R.m8, 6, '#eef0f2', 0, { zone: 'm8' });
   const ribT = canvasTex(64, 16, (g, w, h) => { g.fillStyle = '#dfe3e6'; g.fillRect(0, 0, w, h); g.fillStyle = '#c4cacf'; for (let x = 0; x < w; x += 6) g.fillRect(x, 0, 2, h); }, [12, 1]);
-  box(site, 61, 0.4, 26, null, 274, 6.2, 177.5, { material: new THREE.MeshStandardMaterial({ map: ribT, roughness: 0.6, metalness: 0.3 }), zone: 'm8' });
-  const gone = new THREE.LineDashedMaterial({ color: 0x8f99a3, dashSize: 2, gapSize: 1.5 });
-  const goneL = new THREE.Line(new THREE.BufferGeometry().setFromPoints([[244, 140], [304, 140], [304, 165], [244, 165], [244, 140]].map(([x, z]) => new THREE.Vector3(x, 0.15, z))), gone);
-  goneL.computeLineDistances(); site.add(goneL);
+  box(site, 61, 0.4, 26, null, 274, 6.2, 152.5, { material: new THREE.MeshStandardMaterial({ map: ribT, roughness: 0.6, metalness: 0.3 }), zone: 'm8' });
 
   // --- Edificios menores
   const small = (id, color, roof = '#8c99a6', win = true) => {
@@ -584,18 +597,17 @@ const hl = new THREE.Group(); scene.add(hl);
   // --- Etiquetas
   const lbl = (id, x, y, z, big) => label(site, `<b>${ZONES[id].name}</b>${ZONES[id].area ? `<span>${fmt(ZONES[id].area)} m²</span>` : ZONES[id].dims ? `<span>${ZONES[id].dims}</span>` : ''}`, 'lbl' + (big ? ' big' : ''), x, y, z, id);
   ORDER.forEach(id => { const r = R[id]; lbl(id, (r.x0 + r.x1) / 2, r.h + r.rise + 3, (r.z0 + r.z1) / 2, true); });
-  lbl('galpon', 216, 15, 37); lbl('m8', 274, 10, 177); lbl('pre', 50, 4, 40); lbl('yard', 433, 18, 40);
+  lbl('galpon', 216, 15, 37); lbl('m8', 274, 10, 152); lbl('pre', 50, 4, 40); lbl('yard', 433, 18, 40);
   const tag = (id, x, y, z) => label(site, ZONES[id].name, 'lbl tag', x, y, z, id);
   tag('consol', 270, 3, 37); tag('fumig', 526, 4, 31); tag('lavado', 270, 9, 110); tag('garage', 255, 8, 127); tag('emr', 530, 8.5, 135);
   tag('wh', 375, 8, 161); tag('ofdep', 470, 8, 169); tag('ofic', 223, 9.5, 156); tag('fumi', 164, 6.5, 171); tag('banos', 190, 6, 176);
   tag('ctrl', 132, 6.5, 188); tag('plat', 550, 4, 178);
-  label(site, 'Mitad desarmada', 'lbl gone', 274, 1.5, 152);
   label(site, 'Bloque reefer · 46 conexiones', 'lbl tag', 368, 10, 36);
   label(site, 'Consolidado', 'lbl tag', 370, 3, 197.5);
   [['Área A', 14, 16], ['Área B', 60, 100], ['Área C', 214, 176], ['Área E', 128, 196]].forEach(([t, x, z]) => label(site, t, 'lbl area', x, 2, z));
   label(site, 'Acceso principal', 'lbl tag', 104, 5, 182);
   label(site, 'Acceso Área A', 'lbl tag', 2, 5, 20);
-  label(site, 'Acceso ferroviario WnD', 'lbl tag', 262, 4, -8);
+  
 
   // --- Cotas
   dim(dims, [R.b6.x0, 16, R.b6.z1 + 2], [R.b6.x1, 16, R.b6.z1 + 2], '100 m');
@@ -670,6 +682,7 @@ const hl = new THREE.Group(); scene.add(hl);
   for (let i = 0; i < 22; i++) wag(160 + i * 15, -20, i % 5 ? ['#f2f4f5', '#e4e7ea', '#2f6db3', '#d8473b'][i % 4] : null);
   box(trucksG, 18, 3.6, 3, '#d9a400', 160 - 17, 2.3, -20);
   for (let i = 0; i < 3; i++) wag(250 + i * 15, -10, '#f2f4f5');
+  for (let i = 0; i < 9; i++) wag(262 + i * 15, 7, i % 3 ? ['#f2f4f5', '#2f6db3', '#d8473b'][i % 3] : '#e4e7ea');
   for (let i = 0; i < 8; i++) { box(trucksG, 14, 3, 2.8, '#3f7d5a', -2 + i * 15, 2.2, -10); box(trucksG, 14, 0.6, 2.9, '#2c3a33', -2 + i * 15, 3.9, -10); }
   // autos en oficinas
   ['#9aa3ad', '#e8e8e8', '#2f3a48', '#7a1f1f', '#d8d4cc', '#5b6470'].forEach((c, i) => { box(trucksG, 4.4, 1.0, 1.8, c, 212 + i * 4, 0.7, 166); box(trucksG, 2.3, 0.6, 1.6, c, 212 + i * 4, 1.5, 166); });
