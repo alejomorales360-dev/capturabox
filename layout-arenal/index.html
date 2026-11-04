@@ -218,7 +218,7 @@ const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
    z: desde el cerco de la vía hacia calle Antonio de la Fuente (SE).
    Medido sobre la imagen satelital girada para dejar la vía horizontal. */
 const SITE = [[-10, 0], [576, 0], [578, 229], [120, 203], [100, 146], [-4, 6]];
-const soX = z => -4 + (z - 6) * 104 / 140;               // borde SO (pasaje Nuressa / Uno)
+const soX = z => -4 + (z - 6) * 104 / 140;               // borde SO (pasaje Uno)
 const seZ = x => 202 + (x - 118) * 27 / 460;          // borde SE (calle Antonio de la Fuente)
 
 const R = {
@@ -233,16 +233,16 @@ const R = {
   b7:     { x0: 332, x1: 409, z0: 170, z1: 190, h: 8,   rise: 2.2, naves: 1 },
   m8:     { x0: 244, x1: 304, z0: 140, z1: 165, h: 6 },
   consol: { x0: 244, x1: 296, z0: 18,  z1: 56,  h: 0.2 },
-  pre:    { x0: 20,  x1: 124, z0: 28,  z1: 178, h: 0.2 },
+  pre:    { x0: 20,  x1: 124, z0: 28,  z1: 116, h: 0.2 },
   yard:   { x0: 307, x1: 556, z0: 12,  z1: 158, h: 0.2 },
   fumig:  { x0: 500, x1: 552, z0: 13,  z1: 50,  h: 0.2 },
   consdo: { x0: 332, x1: 409, z0: 192, z1: 203, h: 0.2 },
   lavado: { x0: 250, x1: 290, z0: 104, z1: 116, h: 6 },
   garage: { x0: 244, x1: 266, z0: 120, z1: 134, h: 5.5 },
-  ofic:   { x0: 210, x1: 236, z0: 150, z1: 162, h: 6.5 },
-  fumi:   { x0: 150, x1: 178, z0: 166, z1: 176, h: 3.5 },
-  banos:  { x0: 182, x1: 198, z0: 172, z1: 180, h: 3 },
-  ctrl:   { x0: 117, x1: 130, z0: 186, z1: 202, h: 3.6 },
+  ofic:   { x0: 192, x1: 246, z0: 141, z1: 153, h: 3.6 },
+  fumi:   { x0: 106, x1: 118, z0: 160, z1: 190, h: 3.2 },
+  banos:  { x0: 118, x1: 128, z0: 186, z1: 196, h: 3 },
+  ctrl:   { x0: 98, x1: 106, z0: 138, z1: 146, h: 3.6 },
   emr:    { x0: 520, x1: 540, z0: 128, z1: 142, h: 5.5 },
   wh:     { x0: 340, x1: 410, z0: 156, z1: 166, h: 5 },
   ofdep:  { x0: 440, x1: 500, z0: 162, z1: 176, h: 4.5 },
@@ -265,14 +265,14 @@ const ZONES = {
   fumig:  { name: 'Zona de fumigado', dims: 'esquina NE', area: null, color: '#e8c95a', note: 'Zona de fumigado de contenedores en la esquina NE del patio.' },
   lavado: { name: 'Estación de lavado', dims: '20 posiciones', area: null, color: '#6fa5cf', note: 'Lavado de contenedores dry y reefer.' },
   garage: { name: 'Garage', dims: 'junto a la Bodega N°6', area: null, color: '#c7ccd1', note: 'Garage de equipos.' },
-  ofic:   { name: 'Oficinas', dims: 'Área C', area: null, color: '#cfd8e0', note: 'Oficinas del site, frente al Área C.' },
-  fumi:   { name: 'Fumigación', dims: 'Área E', area: null, color: '#ead79a', note: 'Sala de fumigación junto al acceso principal.' },
-  banos:  { name: 'Baños', dims: 'Área E', area: null, color: '#dfe7ee', note: 'Baños junto al acceso principal.' },
-  ctrl:   { name: 'Control de acceso', dims: 'acceso principal', area: null, color: '#f2b705', note: 'Entrada principal desde pasaje Uno / Nuressa: portón corredizo azul, caseta de guardia, letrero PARE, lomo de toro y barreras de hormigón. Gate de 1 in + 1 out.' },
+  ofic:   { name: 'Oficinas', dims: 'Área C', area: null, color: '#cfd8e0', note: 'Fila de módulos de oficina frente al Área C, con un edificio de techo verde y estacionamiento al frente.' },
+  fumi:   { name: 'Fumigación', dims: 'Área E', area: null, color: '#ead79a', note: 'Tres módulos de fumigación junto al cerco del Área E, al lado de la entrada principal.' },
+  banos:  { name: 'Baños', dims: 'Área E', area: null, color: '#dfe7ee', note: 'Baños junto a los módulos de fumigación, en el Área E.' },
+  ctrl:   { name: 'Control de acceso', dims: 'entrada principal', area: null, color: '#f2b705', note: 'Entrada principal por Nuressa, en el vértice con pasaje Uno: portón corredizo azul, caseta de guardia, letrero PARE, lomo de toro y barreras de hormigón. Gate de 1 in + 1 out.' },
   emr:    { name: 'EMR', dims: 'patio', area: null, color: '#e3a296', note: 'Taller de reparación de contenedores (12.960 HH/año).' },
   wh:     { name: 'Warehouse and Spareparts', dims: 'frente a la N°7', area: null, color: '#c7ccd1', note: 'Bodega de repuestos.' },
   ofdep:  { name: 'Oficinas Depot y EMR', dims: 'sector oriente', area: null, color: '#cfd8e0', note: 'Oficinas del depot y del EMR.' },
-  romana: { name: 'Romana', dims: 'junto a la reja de Nuressa', area: null, color: '#5f666d', note: 'Báscula para pesar camiones, entre la hilera de contenedores y la reja de pasaje Nuressa.' },
+  romana: { name: 'Romana', dims: 'junto a la reja de pasaje Uno', area: null, color: '#5f666d', note: 'Báscula para pesar camiones, entre la hilera de contenedores y la reja de pasaje Uno.' },
   plat:   { name: 'Plataforma de inspección', dims: 'borde NE', area: null, color: '#b7bec5', note: 'Plataforma para inspección de contenedores sobre camión.' },
 };
 const ORDER = ['b1a', 'b1b', 'b2', 'b3', 'b4', 'b5', 'b6', 'b7'];
@@ -423,8 +423,8 @@ const world = new THREE.Group(); scene.add(world);
   floorPoly(world, [[582, -2], [596, -2], [600, 247], [586, 247]], road, 0.02);                    // Maritano
   floorPoly(world, [[-6, 4], [100, 146], [120, 203], [106, 208], [86, 150], [-18, 8]], road, 0.02);   // Nuressa
   floorPoly(world, [[106, 208], [120, 203], [60, 330], [46, 330]], road, 0.021);                      // Pasaje Uno
-  label(world, 'Pasaje Nuressa', 'street', 40, 0.6, 80);
-  for (let i = 0; i < 14; i++) { const z = 30 + i * 13; box(world, 8 + rng() * 6, 3 + rng() * 3, 8 + rng() * 4, nb[i % 4], soX(z) - 30 - rng() * 10, 2.5, z); }
+  label(world, 'Pasaje Uno', 'street', 40, 0.6, 80);
+  for (let i = 0; i < 6; i++) { const z = 30 + i * 13; box(world, 8 + rng() * 6, 3 + rng() * 3, 8 + rng() * 4, nb[i % 4], soX(z) - 30 - rng() * 10, 2.5, z); }
   const dash = mat('#e9e6dc');
   for (let x = 110; x < 590; x += 9) { const z = 213 + (x - 100) * 27 / 500; const b = box(world, 4, 0.03, 0.2, null, x, 0.04, z, { cast: false, material: dash }); b.rotation.y = -Math.atan2(27, 500); }
   label(world, 'Calle Antonio de la Fuente', 'street', 360, 0.6, 229);
@@ -489,7 +489,7 @@ const hl = new THREE.Group(); scene.add(hl);
 
   // zonas pintadas
   const zoneMat = (c, o = 0.55) => new THREE.MeshStandardMaterial({ color: c, transparent: true, opacity: o, roughness: 0.95, depthWrite: false });
-  const PRE = [[18, 28], [124, 28], [124, 180], [110, 180], [99, 148], [16, 30]];
+  const PRE = [[18, 28], [124, 28], [124, 112], [82, 112], [16, 30]];
   floorPoly(site, PRE, null, 0.06, 'pre', zoneMat('#d9a46a', 0.42));
   floorRect(site, R.consol, null, 0.06, 'consol', zoneMat('#c98a3a', 0.4));
   floorRect(site, R.fumig, null, 0.07, 'fumig', zoneMat('#f2c230', 0.5));
@@ -522,8 +522,8 @@ const hl = new THREE.Group(); scene.add(hl);
   fence([-10, 0], [576, 0]);
   fence([576, 0], [578, 229], [[1, 12]]);        // portón de la línea férrea interna
   fence([578, 229], [120, 203]);
-  fence([120, 203], [100, 146], [[8, 34]]);      // acceso principal (Área E), en la esquina con pasaje Nuressa
-  fence([100, 146], [-4, 6], [[6, 22]]);          // acceso Área A, junto a la punta
+  fence([120, 203], [100, 146]);
+  fence([100, 146], [-4, 6], [[2, 22], [152, 168]]);   // entrada principal junto al vértice · acceso Área A junto a la punta
   {
     const pm = new THREE.InstancedMesh(new THREE.BoxGeometry(0.12, 2.9, 0.12), postM, fencePosts.length);
     const vm = new THREE.InstancedMesh(new THREE.BoxGeometry(0.08, 0.8, 0.08), postM, fencePosts.length * 2);
@@ -534,47 +534,47 @@ const hl = new THREE.Group(); scene.add(hl);
     });
     pm.castShadow = vm.castShadow = true; site.add(pm, vm);
   }
-  // --- Entrada principal (esquina pasaje Nuressa / pasaje Uno)
+  // --- Entrada principal: llega por Nuressa al vértice donde termina el borde de pasaje Uno (flecha del letrero)
   {
-    const U = [-0.331, -0.944], N = [0.944, -0.331];           // U: a lo largo del cerco · N: hacia adentro del site
-    const P = (s, n) => [120 + U[0] * s + N[0] * n, 203 + U[1] * s + N[1] * n];
-    const ang = Math.atan2(N[1], N[0]);
+    const D = [0.596, 0.803], M = [0.803, -0.596], RT = [0.596, 0.803];   // D: borde pasaje Uno · M: hacia adentro · RT: derecha al entrar
+    const G = (s, m = 0, r = 0) => [100 - D[0] * s + M[0] * m + RT[0] * r, 146 - D[1] * s + M[1] * m + RT[1] * r];   // s desde el vértice
+    const ang = Math.atan2(M[1], M[0]);
     const concrete = new THREE.MeshStandardMaterial({ map: groundTex('#cbc8c0', ['#b3afa6', '#dedbd3', '#a9a59c']), roughness: 0.9 });
     concrete.map.repeat.set(6, 6);
-    floorPoly(site, [P(6, -14), P(36, -14), P(36, 30), P(6, 30)], null, 0.08, null, concrete);
-    // calzada en arco hacia oficinas y bodegas
-    const arc = []; for (let t = 0; t <= 1.0001; t += 0.05) { const a0 = -0.33 - t * 1.25; arc.push([128 + Math.cos(a0) * 46, 145 - Math.sin(a0) * 46]); }
-    const arcIn = arc.map(([x, z]) => [128 + (x - 128) * 0.72, 145 + (z - 145) * 0.72]);
-    floorPoly(site, [...arc, ...arcIn.reverse()], null, 0.07, null, concrete);
+    // losa de la entrada y patio del Área E
+    floorPoly(site, [G(22, -14), G(2, -14), G(2, 2), [101, 150], [122, 196], [140, 186], [140, 130], [126, 112], G(22, 20)], null, 0.08, null, concrete);
+    floorPoly(site, [G(22, -14), G(2, -14), G(2, 0), G(22, 0)], null, 0.09, null, concrete);
     // lomo de toro pintado
-    for (let k = 0; k < 7; k++) { const [x, z] = P(10 + k * 3.4, 8); const b = box(site, 0.5, 0.06, 1.8, k % 2 ? '#e8e2cf' : '#f2c230', x, 0.12, z, { cast: false }); b.rotation.y = -ang; }
-    // caseta de guardia
-    const [cx, cz] = P(3.5, 6);
-    const cas = new THREE.Group(); cas.position.set(cx, 0, cz); cas.rotation.y = -ang; site.add(cas);
+    for (let k = 0; k < 7; k++) { const [x, z] = G(4 + k * 2.4, 7); const b = box(site, 0.5, 0.06, 1.8, k % 2 ? '#e8e2cf' : '#f2c230', x, 0.12, z, { cast: false }); b.rotation.y = -Math.atan2(D[1], D[0]) + Math.PI / 2; }
+    // control de acceso: caseta de guardia a la derecha al entrar
+    const [cx, cz] = G(3, 5, 0);
+    const cas = new THREE.Group(); cas.position.set(cx + 2.5, 0, cz + 1.5); cas.rotation.y = -ang; site.add(cas);
     box(cas, 3.2, 2.5, 3.2, '#f2f2ef', 0, 1.25, 0, { zone: 'ctrl' });
     box(cas, 3.24, 1.1, 2.2, '#3c6ea8', 0, 1.6, 0, { cast: false });
     box(cas, 2.2, 1.1, 3.24, '#3c6ea8', 0, 1.6, 0, { cast: false });
     box(cas, 3.1, 1.0, 3.1, '#f2f2ef', 0, 1.6, 0, { cast: false });
     box(cas, 0.9, 1.0, 3.26, '#1f3550', 0.6, 1.6, 0, { cast: false });
     box(cas, 3.26, 1.0, 0.9, '#1f3550', 0, 1.6, -0.6, { cast: false });
-    box(cas, 5.5, 0.18, 5, '#2e3b4a', 0.6, 3.6, 0, { zone: 'ctrl' });          // techo
+    box(cas, 5.5, 0.18, 5, '#2e3b4a', 0.6, 3.6, 0, { zone: 'ctrl' });
     [[-1.8, -2.2], [2.9, -2.2], [-1.8, 2.2], [2.9, 2.2]].forEach(([a, b]) => box(cas, 0.12, 3.6, 0.12, '#2e3b4a', a, 1.8, b));
-    box(cas, 5, 0.04, 2.4, '#e8d36a', 0.6, 0.06, -3.6, { cast: false });       // paso peatonal amarillo
     // letrero PARE y señal de lomo de toro
-    const [sx, sz] = P(1.2, 1.5);
+    const [sx, sz] = G(3, 1.5);
     box(site, 0.1, 2.6, 0.1, '#8a8f95', sx, 1.3, sz);
-    const pare = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.42, 0.05, 8), mat('#c62828')); pare.rotation.set(Math.PI / 2, 0, Math.PI / 8); pare.position.set(sx, 2.75, sz); pare.rotation.y = -ang + Math.PI / 2; site.add(pare);
-    const lomo = box(site, 0.6, 0.6, 0.04, '#f2c230', sx + 0.7, 2.2, sz); lomo.rotation.set(0, -ang + Math.PI / 2, Math.PI / 4);
+    const pare = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.42, 0.05, 8), mat('#c62828')); pare.rotation.set(Math.PI / 2, 0, Math.PI / 8); pare.position.set(sx, 2.75, sz); site.add(pare);
+    box(site, 0.6, 0.6, 0.04, '#f2c230', sx, 2.1, sz + 0.05).rotation.z = Math.PI / 4;
     // barreras de hormigón amarillo/negro al costado izquierdo de la pista
-    for (let k = 0; k < 7; k++) { const [x, z] = P(31, 2 + k * 2.1); const b = box(site, 2, 0.8, 0.6, k % 2 ? '#2b2b2b' : '#f2c230', x, 0.4, z); b.rotation.y = -ang + Math.PI / 2; }
-    // portones corredizos azules, abiertos contra el cerco
-    [[2, 8], [34, 40]].forEach(([a, b]) => { const [x0, z0] = P(a, -0.6), [x1, z1] = P(b, -0.6);
-      const g = new THREE.Mesh(new THREE.PlaneGeometry(6, 2.4), fenceM); g.position.set((x0 + x1) / 2, 1.2, (z0 + z1) / 2); g.rotation.y = -Math.atan2(U[1], U[0]); site.add(g);
-      box(site, 6, 0.1, 0.1, '#4f7fb5', (x0 + x1) / 2, 2.4, (z0 + z1) / 2).rotation.y = -Math.atan2(U[1], U[0]); });
+    for (let k = 0; k < 6; k++) { const [x, z] = G(21, 2 + k * 2.1); const b = box(site, 2, 0.8, 0.6, k % 2 ? '#2b2b2b' : '#f2c230', x, 0.4, z); b.rotation.y = -ang + Math.PI / 2; }
+    // portón corredizo azul, abierto contra la reja de pasaje Uno
+    [[23, 29], [29.4, 35.4]].forEach(([a, b], k) => { const [x0, z0] = G(a, 0.4 + k * 0.4), [x1, z1] = G(b, 0.4 + k * 0.4);
+      const g = new THREE.Mesh(new THREE.PlaneGeometry(6, 2.4), fenceM); g.position.set((x0 + x1) / 2, 1.2, (z0 + z1) / 2); g.rotation.y = -Math.atan2(D[1], D[0]); site.add(g); });
     // camión entrando
     const tr = new THREE.Group();
     box(tr, 13.6, 1.0, 2.5, '#3c4148', 0, 0.9, 0); box(tr, 12.2, 2.59, 2.44, '#2f6db3', 0, 2.7, 0); box(tr, 2.6, 3.0, 2.5, '#f2c230', 8.3, 1.9, 0);
-    const [tx, tz] = P(22, 4); tr.position.set(tx, 0, tz); tr.rotation.y = -ang; trucksG.add(tr);
+    const [tx, tz] = G(14, 6); tr.position.set(tx, 0, tz); tr.rotation.y = -ang; trucksG.add(tr);
+    label(site, 'Entrada principal', 'lbl tag', ...(() => { const [x, z] = G(12, -6); return [x, 5, z]; })());
+    // calle Nuressa: acceso desde pasaje Uno
+    floorPoly(world, [G(2, -2), G(22, -2), G(30, -40), G(10, -40)], '#45484d', 0.025);
+    label(world, 'Nuressa', 'street', ...(() => { const [x, z] = G(16, -26); return [x, 0.6, z]; })());
   }
 
   // --- Bodegas con techo a dos aguas (naves a lo largo de la vía)
@@ -628,7 +628,31 @@ const hl = new THREE.Group(); scene.add(hl);
     box(site, r.x1 - r.x0 + 0.4, 0.3, r.z1 - r.z0 + 0.4, roof, (r.x0 + r.x1) / 2, r.h + 0.15, (r.z0 + r.z1) / 2, { zone: id });
     if (win) for (let y = 1.4; y < r.h - 1; y += 3) box(site, r.x1 - r.x0 - 2, 1.1, 0.06, '#5f87ab', (r.x0 + r.x1) / 2, y + 0.5, r.z1 + 0.04, { cast: false });
   };
-  small('ofic', '#eef1f4', '#7d8a98'); small('fumi', '#f6ecc8', '#b79a3e'); small('banos', '#e8eef3', '#7fa7c9');
+  // fumigación: 3 módulos junto al cerco del Área E · baños al lado
+  [0, 1, 2].forEach(k => {
+    const g = new THREE.Group(); const t = 6 + k * 10;
+    g.position.set(100 + 0.331 * t + 0.944 * 7, 0, 146 + 0.944 * t - 0.331 * 7); g.rotation.y = -Math.atan2(0.944, 0.331); site.add(g);
+    box(g, 9, 2.8, 4.6, '#f6ecc8', 0, 1.4, 0, { zone: 'fumi' }); box(g, 9.4, 0.25, 5, '#b79a3e', 0, 2.95, 0, { zone: 'fumi' });
+    box(g, 1, 2.1, 0.06, '#7a6a3a', 2.5, 1.05, 2.33, { cast: false });
+  });
+  { const g = new THREE.Group(); const t = 38; g.position.set(100 + 0.331 * t + 0.944 * 7, 0, 146 + 0.944 * t - 0.331 * 7); g.rotation.y = -Math.atan2(0.944, 0.331); site.add(g);
+    box(g, 9, 2.8, 5, '#e8eef3', 0, 1.4, 0, { zone: 'banos' }); box(g, 9.4, 0.25, 5.4, '#7fa7c9', 0, 2.95, 0, { zone: 'banos' });
+    [-2, 1].forEach(x => box(g, 0.9, 2, 0.06, '#3d5a78', x, 1, 2.53, { cast: false })); }
+  // oficinas: fila de módulos frente al Área C, edificio de techo verde y estacionamiento
+  for (let k = 0; k < 5; k++) {
+    const x = 196 + k * 7.4;
+    box(site, 6.2, 3.2, 12, '#eef1f4', x, 1.6, 147, { zone: 'ofic' });
+    box(site, 6.6, 0.3, 12.4, '#b9c7b0', x, 3.35, 147, { zone: 'ofic' });
+    box(site, 4.4, 1.1, 0.06, '#5f87ab', x, 1.9, 153.04, { cast: false });
+    box(site, 1, 2.1, 0.06, '#3d5a78', x - 2.2, 1.05, 153.05, { cast: false });
+  }
+  box(site, 12, 3.6, 10, '#eef1f4', 240, 1.8, 147, { zone: 'ofic' });
+  box(site, 12.6, 0.35, 10.6, '#a9cf7f', 240, 3.75, 147, { zone: 'ofic' });
+  ['#9aa3ad', '#e8e8e8', '#2f3a48', '#7a1f1f', '#d8d4cc', '#5b6470', '#c0392b', '#e8e8e8', '#2f3a48', '#9aa3ad', '#d8d4cc', '#7a1f1f'].forEach((c, i) => {
+    const row = Math.floor(i / 6), x = 200 + (i % 6) * 6.5, z = 166 + row * 9;
+    const g = new THREE.Group(); g.position.set(x, 0, z); g.rotation.y = 0.5; trucksG.add(g);
+    box(g, 4.4, 1.0, 1.8, c, 0, 0.7, 0); box(g, 2.3, 0.6, 1.6, c, 0, 1.5, 0);
+  });
   small('garage', '#d5d9dd', '#6f7a85', false); small('emr', '#f1d2cb', '#a5584c', false);
   small('wh', '#dfe2e5', '#7d8790', false); small('ofdep', '#eef1f4', '#7d8a98');
   rbox(site, R.plat, 1.4, '#b7bec5', 0, { zone: 'plat' });
@@ -638,7 +662,7 @@ const hl = new THREE.Group(); scene.add(hl);
   [[L.x0, L.z0], [L.x1, L.z0], [L.x0, L.z1], [L.x1, L.z1], [(L.x0 + L.x1) / 2, L.z0], [(L.x0 + L.x1) / 2, L.z1]].forEach(([x, z]) => box(site, 0.4, 6, 0.4, '#4a6f8c', x, 3, z));
   box(site, L.x1 - L.x0 + 1, 0.35, L.z1 - L.z0 + 1, '#6fa5cf', (L.x0 + L.x1) / 2, 6.2, (L.z0 + L.z1) / 2, { zone: 'lavado' });
   // instalaciones a lo largo del borde SO
-  const SO = [['Camarines', 0.5], ['Sala eléctrica', 0.62], ['Comedor 2', 0.74], ['Bodega', 0.86]];
+  const SO = [['Camarines', 0.28], ['Sala eléctrica', 0.37], ['Comedor 2', 0.46]];
   SO.forEach(([n, t]) => {
     const z = 60 + t * 100, x = soX(z) + 7;
     const b = box(site, 9, 3, 6, '#e6e8ea', x, 1.5, z); b.rotation.y = -0.93;
@@ -658,12 +682,11 @@ const hl = new THREE.Group(); scene.add(hl);
   lbl('galpon', 216, 15, 37); lbl('m8', 274, 10, 152); lbl('pre', 50, 4, 40); lbl('yard', 433, 18, 40);
   const tag = (id, x, y, z) => label(site, ZONES[id].name, 'lbl tag', x, y, z, id);
   tag('consol', 270, 3, 37); tag('fumig', 526, 4, 31); tag('lavado', 270, 9, 110); tag('garage', 255, 8, 127); tag('emr', 530, 8.5, 135);
-  tag('wh', 375, 8, 161); tag('ofdep', 470, 8, 169); tag('ofic', 223, 9.5, 156); tag('fumi', 164, 6.5, 171); tag('banos', 190, 6, 176);
-  tag('ctrl', 123, 6, 196); tag('plat', 550, 4, 178);
+  tag('wh', 375, 8, 161); tag('ofdep', 470, 8, 169); tag('ofic', 214, 7, 147); tag('fumi', 112, 6, 168); tag('banos', 124, 6, 186);
+  tag('ctrl', 102, 7, 140); tag('plat', 550, 4, 178);
   label(site, 'Bloque reefer · 46 conexiones', 'lbl tag', 368, 10, 36);
   label(site, 'Consolidado', 'lbl tag', 370, 3, 197.5);
-  [['Área A', 14, 16], ['Área B', 60, 100], ['Área C', 214, 176], ['Área E', 132, 180]].forEach(([t, x, z]) => label(site, t, 'lbl area', x, 2, z));
-  label(site, 'Entrada principal', 'lbl tag', 104, 5, 184);
+  [['Área A', 14, 16], ['Área B', 60, 100], ['Área C', 186, 162], ['Área E', 124, 140]].forEach(([t, x, z]) => label(site, t, 'lbl area', x, 2, z));
   label(site, 'Acceso Área A', 'lbl tag', 2, 5, 20);
   
 
@@ -705,7 +728,7 @@ const hl = new THREE.Group(); scene.add(hl);
   block(60, 75, 32, 46, [1, 1], 0, 0.6);
   block(505, 549, 30, 50, [1, 1], 0, 0.4); // fumigado
   
-  // hilera paralela a la reja de Nuressa (como en la imagen satelital), detrás de la romana
+  // hilera paralela a la reja de pasaje Uno (como en la imagen satelital), detrás de la romana
   const D = [0.596, 0.803], M = [0.803, -0.596], rot = Math.atan2(D[0], D[1]);
   const PAST = ['#cfd88a', '#e59a86', '#e8cf7a', '#d9cfb8', '#9cc58a', '#c96b5c', '#e3e1d6', '#7fa37a'];
   const along = (s, off) => [-4 + D[0] * s + M[0] * off, 6 + D[1] * s + M[1] * off];
@@ -741,7 +764,7 @@ const hl = new THREE.Group(); scene.add(hl);
     box(g, 0.6, 0.4, 6, '#3c4148', -8, 7, 0);
     g.position.set(x, 0, z); g.rotation.y = rot; contG.add(g);
   };
-  rs(420, 64, 0); rs(360, 119, Math.PI); rs(90, 122, 0.4); rs(270, 58, -1.4);
+  rs(420, 64, 0); rs(360, 119, Math.PI); rs(96, 100, 0); rs(270, 58, -1.4);
 }
 
 /* ---------- Camiones y tren ---------- */
@@ -765,8 +788,6 @@ const hl = new THREE.Group(); scene.add(hl);
   for (let i = 0; i < 3; i++) wag(250 + i * 15, -10, '#f2f4f5');
   for (let i = 0; i < 9; i++) wag(262 + i * 15, 7, i % 3 ? ['#f2f4f5', '#2f6db3', '#d8473b'][i % 3] : '#e4e7ea');
   for (let i = 0; i < 8; i++) { box(trucksG, 14, 3, 2.8, '#3f7d5a', -2 + i * 15, 2.2, -10); box(trucksG, 14, 0.6, 2.9, '#2c3a33', -2 + i * 15, 3.9, -10); }
-  // autos en oficinas
-  ['#9aa3ad', '#e8e8e8', '#2f3a48', '#7a1f1f', '#d8d4cc', '#5b6470'].forEach((c, i) => { box(trucksG, 4.4, 1.0, 1.8, c, 212 + i * 4, 0.7, 166); box(trucksG, 2.3, 0.6, 1.6, c, 212 + i * 4, 1.5, 166); });
 }
 
 /* ---------- Selección ---------- */
@@ -813,7 +834,7 @@ const V = (x, y, z) => new THREE.Vector3(x, y, z);
 const views = {
   general: () => [V(120, 430, 640), V(280, 0, 95)],
   planta:  () => [V(CX, 720, CZ + 1), V(CX, 0, CZ)],
-  acceso:  () => [V(70, 24, 232), V(128, 3, 178)],
+  acceso:  () => [V(52, 24, 168), V(108, 2, 134)],
   bodegas: () => [V(40, 150, 250), V(170, 5, 70)],
   patio:   () => [V(560, 150, 290), V(430, 5, 80)],
 };
