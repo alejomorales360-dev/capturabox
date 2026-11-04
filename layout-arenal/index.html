@@ -245,10 +245,9 @@ const R = {
   fumi:   { x0: 110, x1: 124, z0: 168, z1: 194, h: 3.2 },
   banos:  { x0: 118, x1: 130, z0: 192, z1: 202, h: 3 },
   ctrl:   { x0: 106, x1: 112, z0: 162, z1: 168, h: 3.6 },
-  emr:    { x0: 520, x1: 540, z0: 128, z1: 142, h: 5.5 },
   wh:     { x0: 340, x1: 410, z0: 156, z1: 166, h: 5 },
   ofdep:  { x0: 340, x1: 410, z0: 140, z1: 150, h: 4.5 },
-  plat:   { x0: 545, x1: 555, z0: 150, z1: 205, h: 1.4 },
+  plat:   { x0: 446, x1: 502, z0: 199.5, z1: 206, h: 1.4 },
 };
 const ZONES = {
   b1a:    { name: 'Bodega N°1-A', dims: '80 × 20 m', area: 1600, color: '#9aa7ae', bod: true, note: 'Primera bodega junto a la vía, desde la punta del Área A.' },
@@ -270,14 +269,13 @@ const ZONES = {
   fumi:   { name: 'Fumigación', dims: 'Área E', area: null, color: '#ead79a', note: 'Tres módulos de fumigación junto al cerco del Área E, al lado de la entrada principal.' },
   banos:  { name: 'Baños', dims: 'Área E', area: null, color: '#dfe7ee', note: 'Baños junto a los módulos de fumigación, en el Área E.' },
   ctrl:   { name: 'Control de acceso', dims: 'entrada principal', area: null, color: '#f2b705', note: 'Entrada principal por Nuressa, en el vértice con pasaje Uno: portón corredizo azul, caseta de guardia, letrero PARE, lomo de toro y barreras de hormigón. Gate de 1 in + 1 out.' },
-  emr:    { name: 'EMR', dims: 'patio', area: null, color: '#e3a296', note: 'Taller de reparación de contenedores (12.960 HH/año).' },
   wh:     { name: 'Warehouse and Spareparts', dims: 'frente a la N°7', area: null, color: '#c7ccd1', note: 'Bodega de repuestos.' },
   ofdep:  { name: 'Oficinas Depot y EMR', dims: 'frente a Warehouse', area: null, color: '#cfd8e0', note: 'Oficinas del depot y del EMR, frente a frente con Warehouse and Spareparts.' },
   romana: { name: 'Romana', dims: 'junto a la reja de pasaje Uno', area: null, color: '#5f666d', note: 'Báscula para pesar camiones, entre la hilera de contenedores y la reja de pasaje Uno.' },
-  plat:   { name: 'Plataforma de inspección', dims: 'borde NE', area: null, color: '#b7bec5', note: 'Plataforma para inspección de contenedores sobre camión.' },
+  plat:   { name: 'Plataforma de inspección', dims: 'junto al camino perimetral', area: null, color: '#b7bec5', note: 'Plataforma para inspección de contenedores sobre camión.' },
 };
 const ORDER = ['b1a', 'b1b', 'b2', 'b3', 'b4', 'b5', 'b6', 'b7'];
-const EXTRA = ['galpon', 'm8', 'pre', 'consol', 'yard', 'fumig', 'garage', 'emr', 'wh', 'ofdep', 'ofic', 'fumi', 'banos', 'ctrl', 'romana', 'plat'];
+const EXTRA = ['galpon', 'm8', 'pre', 'consol', 'yard', 'fumig', 'garage', 'wh', 'ofdep', 'ofic', 'fumi', 'banos', 'ctrl', 'romana', 'plat'];
 const NORTH = new THREE.Vector3(0.645, 0, -0.764).normalize();   // norte en coordenadas del plano
 
 /* ---------- Escena ---------- */
@@ -550,7 +548,7 @@ const hl = new THREE.Group(); scene.add(hl);
   }
   floorRect(site, { x0: 306, x1: 556, z0: 59, z1: 68 }, null, 0.05, null, asphaltMat);                   // Calle B
   floorRect(site, { x0: 306, x1: 556, z0: 114, z1: 123 }, null, 0.05, null, asphaltMat);                 // Calle C
-  floorRect(site, { x0: 429, x1: 438, z0: 11, z1: 158 }, null, 0.05, null, asphaltMat);                  // Calle 2
+  floorRect(site, { x0: 429, x1: 438, z0: 11, z1: 212 }, null, 0.05, null, asphaltMat);                  // Calle 2, hasta el camino perimetral
   floorRect(site, { x0: 556, x1: 572, z0: 3, z1: 226 }, null, 0.05, null, asphaltMat);                   // Calle 1
   floorRect(site, { x0: 306, x1: 556, z0: 158, z1: 168 }, null, 0.05, null, asphaltMat);
   const dash = mat('#f1efe6');
@@ -771,10 +769,11 @@ const hl = new THREE.Group(); scene.add(hl);
     const wood = mat('#e2c08c', { roughness: 0.9 });
     for (let r = 0; r < 3; r++) for (let k = 0; k < 7; k++) { const n = 2 + ((r + k) % 3); for (let t = 0; t < n; t++) box(site, 2.4, 1.1, 1.2, null, 222 + k * 3, 0.55 + t * 1.12, 152 + r * 9, { material: wood }); }
   }
-  small('garage', '#d5d9dd', '#6f7a85', false); small('emr', '#f1d2cb', '#a5584c', false);
+  small('garage', '#d5d9dd', '#6f7a85', false);
   small('wh', '#dfe2e5', '#7d8790', false); small('ofdep', '#eef1f4', '#7d8a98');
   rbox(site, R.plat, 1.4, '#b7bec5', 0, { zone: 'plat' });
-  for (let z = R.plat.z0; z <= R.plat.z1; z += 5) box(site, 0.12, 1.1, 0.12, '#e0a32e', R.plat.x0, 1.95, z, { cast: false });
+  for (let x = R.plat.x0; x <= R.plat.x1; x += 4) box(site, 0.12, 1.1, 0.12, '#e0a32e', x, 1.95, R.plat.z0, { cast: false });
+  box(site, R.plat.x1 - R.plat.x0, 0.1, 0.1, '#e0a32e', (R.plat.x0 + R.plat.x1) / 2, 2.5, R.plat.z0, { cast: false });
   // instalaciones a lo largo del borde SO
   const SO = [['Camarines', 0.28], ['Sala eléctrica', 0.37], ['Comedor 2', 0.46]];
   SO.forEach(([n, t]) => {
@@ -795,9 +794,9 @@ const hl = new THREE.Group(); scene.add(hl);
   ORDER.forEach(id => { const r = R[id]; lbl(id, (r.x0 + r.x1) / 2, r.h + r.rise + 3, (r.z0 + r.z1) / 2, true); });
   lbl('galpon', 216, 15, 37); lbl('m8', 271, 10, 162); lbl('pre', 50, 4, 40); lbl('yard', 433, 18, 40);
   const tag = (id, x, y, z) => label(site, ZONES[id].name, 'lbl tag', x, y, z, id);
-  tag('consol', 270, 3, 37); tag('fumig', 526, 4, 31); tag('garage', 255, 8, 127); tag('emr', 530, 8.5, 135);
+  tag('consol', 270, 3, 37); tag('fumig', 526, 4, 31); tag('garage', 255, 8, 127);
   tag('wh', 375, 8, 161); tag('ofdep', 375, 8, 145); tag('ofic', 186, 7, 158); tag('fumi', 117, 6, 182); tag('banos', 124, 6, 198);
-  tag('ctrl', 109, 7, 165); tag('plat', 550, 4, 178);
+  tag('ctrl', 109, 7, 165); tag('plat', 474, 5, 199);
   label(site, 'Bloque reefer · 46 conexiones', 'lbl tag', 368, 10, 36);
   label(site, 'Consolidado', 'lbl tag', 370, 3, 197.5);
   [['Área A', 14, 16], ['Área B', 60, 100], ['Área C', 214, 186], ['Área E', 130, 160]].forEach(([t, x, z]) => label(site, t, 'lbl area', x, 2, z));
@@ -895,7 +894,7 @@ const hl = new THREE.Group(); scene.add(hl);
 /* ---------- Camiones y tren ---------- */
 {
   const truck = (x, z, rot, cab, load) => { const g = makeTruck(cab, load); g.position.set(x, 0, z); g.rotation.y = rot; trucksG.add(g); };
-  truck(250, 194.5, 0.06, '#2f6db3', '#f2f4f5'); truck(330, 199, 0.06, '#f2c230', '#b5402f'); truck(470, 205.5, 0.06, '#2f6db3', null);
+  truck(250, 194.5, 0.06, '#2f6db3', '#f2f4f5'); truck(330, 199, 0.06, '#f2c230', '#b5402f'); 
   truck(118, 85, 0, '#c23b2e', '#2f6db3'); truck(118, 98, 0, '#f2c230', '#f2f4f5'); truck(132, 160, -Math.PI / 2, '#f2f2f0', '#e4e7ea');
   truck(301.5, 140, -Math.PI / 2, '#2f6db3', '#f2f4f5'); truck(564, 120, Math.PI / 2, '#27ae60', '#f2f4f5'); truck(380, 163, Math.PI, '#c23b2e', '#8e3b33');
   // tren en la vía principal y vagones en el desvío
