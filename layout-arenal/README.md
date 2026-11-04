@@ -8,7 +8,7 @@ Es una sola página (`index.html`), sin instalación ni compilación. Usa [three
 
 - **En GitHub Pages:** cuando esto llegue a `main`, el flujo `deploy-pages.yml` lo publica en `https://<usuario>.github.io/capturabox/layout-arenal/`.
 - **En tu computador:** abre `index.html` en el navegador.
-- Se puede abrir directo en una vista con `?vista=general|planta|acceso|bodegas|patio`.
+- Se puede abrir directo en una vista con `?vista=general|planta|acceso|bodegas|oficinas|patio`.
 
 ## Qué incluye
 
@@ -24,9 +24,11 @@ Es una sola página (`index.html`), sin instalación ni compilación. Usa [three
   - Patio de contenedores con las calles B y C paralelas a la vía y las calles 1, 2 y 3 perpendiculares, más el bloque reefer.
   - Línea férrea interna: entra por la esquina NE y corre junto al cerco hasta la zona de consolidación para descargar.
   - Lavado, garage, EMR, warehouse, oficinas, fumigación, baños, control de acceso y plataforma de inspección.
-  - Las áreas A, B, C y E y los dos accesos.
+  - Las áreas A, B, C y E y los dos accesos. La entrada principal va por Nuressa, junto al vértice con pasaje Uno, recta hacia la Bodega N°6.
+  - Oficinas, estacionamientos, fachadas azul marino y colores de techo según fotos de dron.
+  - Flechas pintadas con el sentido de circulación de las calles.
 - **Vistas y opciones:**
-  - Vistas: general, planta, acceso, bodegas y patio.
+  - Vistas: general, planta, acceso, bodegas, oficinas y patio.
   - Se pueden mostrar u ocultar los techos, las etiquetas, las cotas, los contenedores y los camiones y el tren.
   - Al tocar una bodega o una zona se ve su ficha.
 
