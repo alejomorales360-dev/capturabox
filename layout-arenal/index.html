@@ -244,7 +244,7 @@ const R = {
   ofic:   { x0: 160, x1: 204, z0: 144, z1: 178, h: 3.6 },
   fumi:   { x0: 110, x1: 124, z0: 168, z1: 194, h: 3.2 },
   banos:  { x0: 118, x1: 130, z0: 192, z1: 202, h: 3 },
-  ctrl:   { x0: 145, x1: 151, z0: 215, z1: 221, h: 3.6 },
+  ctrl:   { x0: 109, x1: 115, z0: 147, z1: 153, h: 3.6 },
   wh:     { x0: 340, x1: 410, z0: 156, z1: 166, h: 5 },
   ofdep:  { x0: 340, x1: 410, z0: 140, z1: 150, h: 4.5 },
   plat:   { x0: 446, x1: 502, z0: 199.5, z1: 206, h: 1.4 },
@@ -598,9 +598,9 @@ const hl = new THREE.Group(); scene.add(hl);
   };
   fence([-10, 0], [576, 0]);
   fence([576, 0], [576, 222], [[1, 12]]);        // portón de la línea férrea interna
-  fence([576, 222], [126.6, 222], [[431.4, 449.4]]);   // entrada principal (Nuressa)
+  fence([576, 222], [126.6, 222]);
   fence([126.6, 222], [100, 146]);
-  fence([100, 146], [-4, 6], [[152, 168]]);      // acceso Área A, junto a la punta
+  fence([100, 146], [-4, 6], [[0.2, 18.6], [152, 168]]);   // entrada principal junto al vértice · acceso Área A junto a la punta
   {
     const pm = new THREE.InstancedMesh(new THREE.BoxGeometry(0.12, 2.9, 0.12), postM, fencePosts.length);
     const vm = new THREE.InstancedMesh(new THREE.BoxGeometry(0.08, 0.8, 0.08), postM, fencePosts.length * 2);
@@ -611,45 +611,45 @@ const hl = new THREE.Group(); scene.add(hl);
     });
     pm.castShadow = vm.castShadow = true; site.add(pm, vm);
   }
-  // --- Entrada principal: Nuressa entra recta y perpendicular al camino perimetral, por la esquina SO del borde de Antonio de la Fuente
+  // --- Entrada principal: por el borde de Nuressa, justo al norte del vértice, entrando recto (perpendicular) al camino oeste
   {
-    const U = [1, 0], N = [0, -1];                            // U: a lo largo del cerco · N: hacia adentro, rumbo al camino perimetral
-    const G = (s, n = 0) => [126.6 + U[0] * s + N[0] * n, 222 + U[1] * s + N[1] * n];
+    const U = [0, 1], N = [1, 0];                             // U: ancho de la pista (hacia el sur) · N: hacia adentro, rumbo al camino oeste
+    const G = (s, n = 0) => [88 + U[0] * s + N[0] * n, 131 + U[1] * s + N[1] * n];
     const ang = Math.atan2(N[1], N[0]), angU = Math.atan2(U[1], U[0]);
-    floorPoly(site, [G(0, 0), G(18, 0), G(18, 12.5), G(0, 12.5)], null, 0.06, null, asphaltMat);
-    // carril de entrada (lado sur) y de salida, eje segmentado y flechas
-    for (let n = 1; n < 12; n += 4) { const [x, z] = G(9, n); box(site, 2.2, 0.03, 0.18, '#f4f2ea', x, 0.12, z, { cast: false }).rotation.y = -ang; }
-    { const [x, z] = G(13.5, 9); arrow(site, x, z, ang, 1.1); }
-    { const [x, z] = G(4.5, 9); arrow(site, x, z, ang + Math.PI, 1.1); }
+    const fx = z => -4 + (z - 6) * 104 / 140;                 // x del cerco diagonal a esa z
+    floorPoly(site, [[fx(131), 131], [126, 131], [126, 146], [100, 146]], null, 0.06, null, asphaltMat);
+    floorPoly(world, [[fx(131) - 10, 131], [fx(131), 131], [100, 146], [90, 146]], '#45484d', 0.024);
+    // eje segmentado y flechas de entrada (lado sur) y salida
+    for (let n = 12; n < 38; n += 4) { const [x, z] = G(7.5, n); box(site, 2.2, 0.03, 0.18, '#f4f2ea', x, 0.12, z, { cast: false }).rotation.y = -ang; }
+    { const [x, z] = G(11.3, 26); arrow(site, x, z, ang, 1.1); }
+    { const [x, z] = G(3.7, 26); arrow(site, x, z, ang + Math.PI, 1.1); }
     // lomo de toro amarillo/negro de lado a lado
-    for (let k = 0; k < 9; k++) { const [x, z] = G(1 + k * 2, 2.5); box(site, 2, 0.08, 0.7, k % 2 ? '#2b2b2b' : '#f2c230', x, 0.13, z, { cast: false }).rotation.y = -angU; }
-    // caseta de guardia (control de acceso) a la derecha al entrar
-    const [cx, cz] = G(21.5, 4);
+    for (let k = 0; k < 8; k++) { const [x, z] = G(0.5 + k * 2, 17); box(site, 2, 0.08, 0.7, k % 2 ? '#2b2b2b' : '#f2c230', x, 0.13, z, { cast: false }).rotation.y = -angU; }
+    // caseta de guardia (control de acceso) al sur de la pista, junto a la reja
+    const [cx, cz] = [112, 150];
     const cas = new THREE.Group(); cas.position.set(cx, 0, cz); cas.rotation.y = -ang; site.add(cas);
     box(cas, 3.2, 2.5, 3.2, '#f2f2ef', 0, 1.25, 0, { zone: 'ctrl' });
     box(cas, 3.24, 1.0, 2.2, null, 0, 1.6, 0, { cast: false, material: glassM });
     box(cas, 2.2, 1.0, 3.24, null, 0, 1.6, 0, { cast: false, material: glassM });
     [[1.62, 0], [0, 1.62], [-1.62, 0], [0, -1.62]].forEach(([a, b]) => box(cas, a ? 0.08 : 3.3, 0.12, b ? 0.08 : 3.3, '#3c6ea8', a, 2.15, b, { cast: false }));
-    box(cas, 5.5, 0.18, 5, '#2e3b4a', 0.4, 3.6, 0, { zone: 'ctrl' });
-    [[-1.9, -2.3], [2.7, -2.3], [-1.9, 2.3], [2.7, 2.3]].forEach(([a, b]) => box(cas, 0.12, 3.6, 0.12, '#2e3b4a', a, 1.8, b));
-    // barrera levadiza
-    { const [bx, bz] = G(17.4, 9); box(site, 0.35, 1.1, 0.35, '#e8e3d6', bx, 0.55, bz); const a = box(site, 0.12, 0.12, 8, '#d6362b', bx - U[0] * 4, 1.05, bz - U[1] * 4); a.rotation.y = -angU + Math.PI / 2; }
+    box(cas, 5.5, 0.18, 5, '#2e3b4a', 0, 3.6, 0, { zone: 'ctrl' });
+    [[-2.3, -2.3], [2.3, -2.3], [-2.3, 2.3], [2.3, 2.3]].forEach(([a, b]) => box(cas, 0.12, 3.6, 0.12, '#2e3b4a', a, 1.8, b));
+    // barrera levadiza en el carril de entrada
+    { const [bx, bz] = G(15.6, 22); box(site, 0.35, 1.1, 0.35, '#e8e3d6', bx, 0.55, bz); box(site, 0.12, 0.12, 7.5, '#d6362b', bx, 1.05, bz - 3.9); }
     // letrero PARE y señal de lomo de toro
-    const [sx, sz] = G(18.6, 1.5);
+    const [sx, sz] = G(16.4, 13);
     box(site, 0.1, 2.6, 0.1, '#8a8f95', sx, 1.3, sz);
-    const pare = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.42, 0.05, 8), mat('#c62828')); pare.rotation.set(Math.PI / 2, 0, Math.PI / 8); pare.position.set(sx, 2.75, sz); site.add(pare);
-    box(site, 0.6, 0.6, 0.04, '#f2c230', sx, 2.1, sz + 0.05).rotation.z = Math.PI / 4;
-    // barreras de hormigón amarillo/negro en el costado izquierdo (lado del vértice)
-    for (let k = 0; k < 7; k++) { const [x, z] = G(-1, 2 + k * 2.1); box(site, 2, 0.8, 0.6, k % 2 ? '#2b2b2b' : '#f2c230', x, 0.4, z).rotation.y = -ang; }
-    // portones corredizos azules, abiertos contra la reja
-    [[19, 25], [25.4, 31.4]].forEach(([a, b], k) => { const [x0, z0] = G(a, -0.5 - k * 0.4), [x1, z1] = G(b, -0.5 - k * 0.4);
-      const g = new THREE.Mesh(new THREE.PlaneGeometry(6, 2.4), fenceM); g.position.set((x0 + x1) / 2, 1.2, (z0 + z1) / 2); g.rotation.y = -angU; site.add(g); });
+    const pare = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.42, 0.05, 8), mat('#c62828')); pare.rotation.set(0, 0, Math.PI / 2); pare.position.set(sx - 0.05, 2.75, sz); site.add(pare);
+    box(site, 0.04, 0.6, 0.6, '#f2c230', sx - 0.05, 2.1, sz).rotation.x = Math.PI / 4;
+    // barreras de hormigón amarillo/negro en el costado norte de la pista
+    for (let k = 0; k < 6; k++) { const [x, z] = G(-0.8, 12 + k * 2.1); box(site, 2, 0.8, 0.6, k % 2 ? '#2b2b2b' : '#f2c230', x, 0.4, z).rotation.y = -ang; }
+    // portones corredizos azules, abiertos contra la reja (tramo corto junto al vértice)
+    const ua = Math.atan2(0.944, 0.331);
+    [2, 8.6].forEach((t, k) => { const g = new THREE.Mesh(new THREE.PlaneGeometry(6, 2.4), fenceM); g.position.set(100 + 0.331 * (t + 3) + 0.4 + k * 0.4, 1.2, 146 + 0.944 * (t + 3)); g.rotation.y = -ua; site.add(g); });
     // camión entrando
-    { const t = makeTruck('#f2c230', '#2f6db3'); const [tx, tz] = G(13.5, 4); t.position.set(tx, 0, tz); t.rotation.y = -ang; trucksG.add(t); }
-    label(site, 'Entrada principal', 'lbl tag', ...(() => { const [x, z] = G(9, -5); return [x, 5, z]; })());
-    // calle Nuressa hacia pasaje Uno
-    floorPoly(world, [G(0, 0), G(18, 0), G(18, -90), G(0, -90)], '#45484d', 0.025);
-    label(world, 'Nuressa', 'street', ...(() => { const [x, z] = G(14, -32); return [x, 0.6, z]; })());
+    { const t = makeTruck('#f2c230', '#2f6db3'); const [tx, tz] = G(11.3, 30); t.position.set(tx, 0, tz); t.rotation.y = -ang; trucksG.add(t); }
+    label(site, 'Entrada principal', 'lbl tag', fx(138.5) + 4, 5, 138.5);
+    label(world, 'Nuressa', 'street', 103, 0.6, 186);
   }
 
   // --- Bodegas con techo a dos aguas (naves a lo largo de la vía)
@@ -792,7 +792,7 @@ const hl = new THREE.Group(); scene.add(hl);
   const tag = (id, x, y, z) => label(site, ZONES[id].name, 'lbl tag', x, y, z, id);
   tag('consol', 270, 3, 37); tag('fumig', 526, 4, 31); tag('garage', 255, 8, 127);
   tag('wh', 375, 8, 161); tag('ofdep', 375, 8, 145); tag('ofic', 186, 7, 158); tag('fumi', 117, 6, 182); tag('banos', 124, 6, 198);
-  tag('ctrl', 148, 7, 218); tag('plat', 474, 5, 199);
+  tag('ctrl', 112, 7, 150); tag('plat', 474, 5, 199);
   label(site, 'Bloque reefer · 46 conexiones', 'lbl tag', 368, 10, 36);
   label(site, 'Consolidado', 'lbl tag', 370, 3, 197.5);
   [['Área A', 14, 16], ['Área B', 60, 100], ['Área C', 214, 186], ['Área E', 130, 160]].forEach(([t, x, z]) => label(site, t, 'lbl area', x, 2, z));
@@ -946,7 +946,7 @@ const V = (x, y, z) => new THREE.Vector3(x, y, z);
 const views = {
   general: () => [V(120, 430, 640), V(280, 0, 95)],
   planta:  () => [V(CX, 720, CZ + 1), V(CX, 0, CZ)],
-  acceso:  () => [V(110, 30, 275), V(136, 2, 205)],
+  acceso:  () => [V(40, 34, 175), V(112, 2, 140)],
   bodegas: () => [V(40, 150, 250), V(170, 5, 70)],
   oficinas: () => [V(232, 55, 222), V(186, 2, 158)],
   patio:   () => [V(560, 150, 290), V(430, 5, 80)],
