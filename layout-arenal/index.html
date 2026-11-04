@@ -218,12 +218,13 @@ const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
    x: a lo largo del cerco de la vía férrea, de SO (punta Área A) a NE (calle Maritano).
    z: desde el cerco de la vía hacia calle Antonio de la Fuente (SE).
    Medido sobre la imagen satelital girada para dejar la vía horizontal. */
-const SITE = [[-12, 0], [576, 0], [578, 229], [118, 202], [46, 110], [2, 28]];
+const SITE = [[-10, 0], [576, 0], [578, 229], [120, 203], [100, 146], [-4, 6]];
+const soX = z => -4 + (z - 6) * 104 / 140;               // borde SO (pasaje Nuressa / Uno)
 const seZ = x => 202 + (x - 118) * 27 / 460;          // borde SE (calle Antonio de la Fuente)
 
 const R = {
-  b1a:    { x0: 4,   x1: 84,  z0: 3,   z1: 23,  h: 8,   rise: 2.4, naves: 1 },
-  b1b:    { x0: 86,  x1: 111, z0: 3,   z1: 23,  h: 7,   rise: 2,   naves: 1 },
+  b1a:    { x0: 10,  x1: 90,  z0: 3,   z1: 23,  h: 8,   rise: 2.4, naves: 1 },
+  b1b:    { x0: 92,  x1: 117, z0: 3,   z1: 23,  h: 7,   rise: 2,   naves: 1 },
   b2:     { x0: 130, x1: 240, z0: 3,   z1: 14.5,h: 7,   rise: 1.6, naves: 1 },
   b3:     { x0: 240, x1: 285, z0: 3,   z1: 13.7,h: 6,   rise: 1.5, naves: 1 },
   b4:     { x0: 144, x1: 192, z0: 17,  z1: 57,  h: 9,   rise: 2.4, naves: 2 },
@@ -234,7 +235,7 @@ const R = {
   m8:     { x0: 244, x1: 304, z0: 165, z1: 190, h: 6 },
   m8x:    { x0: 244, x1: 304, z0: 140, z1: 165, h: 0.2 },
   consol: { x0: 244, x1: 296, z0: 18,  z1: 56,  h: 0.2 },
-  pre:    { x0: 24,  x1: 132, z0: 32,  z1: 160, h: 0.2 },
+  pre:    { x0: 20,  x1: 124, z0: 28,  z1: 178, h: 0.2 },
   yard:   { x0: 307, x1: 556, z0: 12,  z1: 158, h: 0.2 },
   fumig:  { x0: 500, x1: 552, z0: 13,  z1: 50,  h: 0.2 },
   consdo: { x0: 332, x1: 409, z0: 192, z1: 203, h: 0.2 },
@@ -406,6 +407,7 @@ const world = new THREE.Group(); scene.add(world);
   const g = new THREE.Mesh(new THREE.PlaneGeometry(3000, 3000), outsideMat);
   g.material.map.repeat.set(120, 120);
   g.rotation.x = -Math.PI / 2; g.position.set(CX, -0.05, CZ); g.receiveShadow = true; world.add(g);
+  const nb = ['#b9b2a6', '#c4bdb1', '#aea79b', '#cfc8bb'];
   // faja ferroviaria con varias vías
   floorRect(world, { x0: -260, x1: 820, z0: -62, z1: -2 }, null, 0.01, null, ballastMat);
   const railM = mat('#4a4a4a', { metalness: 0.6, roughness: 0.4 }), tieM = mat('#6b5a47');
@@ -420,14 +422,15 @@ const world = new THREE.Group(); scene.add(world);
   const road = '#45484d';
   floorPoly(world, [[100, 206], [600, 233], [600, 247], [100, 220]], road, 0.02);                  // Antonio de la Fuente
   floorPoly(world, [[582, -2], [596, -2], [600, 247], [586, 247]], road, 0.02);                    // Maritano
-  floorPoly(world, [[100, 206], [116, 206], [30, 300], [14, 300]], road, 0.02);                    // Nuressa
+  floorPoly(world, [[-6, 4], [100, 146], [120, 203], [106, 208], [86, 150], [-18, 8]], road, 0.02);   // Nuressa
+  floorPoly(world, [[106, 208], [120, 203], [60, 330], [46, 330]], road, 0.021);                      // Pasaje Uno
+  label(world, 'Pasaje Nuressa', 'street', 40, 0.6, 80);
+  for (let i = 0; i < 14; i++) { const z = 30 + i * 13; box(world, 8 + rng() * 6, 3 + rng() * 3, 8 + rng() * 4, nb[i % 4], soX(z) - 30 - rng() * 10, 2.5, z); }
   const dash = mat('#e9e6dc');
   for (let x = 110; x < 590; x += 9) { const z = 213 + (x - 100) * 27 / 500; const b = box(world, 4, 0.03, 0.2, null, x, 0.04, z, { cast: false, material: dash }); b.rotation.y = -Math.atan2(27, 500); }
   label(world, 'Calle Antonio de la Fuente', 'street', 360, 0.6, 229);
   label(world, 'Calle Maritano', 'street', 591, 0.6, 120);
   label(world, 'Vía férrea · Santiago ↔ San Antonio', 'street', 320, 0.6, -30);
-  // manzanas vecinas (volúmenes bajos)
-  const nb = ['#b9b2a6', '#c4bdb1', '#aea79b', '#cfc8bb'];
   for (let i = 0; i < 70; i++) {
     const x = 60 + (i % 14) * 38 + rng() * 8, z = 268 + Math.floor(i / 14) * 30 + rng() * 6;
     box(world, 9 + rng() * 9, 3 + rng() * 3, 8 + rng() * 7, nb[i % 4], x, 2.5, z + (x - 100) * 0.054);
@@ -469,13 +472,14 @@ const hl = new THREE.Group(); scene.add(hl);
 
   // zonas pintadas
   const zoneMat = (c, o = 0.55) => new THREE.MeshStandardMaterial({ color: c, transparent: true, opacity: o, roughness: 0.95, depthWrite: false });
-  floorPoly(site, [[24, 34], [132, 34], [132, 160], [112, 160], [44, 110], [24, 72]], null, 0.06, 'pre', zoneMat('#d9a46a', 0.42));
+  const PRE = [[18, 28], [124, 28], [124, 180], [110, 180], [99, 148], [16, 30]];
+  floorPoly(site, PRE, null, 0.06, 'pre', zoneMat('#d9a46a', 0.42));
   floorRect(site, R.consol, null, 0.06, 'consol', zoneMat('#c98a3a', 0.4));
   floorRect(site, R.fumig, null, 0.07, 'fumig', zoneMat('#f2c230', 0.5));
   floorRect(site, R.consdo, null, 0.06, 'consol', zoneMat('#c98a3a', 0.4));
   // contorno rojo discontinuo del pre stacking
   const lineDash = new THREE.LineDashedMaterial({ color: 0xd9534f, dashSize: 4, gapSize: 2.5 });
-  const preL = new THREE.Line(new THREE.BufferGeometry().setFromPoints([[24, 34], [132, 34], [132, 160], [112, 160], [44, 110], [24, 72], [24, 34]].map(([x, z]) => new THREE.Vector3(x, 0.12, z))), lineDash);
+  const preL = new THREE.Line(new THREE.BufferGeometry().setFromPoints([...PRE, PRE[0]].map(([x, z]) => new THREE.Vector3(x, 0.12, z))), lineDash);
   preL.computeLineDistances(); site.add(preL);
 
   // cerco perimetral con accesos (Área A en la punta y acceso principal en el borde SE)
@@ -490,21 +494,21 @@ const hl = new THREE.Group(); scene.add(hl);
     });
     gaps.forEach(([g0, g1]) => [g0, g1].forEach(t => box(site, 0.6, 3.2, 0.6, null, x0 + Math.cos(ang) * t, 1.6, z0 + Math.sin(ang) * t, { material: postM })));
   };
-  fence([-12, 0], [576, 0]);
+  fence([-10, 0], [576, 0]);
   fence([576, 0], [578, 229]);
-  fence([578, 229], [118, 202], [[440, 456]]);   // acceso principal (Área E) en el extremo SO del borde SE
-  fence([118, 202], [46, 110]);
-  fence([46, 110], [2, 28]);
-  fence([2, 28], [-12, 0], [[4, 26]]);           // acceso Área A
+  fence([578, 229], [120, 203]);
+  fence([120, 203], [100, 146], [[8, 34]]);      // acceso principal (Área E), en la esquina con pasaje Nuressa
+  fence([100, 146], [-4, 6], [[6, 22]]);          // acceso Área A, junto a la punta
   // barreras del gate
   const arm = mat('#d6362b');
-  [[121, 197.5], [127, 199]].forEach(([x, z]) => { const a = box(site, 7, 0.14, 0.14, null, x, 1.05, z, { material: arm }); a.rotation.y = -0.4; });
+  [[114, 186], [110, 175]].forEach(([x, z]) => { const a = box(site, 0.14, 0.14, 8, null, x, 1.05, z, { material: arm }); a.rotation.y = -0.34; });
 
   // --- Bodegas con techo a dos aguas (naves a lo largo de la vía)
   const wallM = new THREE.MeshStandardMaterial({ color: '#e4e2dc', roughness: 0.9 });
   const roofBase = roofTex('#a8b0b5', '#8f989e'), roofGalp = roofTex('#8b9a91', '#73827a');
   const doorM = mat('#5d6670', { metalness: 0.3, roughness: 0.6 }), skyM = mat('#eef3f8', { emissive: '#b8c8da', emissiveIntensity: 0.25, roughness: 0.3 });
-  const warehouse = (id, roofT = roofBase) => {
+  const roofDark = roofTex('#767e84', '#62696f'), roofLight = roofTex('#b9bfc3', '#a3aaaf');
+  const warehouse = (id, roofT = roofBase, shades) => {
     const r = R[id], w = r.x1 - r.x0, d = r.z1 - r.z0, H = r.h, cx = (r.x0 + r.x1) / 2, cz = (r.z0 + r.z1) / 2;
     box(site, w, H, d, null, cx, H / 2, cz, { material: wallM, zone: id });
     // portones en la cara SE (cada 12 m) y en la cara SO
@@ -517,9 +521,10 @@ const hl = new THREE.Group(); scene.add(hl);
     const rm = new THREE.MeshStandardMaterial({ map: roofT.clone(), roughness: 0.55, metalness: 0.35 });
     rm.map.needsUpdate = true; rm.map.repeat.set(w / 2.5, 1);
     for (let k = 0; k < r.naves; k++) {
+      const rmk = shades ? (() => { const q = new THREE.MeshStandardMaterial({ map: shades[k].clone(), roughness: 0.55, metalness: 0.35 }); q.map.needsUpdate = true; q.map.repeat.set(w / 2.5, 1); return q; })() : rm;
       const s = new THREE.Shape(); s.moveTo(0, 0); s.lineTo(nw, 0); s.lineTo(nw / 2, rise); s.closePath();
       const g = new THREE.ExtrudeGeometry(s, { depth: w, bevelEnabled: false });
-      const m = new THREE.Mesh(g, [mat('#d8d6cf'), rm]);
+      const m = new THREE.Mesh(g, [mat('#d8d6cf'), rmk]);
       m.rotation.y = Math.PI / 2;
       m.position.set(r.x0, H, r.z0 + (k + 1) * nw);
       m.castShadow = true; m.receiveShadow = true; m.userData.zone = id; pickables.push(m); roofG.add(m);
@@ -530,7 +535,9 @@ const hl = new THREE.Group(); scene.add(hl);
       }
     }
   };
-  ['b1a', 'b1b', 'b2', 'b3', 'b4', 'b5', 'b6', 'b7'].forEach(id => warehouse(id));
+  ['b1a', 'b1b', 'b2', 'b3', 'b4', 'b7'].forEach(id => warehouse(id));
+  warehouse('b5', roofLight);
+  warehouse('b6', roofBase, [roofBase, roofDark, roofLight]);
   warehouse('galpon', roofGalp);
   // andenes de la Bodega N°6 hacia el camino oeste
   box(site, 3, 1.2, 50, '#b8b4ab', R.b6.x0 - 1.5, 0.6, 107);
@@ -560,11 +567,11 @@ const hl = new THREE.Group(); scene.add(hl);
   [[L.x0, L.z0], [L.x1, L.z0], [L.x0, L.z1], [L.x1, L.z1], [(L.x0 + L.x1) / 2, L.z0], [(L.x0 + L.x1) / 2, L.z1]].forEach(([x, z]) => box(site, 0.4, 6, 0.4, '#4a6f8c', x, 3, z));
   box(site, L.x1 - L.x0 + 1, 0.35, L.z1 - L.z0 + 1, '#6fa5cf', (L.x0 + L.x1) / 2, 6.2, (L.z0 + L.z1) / 2, { zone: 'lavado' });
   // instalaciones a lo largo del borde SO
-  const SO = [['Camarines', 0.42], ['Sala eléctrica', 0.54], ['Comedor 2', 0.66], ['Bodega', 0.78]];
+  const SO = [['Camarines', 0.5], ['Sala eléctrica', 0.62], ['Comedor 2', 0.74], ['Bodega', 0.86]];
   SO.forEach(([n, t]) => {
-    const x = 46 + (118 - 46) * t + 4, z = 110 + (202 - 110) * t - 4;
-    const b = box(site, 9, 3, 6, '#e6e8ea', x, 1.5, z); b.rotation.y = -0.9;
-    box(site, 9.4, 0.25, 6.4, '#7d8a98', x, 3.1, z).rotation.y = -0.9;
+    const z = 60 + t * 100, x = soX(z) + 7;
+    const b = box(site, 9, 3, 6, '#e6e8ea', x, 1.5, z); b.rotation.y = -0.93;
+    box(site, 9.4, 0.25, 6.4, '#7d8a98', x, 3.1, z).rotation.y = -0.93;
     label(site, n, 'lbl tag', x, 5, z);
   });
   // torres de iluminación
@@ -577,7 +584,7 @@ const hl = new THREE.Group(); scene.add(hl);
   // --- Etiquetas
   const lbl = (id, x, y, z, big) => label(site, `<b>${ZONES[id].name}</b>${ZONES[id].area ? `<span>${fmt(ZONES[id].area)} m²</span>` : ZONES[id].dims ? `<span>${ZONES[id].dims}</span>` : ''}`, 'lbl' + (big ? ' big' : ''), x, y, z, id);
   ORDER.forEach(id => { const r = R[id]; lbl(id, (r.x0 + r.x1) / 2, r.h + r.rise + 3, (r.z0 + r.z1) / 2, true); });
-  lbl('galpon', 216, 15, 37); lbl('m8', 274, 10, 177); lbl('pre', 70, 4, 60); lbl('yard', 433, 18, 40);
+  lbl('galpon', 216, 15, 37); lbl('m8', 274, 10, 177); lbl('pre', 50, 4, 40); lbl('yard', 433, 18, 40);
   const tag = (id, x, y, z) => label(site, ZONES[id].name, 'lbl tag', x, y, z, id);
   tag('consol', 270, 3, 37); tag('fumig', 526, 4, 31); tag('lavado', 270, 9, 110); tag('garage', 255, 8, 127); tag('emr', 530, 8.5, 135);
   tag('wh', 375, 8, 161); tag('ofdep', 470, 8, 169); tag('ofic', 223, 9.5, 156); tag('fumi', 164, 6.5, 171); tag('banos', 190, 6, 176);
@@ -585,9 +592,9 @@ const hl = new THREE.Group(); scene.add(hl);
   label(site, 'Mitad desarmada', 'lbl gone', 274, 1.5, 152);
   label(site, 'Bloque reefer · 46 conexiones', 'lbl tag', 368, 10, 36);
   label(site, 'Consolidado', 'lbl tag', 370, 3, 197.5);
-  [['Área A', 4, 14], ['Área B', 70, 140], ['Área C', 214, 176], ['Área E', 132, 210]].forEach(([t, x, z]) => label(site, t, 'lbl area', x, 2, z));
-  label(site, 'Acceso principal', 'lbl tag', 128, 5, 205);
-  label(site, 'Acceso Área A', 'lbl tag', -6, 5, 16);
+  [['Área A', 14, 16], ['Área B', 60, 100], ['Área C', 214, 176], ['Área E', 128, 196]].forEach(([t, x, z]) => label(site, t, 'lbl area', x, 2, z));
+  label(site, 'Acceso principal', 'lbl tag', 104, 5, 182);
+  label(site, 'Acceso Área A', 'lbl tag', 2, 5, 20);
   label(site, 'Acceso ferroviario WnD', 'lbl tag', 262, 4, -8);
 
   // --- Cotas
@@ -598,7 +605,7 @@ const hl = new THREE.Group(); scene.add(hl);
   dim(dims, [R.b3.x0, 10, -2], [R.b3.x1, 10, -2], '45 m');
   dim(dims, [R.b4.x0, 14, R.b4.z0 - 1], [R.galpon.x1, 14, R.b4.z0 - 1], '96 m');
   dim(dims, [R.b7.x0, 12, R.b7.z0 - 2], [R.b7.x1, 12, R.b7.z0 - 2], '77 m');
-  dim(dims, [-12, 0.6, -4], [576, 0.6, -4], 'Cerco vía férrea · 588 m');
+  dim(dims, [-10, 0.6, -4], [576, 0.6, -4], 'Cerco vía férrea · 586 m');
 }
 
 /* ---------- Contenedores (instanciados) ---------- */
@@ -607,12 +614,13 @@ const hl = new THREE.Group(); scene.add(hl);
   const sideT = canvasTex(128, 32, (g, w, h) => { g.fillStyle = '#ffffff'; g.fillRect(0, 0, w, h); g.fillStyle = 'rgba(0,0,0,.16)'; for (let x = 0; x < w; x += 6) g.fillRect(x, 0, 2, h); g.fillStyle = 'rgba(0,0,0,.25)'; g.fillRect(0, 0, w, 2); g.fillRect(0, h - 2, w, 2); });
   const cm = new THREE.MeshStandardMaterial({ map: sideT, roughness: 0.6, metalness: 0.25 });
   const slots = [];
+  const COLS = ['#d9a441', '#c0392b', '#3d8a6b', '#e67e22', '#2f6db3', '#8e3b33', '#d8c34a', '#7fb069'];
   const PAL = ['#f2f4f5', '#f2f4f5', '#f2f4f5', '#e4e7ea', '#e4e7ea', '#cfd4d9', '#f2f4f5', '#2f6db3', '#8e3b33', '#5f6b78', '#f2f4f5', '#e4e7ea'];
   const block = (x0, x1, z0, z1, tiers, reefer = 0, fill = 0.94) => {
     for (let x = x0; x + 2.44 <= x1; x += 2.75) for (let z = z0; z + 12.2 <= z1; z += 12.9) {
       if (rng() > fill) continue;
       const n = tiers[0] + Math.floor(rng() * (tiers[1] - tiers[0] + 1));
-      for (let t = 0; t < n; t++) slots.push([x + 1.22, t * 2.6 + 1.3, z + 6.1, rng() < reefer ? (rng() < 0.85 ? '#d8473b' : '#f2f4f5') : PAL[Math.floor(rng() * PAL.length)]]);
+      for (let t = 0; t < n; t++) slots.push([x + 1.22, t * 2.6 + 1.3, z + 6.1, rng() < reefer ? (rng() < 0.85 ? '#d8473b' : '#f2f4f5') : (fill === 1 ? COLS[Math.floor(rng() * COLS.length)] : PAL[Math.floor(rng() * PAL.length)])]);
     }
   };
   block(308, 428, 13, 58, [2, 3], 0.8);   // reefer
@@ -622,8 +630,10 @@ const hl = new THREE.Group(); scene.add(hl);
   block(308, 428, 125, 155, [2, 4]);
   block(440, 515, 125, 156, [2, 4]);
   block(248, 292, 62, 98, [2, 3]);         // junto a consolidación
-  block(66, 104, 72, 116, [3, 4]);         // pre stacking full
-  block(40, 66, 118, 144, [1, 2]);
+  block(70, 100, 54, 88, [3, 4], 0.04);    // pre stacking full: dos bloques blancos
+  block(104, 121, 62, 88, [1, 1], 0, 1);   // fila de colores
+  for (let z = 40; z < 140; z += 13) block(soX(z) + 3, soX(z) + 9, z, z + 12.5, [1, 2], 0.05, 0.85);   // hilera junto al cerco Nuressa
+  block(60, 75, 32, 46, [1, 1], 0, 0.6);
   block(505, 549, 30, 50, [1, 1], 0, 0.4); // fumigado
   
   const im = new THREE.InstancedMesh(geo, cm, slots.length);
@@ -660,6 +670,7 @@ const hl = new THREE.Group(); scene.add(hl);
   for (let i = 0; i < 22; i++) wag(160 + i * 15, -20, i % 5 ? ['#f2f4f5', '#e4e7ea', '#2f6db3', '#d8473b'][i % 4] : null);
   box(trucksG, 18, 3.6, 3, '#d9a400', 160 - 17, 2.3, -20);
   for (let i = 0; i < 3; i++) wag(250 + i * 15, -10, '#f2f4f5');
+  for (let i = 0; i < 8; i++) { box(trucksG, 14, 3, 2.8, '#3f7d5a', -2 + i * 15, 2.2, -10); box(trucksG, 14, 0.6, 2.9, '#2c3a33', -2 + i * 15, 3.9, -10); }
   // autos en oficinas
   ['#9aa3ad', '#e8e8e8', '#2f3a48', '#7a1f1f', '#d8d4cc', '#5b6470'].forEach((c, i) => { box(trucksG, 4.4, 1.0, 1.8, c, 212 + i * 4, 0.7, 166); box(trucksG, 2.3, 0.6, 1.6, c, 212 + i * 4, 1.5, 166); });
 }
