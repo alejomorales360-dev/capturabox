@@ -244,7 +244,7 @@ const R = {
   ofic:   { x0: 160, x1: 204, z0: 144, z1: 178, h: 3.6 },
   fumi:   { x0: 110, x1: 124, z0: 168, z1: 194, h: 3.2 },
   banos:  { x0: 118, x1: 130, z0: 192, z1: 202, h: 3 },
-  ctrl:   { x0: 106, x1: 112, z0: 162, z1: 168, h: 3.6 },
+  ctrl:   { x0: 145, x1: 151, z0: 215, z1: 221, h: 3.6 },
   wh:     { x0: 340, x1: 410, z0: 156, z1: 166, h: 5 },
   ofdep:  { x0: 340, x1: 410, z0: 140, z1: 150, h: 4.5 },
   plat:   { x0: 446, x1: 502, z0: 199.5, z1: 206, h: 1.4 },
@@ -598,8 +598,8 @@ const hl = new THREE.Group(); scene.add(hl);
   };
   fence([-10, 0], [576, 0]);
   fence([576, 0], [576, 222], [[1, 12]]);        // portón de la línea férrea interna
-  fence([576, 222], [126.6, 222]);
-  fence([126.6, 222], [100, 146], [[62.3, 80.5]]);   // entrada principal, junto al vértice
+  fence([576, 222], [126.6, 222], [[431.4, 449.4]]);   // entrada principal (Nuressa)
+  fence([126.6, 222], [100, 146]);
   fence([100, 146], [-4, 6], [[152, 168]]);      // acceso Área A, junto a la punta
   {
     const pm = new THREE.InstancedMesh(new THREE.BoxGeometry(0.12, 2.9, 0.12), postM, fencePosts.length);
@@ -611,21 +611,18 @@ const hl = new THREE.Group(); scene.add(hl);
     });
     pm.castShadow = vm.castShadow = true; site.add(pm, vm);
   }
-  // --- Entrada principal: portón en el borde corto junto al vértice; la pista sigue recta hacia la Bodega N°6
+  // --- Entrada principal: Nuressa entra recta y perpendicular al camino perimetral, por la esquina SO del borde de Antonio de la Fuente
   {
-    const U = [0.331, 0.944], N = [0.944, -0.331];            // U: a lo largo del cerco (hacia el sur) · N: hacia adentro, rumbo a la bodega
-    const G = (s, n = 0) => [100 + U[0] * s + N[0] * n, 146 + U[1] * s + N[1] * n];
+    const U = [1, 0], N = [0, -1];                            // U: a lo largo del cerco · N: hacia adentro, rumbo al camino perimetral
+    const G = (s, n = 0) => [126.6 + U[0] * s + N[0] * n, 222 + U[1] * s + N[1] * n];
     const ang = Math.atan2(N[1], N[0]), angU = Math.atan2(U[1], U[0]);
-    const concrete = new THREE.MeshStandardMaterial({ map: groundTex('#c9c6be', ['#b3afa6', '#dedbd3', '#a9a59c']), roughness: 0.9 });
-    concrete.map.repeat.set(6, 6);
-    floorPoly(site, [G(0, 0), G(18, 0), G(18, 34), G(0, 34)], null, 0.09, null, concrete);
-    floorPoly(world, [G(0, 0), G(18, 0), G(22, -18), G(-2, -18)], null, 0.03, null, concrete);
+    floorPoly(site, [G(0, 0), G(18, 0), G(18, 12.5), G(0, 12.5)], null, 0.06, null, asphaltMat);
     // carril de entrada (lado sur) y de salida, eje segmentado y flechas
-    for (let n = 1; n < 33; n += 4) { const [x, z] = G(9, n); box(site, 2.2, 0.03, 0.18, '#f4f2ea', x, 0.12, z, { cast: false }).rotation.y = -ang; }
-    { const [x, z] = G(13.5, 16); arrow(site, x, z, ang, 1.1); }
-    { const [x, z] = G(4.5, 16); arrow(site, x, z, ang + Math.PI, 1.1); }
+    for (let n = 1; n < 12; n += 4) { const [x, z] = G(9, n); box(site, 2.2, 0.03, 0.18, '#f4f2ea', x, 0.12, z, { cast: false }).rotation.y = -ang; }
+    { const [x, z] = G(13.5, 9); arrow(site, x, z, ang, 1.1); }
+    { const [x, z] = G(4.5, 9); arrow(site, x, z, ang + Math.PI, 1.1); }
     // lomo de toro amarillo/negro de lado a lado
-    for (let k = 0; k < 9; k++) { const [x, z] = G(1 + k * 2, 6); box(site, 2, 0.08, 0.7, k % 2 ? '#2b2b2b' : '#f2c230', x, 0.13, z, { cast: false }).rotation.y = -angU; }
+    for (let k = 0; k < 9; k++) { const [x, z] = G(1 + k * 2, 2.5); box(site, 2, 0.08, 0.7, k % 2 ? '#2b2b2b' : '#f2c230', x, 0.13, z, { cast: false }).rotation.y = -angU; }
     // caseta de guardia (control de acceso) a la derecha al entrar
     const [cx, cz] = G(21.5, 4);
     const cas = new THREE.Group(); cas.position.set(cx, 0, cz); cas.rotation.y = -ang; site.add(cas);
@@ -651,7 +648,7 @@ const hl = new THREE.Group(); scene.add(hl);
     { const t = makeTruck('#f2c230', '#2f6db3'); const [tx, tz] = G(13.5, 4); t.position.set(tx, 0, tz); t.rotation.y = -ang; trucksG.add(t); }
     label(site, 'Entrada principal', 'lbl tag', ...(() => { const [x, z] = G(9, -5); return [x, 5, z]; })());
     // calle Nuressa hacia pasaje Uno
-    floorPoly(world, [G(-2, -18), G(22, -18), G(30, -46), G(6, -46)], '#45484d', 0.025);
+    floorPoly(world, [G(0, 0), G(18, 0), G(18, -90), G(0, -90)], '#45484d', 0.025);
     label(world, 'Nuressa', 'street', ...(() => { const [x, z] = G(14, -32); return [x, 0.6, z]; })());
   }
 
@@ -795,7 +792,7 @@ const hl = new THREE.Group(); scene.add(hl);
   const tag = (id, x, y, z) => label(site, ZONES[id].name, 'lbl tag', x, y, z, id);
   tag('consol', 270, 3, 37); tag('fumig', 526, 4, 31); tag('garage', 255, 8, 127);
   tag('wh', 375, 8, 161); tag('ofdep', 375, 8, 145); tag('ofic', 186, 7, 158); tag('fumi', 117, 6, 182); tag('banos', 124, 6, 198);
-  tag('ctrl', 109, 7, 165); tag('plat', 474, 5, 199);
+  tag('ctrl', 148, 7, 218); tag('plat', 474, 5, 199);
   label(site, 'Bloque reefer · 46 conexiones', 'lbl tag', 368, 10, 36);
   label(site, 'Consolidado', 'lbl tag', 370, 3, 197.5);
   [['Área A', 14, 16], ['Área B', 60, 100], ['Área C', 214, 186], ['Área E', 130, 160]].forEach(([t, x, z]) => label(site, t, 'lbl area', x, 2, z));
@@ -949,7 +946,7 @@ const V = (x, y, z) => new THREE.Vector3(x, y, z);
 const views = {
   general: () => [V(120, 430, 640), V(280, 0, 95)],
   planta:  () => [V(CX, 720, CZ + 1), V(CX, 0, CZ)],
-  acceso:  () => [V(52, 24, 168), V(108, 2, 134)],
+  acceso:  () => [V(110, 30, 275), V(136, 2, 205)],
   bodegas: () => [V(40, 150, 250), V(170, 5, 70)],
   oficinas: () => [V(232, 55, 222), V(186, 2, 158)],
   patio:   () => [V(560, 150, 290), V(430, 5, 80)],
