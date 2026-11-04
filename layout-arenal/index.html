@@ -752,9 +752,8 @@ const hl = new THREE.Group(); scene.add(hl);
     office(182, 186, 164.5, 167.6, 2.6, roofDk);         // sala chica
     office(190.5, 203.2, 144, 147, 2.9, mat('#e3e5e6')); // contenedor-oficina 40'
     office(182, 187, 144, 147, 2.7, mat('#e3e5e6'));
-    // cobertizo de acceso (techo café sobre pilares) en el borde norte
-    box(site, 26, 0.25, 5, '#8a7d6c', 169, 3.2, 146.5);
-    for (let x = 157; x <= 181; x += 4) [144.3, 148.7].forEach(z => box(site, 0.18, 3.1, 0.18, '#6c6f73', x, 1.55, z));
+    // módulo de oficinas de techo café en el borde norte (junto a la franja de pasto)
+    office(156, 182, 143.8, 148.2, 3, mat('#8a7d6c', { roughness: 0.7 }));
     // explanada con baldosa celeste
     box(site, 6, 0.04, 6, '#7fc6e8', 196.5, 0.12, 154.5, { cast: false });
     // estacionamiento oeste (en batería) y sur
