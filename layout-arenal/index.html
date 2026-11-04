@@ -1,0 +1,1021 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Site Arenal 3D</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..100,400..800&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+/* Mismo formato que el modelo de Bodega Cervantes: escena 3D a la izquierda, ficha a la derecha (abajo en teléfonos) */
+:root{
+  --bg:#eceff2; --panel:#f8f9fa; --fg:#1b2129; --muted:#5b6672; --line:#d2d8de;
+  --ink:#24507f; --mark:#e5a900; --mark-ink:#8a6500;
+  --scene:#dde3e9; --label-bg:rgba(255,255,255,.92);
+  --f-display:"Archivo","Arial Narrow",system-ui,sans-serif;
+  --f-body:"Archivo",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,"SFMono-Regular",Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#13171c; --panel:#192027; --fg:#e4e8ec; --muted:#97a3af; --line:#2b343e;
+  --ink:#8db4e8; --mark:#f2c230; --mark-ink:#f2c230;
+  --scene:#1a2129; --label-bg:rgba(22,27,33,.9); color-scheme:dark }}
+:root[data-theme="dark"]{
+  --bg:#13171c; --panel:#192027; --fg:#e4e8ec; --muted:#97a3af; --line:#2b343e;
+  --ink:#8db4e8; --mark:#f2c230; --mark-ink:#f2c230;
+  --scene:#1a2129; --label-bg:rgba(22,27,33,.9); color-scheme:dark }
+
+*,*::before,*::after{box-sizing:border-box}
+:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+[hidden]{display:none!important}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--f-body);font-size:14px;
+  display:grid;grid-template-rows:auto 1fr;overflow:hidden}
+button,input{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+
+.bar{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px 24px;
+  padding-block:10px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
+  border-bottom:1px solid var(--line);background:var(--panel)}
+.bar h1{margin:0;font-family:var(--f-display);font-stretch:78%;font-weight:800;font-size:22px;letter-spacing:.01em;line-height:1.1}
+.bar .sub{font-family:var(--f-mono);font-size:11.5px;color:var(--muted);margin-top:2px}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:6px;overflow:hidden;background:var(--bg)}
+.seg button{border:0;background:transparent;padding:7px 12px;cursor:pointer;font-size:13px;font-weight:600;color:var(--muted)}
+.seg button+button{border-left:1px solid var(--line)}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--panel)}
+
+.app{display:grid;grid-template-columns:minmax(0,1fr) 370px;min-height:0}
+.view{position:relative;min-height:0;overflow:hidden;background:var(--scene)}
+.view canvas{display:block}
+.labels{position:absolute;inset:0;pointer-events:none}
+.lbl{font:600 11.5px/1.2 var(--f-body);background:var(--label-bg);color:var(--fg);padding:4px 7px;border-radius:3px;
+  border:1px solid var(--line);white-space:nowrap;text-align:center}
+.lbl b{display:block;font-weight:700}
+.lbl span{font:500 10.5px var(--f-mono);color:var(--muted)}
+.lbl.big b{font-size:13.5px}
+.lbl.sel{border-color:var(--mark);box-shadow:0 0 0 2px var(--mark)}
+.lbl.tag{font-size:10.5px;padding:2px 6px;background:#f2c230;color:#1b1b1b;border-color:#c99d10}
+.lbl.area{background:#14243a;color:#fff;border-color:#14243a;border-radius:999px;padding:3px 10px;font-size:12px}
+.lbl.gone{background:transparent;border-style:dashed;color:var(--muted)}
+.street{font:600 11px var(--f-display);font-stretch:85%;letter-spacing:.18em;text-transform:uppercase;color:#f1f1ee;
+  text-shadow:0 1px 2px rgba(0,0,0,.65);white-space:nowrap}
+.calle{font:700 10px var(--f-display);letter-spacing:.14em;text-transform:uppercase;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.7);white-space:nowrap}
+.dim{font:500 11px var(--f-mono);color:#1b1b1b;background:var(--mark);padding:1px 5px;border-radius:2px;white-space:nowrap}
+.labels.no-zones .lbl,.labels.no-zones .street,.labels.no-zones .calle{display:none}
+.labels.no-dims .dim{display:none}
+
+.chips{position:absolute;left:max(12px,env(safe-area-inset-left,0px));bottom:12px;display:flex;flex-wrap:wrap;gap:6px;max-width:calc(100% - 90px)}
+.chip{display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border-radius:999px;background:var(--label-bg);
+  border:1px solid var(--line);font-size:12.5px;font-weight:600;cursor:pointer;user-select:none}
+.chip input{accent-color:var(--ink);margin:0}
+.hint{position:absolute;left:max(12px,env(safe-area-inset-left,0px));top:10px;font-size:12px;color:var(--muted);
+  background:var(--label-bg);padding:4px 8px;border-radius:4px;border:1px solid var(--line)}
+.compass{position:absolute;right:max(12px,env(safe-area-inset-right,0px));bottom:12px;width:54px;height:54px;border-radius:50%;
+  background:var(--label-bg);border:1px solid var(--line);display:grid;place-items:center}
+.compass .needle{width:54px;height:54px;position:relative}
+.compass .needle::before{content:"";position:absolute;left:50%;top:7px;transform:translateX(-50%);
+  border-left:6px solid transparent;border-right:6px solid transparent;border-bottom:20px solid #c8372d}
+.compass .needle::after{content:"";position:absolute;left:50%;bottom:7px;transform:translateX(-50%);
+  border-left:6px solid transparent;border-right:6px solid transparent;border-top:20px solid var(--muted)}
+.compass .n{position:absolute;top:-1px;left:50%;transform:translateX(-50%);font:700 9px var(--f-mono);color:var(--fg)}
+.err{position:absolute;inset:0;display:grid;place-items:center;padding:24px;text-align:center;color:var(--muted)}
+
+.panel{border-left:1px solid var(--line);background:var(--panel);overflow-y:auto;min-width:0;
+  padding-block:16px 28px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
+  display:flex;flex-direction:column;gap:22px}
+.panel h2{margin:0 0 8px;font-family:var(--f-display);font-stretch:80%;font-weight:700;font-size:13px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.panel p{margin:0;line-height:1.5}
+table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
+td{padding:6px 4px;border-bottom:1px solid var(--line);vertical-align:middle}
+tbody tr{cursor:pointer}
+tbody tr:hover td{background:color-mix(in srgb,var(--ink) 7%,transparent)}
+tbody tr.sel td{background:color-mix(in srgb,var(--mark) 22%,transparent)}
+tbody tr.extra td{color:var(--muted)}
+td.sw{width:14px;padding-right:0}
+td.sw i{display:block;width:10px;height:10px;border-radius:2px;border:1px solid rgba(0,0,0,.2)}
+td.dm{font:400 11.5px var(--f-mono);color:var(--muted);white-space:nowrap}
+td.ar{font:500 12.5px var(--f-mono);text-align:right;white-space:nowrap}
+tfoot td{font-weight:700;border-bottom:0;border-top:2px solid var(--fg)}
+tfoot td.ar{font-size:13px}
+.kvs{display:grid;grid-template-columns:auto 1fr;gap:5px 14px;font-size:13px}
+.kvs dt{color:var(--muted)}
+.kvs dd{margin:0;font-family:var(--f-mono);font-size:12.5px}
+
+.card{border:1px solid var(--line);border-radius:6px;padding:12px 14px;background:var(--bg)}
+.card h3{margin:0;font-family:var(--f-display);font-stretch:82%;font-size:19px;font-weight:800;text-wrap:balance}
+.card .kv{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;margin-top:10px;font-size:13px}
+.card .kv dt{color:var(--muted)}
+.card .kv dd{margin:0;font-family:var(--f-mono);font-size:12.5px}
+.card .note{margin-top:10px;font-size:12.5px;color:var(--muted);line-height:1.45}
+.empty{color:var(--muted);font-size:13px}
+ul.list{margin:0;padding-left:18px;line-height:1.5;font-size:13px}
+ul.list li+li{margin-top:5px}
+
+@media (max-width:880px){
+  body{overflow:auto;display:block;height:auto}
+  .app{display:block}
+  .view{height:64vh;min-height:360px}
+  .panel{border-left:0;border-top:1px solid var(--line);overflow:visible}
+}
+</style>
+</head>
+<body>
+
+<header class="bar">
+  <div>
+    <h1>Site Arenal · Depot Talcahuano</h1>
+    <div class="sub">Antonio de la Fuente × Maritano · junto a la vía férrea · modelo 3D</div>
+  </div>
+  <div class="seg" role="group" aria-label="Vista">
+    <button id="v-general" type="button" aria-pressed="true">General</button>
+    <button id="v-planta" type="button" aria-pressed="false">Planta</button>
+    <button id="v-acceso" type="button" aria-pressed="false">Acceso</button>
+    <button id="v-bodegas" type="button" aria-pressed="false">Bodegas</button>
+    <button id="v-oficinas" type="button" aria-pressed="false">Oficinas</button>
+    <button id="v-patio" type="button" aria-pressed="false">Patio</button>
+  </div>
+</header>
+
+<main class="app">
+  <div class="view" id="view">
+    <div class="hint" id="hint">Arrastra para girar · rueda o pellizco para zoom · toca una bodega o zona</div>
+    <div class="chips">
+      <label class="chip"><input id="t-roof" type="checkbox" checked> Techos</label>
+      <label class="chip"><input id="t-labels" type="checkbox" checked> Etiquetas</label>
+      <label class="chip"><input id="t-dims" type="checkbox"> Cotas</label>
+      <label class="chip"><input id="t-cont" type="checkbox" checked> Contenedores</label>
+      <label class="chip"><input id="t-trucks" type="checkbox" checked> Camiones y tren</label>
+    </div>
+    <div class="compass" title="Norte"><div class="needle" id="needle"><span class="n">N</span></div></div>
+  </div>
+
+  <aside class="panel">
+    <section>
+      <h2>Bodegas</h2>
+      <table>
+        <tbody id="zone-rows"></tbody>
+        <tfoot><tr><td></td><td>Total bodegas</td><td class="dm"></td><td class="ar" id="tot"></td></tr></tfoot>
+      </table>
+    </section>
+
+    <section>
+      <h2>Selección</h2>
+      <div id="info" class="card"><p class="empty">Toca una bodega o una zona en el modelo o en la tabla.</p></div>
+    </section>
+
+    <section>
+      <h2>Datos del site</h2>
+      <dl class="kvs">
+        <dt>Área</dt><dd>110.000 m²</dd>
+        <dt>Capacidad depot</dt><dd>4.500 TEU mty + 500 full</dd>
+        <dt>Conexión reefer</dt><dd>46 posiciones</dd>
+        <dt>Gate</dt><dd>1 in + 1 out · 3.994 mov/mes</dd>
+        <dt>Equipos</dt><dd>2 RS full + 4 ECH</dd>
+        <dt>Estación lavado</dt><dd>20 posiciones</dd>
+        <dt>Capacidad EMR</dt><dd>12.960 HH/año</dd>
+        <dt>Bodegas</dt><dd>15.228 m² + 1.500 m² modular</dd>
+      </dl>
+    </section>
+
+    <section>
+      <h2>Supuestos del modelo</h2>
+      <ul class="list">
+        <li>Deslindes y posiciones medidos sobre la imagen satelital; medidas de bodegas según el Excel “Layout Arenal” y el letrero del depot.</li>
+        <li>El bloque de 96 × 40 m detrás de la Bodega N°2 se reparte en Bodega N°4 (48 × 40) y Galpón de reparaciones (48 × 40).</li>
+        <li>Bodega N°2 de 110 × 11,5 m y N°3 de 45 × 10,7 m, para cumplir los m² del letrero.</li>
+        <li>Alturas supuestas: bodegas 8–11 m al alero; pilas de contenedores hasta 5 alturas.</li>
+        <li>Oficinas, estacionamientos, fachadas y colores de techo según fotos de dron. Sentido de circulación: perimetral hacia el oriente, calle 1 al norte, calles B y C al poniente, calles 2 y 3 al sur.</li>
+        <li>Bodega Modular N°9 desarmada; de la N°8 queda operativa la mitad hacia las bodegas (1.500 m²).</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>Por confirmar</h2>
+      <ul class="list">
+        <li>Si el acceso del Área A sigue habilitado.</li>
+        <li>Posición exacta de camarines, sala eléctrica, comedor 2 y bodega chica a lo largo del deslinde.</li>
+      </ul>
+    </section>
+  </aside>
+</main>
+
+<script type="importmap">
+{"imports":{
+  "three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+}}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+
+const $ = s => document.querySelector(s);
+const fmt = (n, d = 0) => n.toLocaleString('es-CL', { minimumFractionDigits: d, maximumFractionDigits: d });
+const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/* ---------- Plano del site (metros) ----------
+   x: a lo largo del cerco de la vía férrea, de SO (punta Área A) a NE (calle Maritano).
+   z: desde el cerco de la vía hacia calle Antonio de la Fuente (SE).
+   Medido sobre la imagen satelital girada para dejar la vía horizontal. */
+const SITE = [[-10, 0], [576, 0], [578, 229], [120, 203], [100, 146], [-4, 6]];
+const soX = z => -4 + (z - 6) * 104 / 140;               // borde SO (pasaje Uno)
+const seZ = x => 202 + (x - 118) * 27 / 460;          // borde SE (calle Antonio de la Fuente)
+
+const R = {
+  b1a:    { x0: 10,  x1: 90,  z0: 3,   z1: 23,  h: 8,   rise: 2.4, naves: 1 },
+  b1b:    { x0: 92,  x1: 117, z0: 3,   z1: 23,  h: 7,   rise: 2,   naves: 1 },
+  b2:     { x0: 130, x1: 240, z0: 3,   z1: 14.5,h: 7,   rise: 1.6, naves: 1 },
+  b3:     { x0: 240, x1: 285, z0: 3,   z1: 13.7,h: 6,   rise: 1.5, naves: 1 },
+  b4:     { x0: 144, x1: 192, z0: 17,  z1: 57,  h: 9,   rise: 2.4, naves: 2 },
+  galpon: { x0: 192, x1: 240, z0: 17,  z1: 57,  h: 10,  rise: 2.4, naves: 2 },
+  b5:     { x0: 144, x1: 240, z0: 57,  z1: 77,  h: 9,   rise: 2.4, naves: 1 },
+  b6:     { x0: 139, x1: 239, z0: 77,  z1: 137, h: 11,  rise: 2.8, naves: 3 },
+  b7:     { x0: 332, x1: 409, z0: 170, z1: 190, h: 8,   rise: 2.2, naves: 1 },
+  m8:     { x0: 244, x1: 304, z0: 140, z1: 165, h: 6 },
+  consol: { x0: 244, x1: 296, z0: 18,  z1: 56,  h: 0.2 },
+  pre:    { x0: 20,  x1: 124, z0: 28,  z1: 116, h: 0.2 },
+  yard:   { x0: 307, x1: 556, z0: 12,  z1: 158, h: 0.2 },
+  fumig:  { x0: 500, x1: 552, z0: 13,  z1: 50,  h: 0.2 },
+  consdo: { x0: 332, x1: 409, z0: 192, z1: 203, h: 0.2 },
+  lavado: { x0: 250, x1: 290, z0: 104, z1: 116, h: 6 },
+  garage: { x0: 244, x1: 266, z0: 120, z1: 134, h: 5.5 },
+  ofic:   { x0: 160, x1: 204, z0: 144, z1: 178, h: 3.6 },
+  fumi:   { x0: 110, x1: 124, z0: 168, z1: 194, h: 3.2 },
+  banos:  { x0: 118, x1: 130, z0: 192, z1: 202, h: 3 },
+  ctrl:   { x0: 106, x1: 112, z0: 162, z1: 168, h: 3.6 },
+  emr:    { x0: 520, x1: 540, z0: 128, z1: 142, h: 5.5 },
+  wh:     { x0: 340, x1: 410, z0: 156, z1: 166, h: 5 },
+  ofdep:  { x0: 440, x1: 500, z0: 162, z1: 176, h: 4.5 },
+  plat:   { x0: 545, x1: 555, z0: 150, z1: 205, h: 1.4 },
+};
+const ZONES = {
+  b1a:    { name: 'Bodega N°1-A', dims: '80 × 20 m', area: 1600, color: '#9aa7ae', bod: true, note: 'Primera bodega junto a la vía, desde la punta del Área A.' },
+  b1b:    { name: 'Bodega N°1-B', dims: '25 × 20 m', area: 500,  color: '#9aa7ae', bod: true, note: 'A continuación de la 1-A, junto a la vía.' },
+  b2:     { name: 'Bodega N°2',   dims: '110 × 11,5 m', area: 1265, color: '#9aa7ae', bod: true, note: 'Junto a la vía. El Excel indica 110 × 15 m (1.650 m²); el letrero 1.265 m².' },
+  b3:     { name: 'Bodega N°3',   dims: '45 × 10,7 m', area: 483,  color: '#9aa7ae', bod: true, note: 'Junto a la vía, al final de la N°2. El Excel indica 45 × 15 m (675 m²); el letrero 483 m².' },
+  b4:     { name: 'Bodega N°4',   dims: '48 × 40 m', area: 1920, color: '#9aa7ae', bod: true, note: 'Mitad SO del bloque de 96 × 40 m detrás de la N°2. La otra mitad la ocupa el galpón de reparaciones.' },
+  galpon: { name: 'Galpón de reparaciones', dims: '48 × 40 m', area: 1920, color: '#7d8b84', note: 'Ocupa la mitad NE del bloque de la Bodega N°4.' },
+  b5:     { name: 'Bodega N°5',   dims: '96 × 20 m', area: 1920, color: '#9aa7ae', bod: true, note: 'Entre la N°4 y la N°6.' },
+  b6:     { name: 'Bodega N°6',   dims: '100 × 60 m', area: 6000, color: '#9aa7ae', bod: true, note: 'La bodega más grande, de 3 naves. Andenes hacia el camino oeste.' },
+  b7:     { name: 'Bodega N°7',   dims: '77 × 20 m', area: 1540, color: '#9aa7ae', bod: true, note: 'Sector oriente, junto al camino perimetral. Consolidado al frente.' },
+  m8:     { name: 'Bodega Modular N°8', dims: '60 × 25 m', area: 1500, color: '#dfe3e6', note: 'Queda operativa la mitad hacia las bodegas (1.500 m²); la otra mitad se desarmó.' },
+  consol: { name: 'Zona de consolidación', dims: 'pavimentada', area: null, color: '#c9a77a', note: 'Zona de consolidación pavimentada, junto al acceso ferroviario del sector WnD.' },
+  pre:    { name: 'Pre Stacking Full', dims: 'patio oeste', area: null, color: '#d9b48a', note: 'Patio de pre-apilamiento de contenedores full, entre las bodegas 1-A/1-B y el borde SO.' },
+  yard:   { name: 'Sector apilamiento depot', dims: 'H = 5', area: null, color: '#b9b4a8', note: 'Patio de contenedores vacíos. Calles B y C paralelas a la vía; calles 1, 2 y 3 perpendiculares. Junto al cerco corre la línea férrea interna de descarga. Bloque reefer junto a la línea (46 conexiones).' },
+  fumig:  { name: 'Zona de fumigado', dims: 'esquina NE', area: null, color: '#e8c95a', note: 'Zona de fumigado de contenedores en la esquina NE del patio.' },
+  lavado: { name: 'Estación de lavado', dims: '20 posiciones', area: null, color: '#6fa5cf', note: 'Lavado de contenedores dry y reefer.' },
+  garage: { name: 'Garage', dims: 'junto a la Bodega N°6', area: null, color: '#c7ccd1', note: 'Garage de equipos.' },
+  ofic:   { name: 'Oficinas', dims: 'Área C', area: null, color: '#cfd8e0', note: 'Conjunto de oficinas frente a la Bodega N°6: edificio principal de techo oscuro, explanada, contenedor-oficina, edificio de techo blanco y cobertizo de acceso. Estacionamientos al oeste y al sur.' },
+  fumi:   { name: 'Fumigación', dims: 'Área E', area: null, color: '#ead79a', note: 'Tres módulos de fumigación junto al cerco del Área E, al lado de la entrada principal.' },
+  banos:  { name: 'Baños', dims: 'Área E', area: null, color: '#dfe7ee', note: 'Baños junto a los módulos de fumigación, en el Área E.' },
+  ctrl:   { name: 'Control de acceso', dims: 'entrada principal', area: null, color: '#f2b705', note: 'Entrada principal por Nuressa, en el vértice con pasaje Uno: portón corredizo azul, caseta de guardia, letrero PARE, lomo de toro y barreras de hormigón. Gate de 1 in + 1 out.' },
+  emr:    { name: 'EMR', dims: 'patio', area: null, color: '#e3a296', note: 'Taller de reparación de contenedores (12.960 HH/año).' },
+  wh:     { name: 'Warehouse and Spareparts', dims: 'frente a la N°7', area: null, color: '#c7ccd1', note: 'Bodega de repuestos.' },
+  ofdep:  { name: 'Oficinas Depot y EMR', dims: 'sector oriente', area: null, color: '#cfd8e0', note: 'Oficinas del depot y del EMR.' },
+  romana: { name: 'Romana', dims: 'junto a la reja de pasaje Uno', area: null, color: '#5f666d', note: 'Báscula para pesar camiones, entre la hilera de contenedores y la reja de pasaje Uno.' },
+  plat:   { name: 'Plataforma de inspección', dims: 'borde NE', area: null, color: '#b7bec5', note: 'Plataforma para inspección de contenedores sobre camión.' },
+};
+const ORDER = ['b1a', 'b1b', 'b2', 'b3', 'b4', 'b5', 'b6', 'b7'];
+const EXTRA = ['galpon', 'm8', 'pre', 'consol', 'yard', 'fumig', 'lavado', 'garage', 'emr', 'wh', 'ofdep', 'ofic', 'fumi', 'banos', 'ctrl', 'romana', 'plat'];
+const NORTH = new THREE.Vector3(0.645, 0, -0.764).normalize();   // norte en coordenadas del plano
+
+/* ---------- Escena ---------- */
+const view = $('#view');
+let renderer;
+try { renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true }); }
+catch (e) {
+  view.insertAdjacentHTML('beforeend', '<div class="err">Este navegador no pudo iniciar WebGL, así que el modelo 3D no se puede mostrar.</div>');
+  throw e;
+}
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.05;
+view.prepend(renderer.domElement);
+const labelR = new CSS2DRenderer();
+labelR.domElement.className = 'labels';
+view.insertBefore(labelR.domElement, renderer.domElement.nextSibling);
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(36, 1, 1, 6000);
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.maxPolarAngle = Math.PI / 2 - 0.04;
+controls.minDistance = 10;
+controls.maxDistance = 1400;
+
+const CX = 290, CZ = 110;
+scene.add(new THREE.HemisphereLight(0xffffff, 0x8a8170, 0.55));
+{ const pm = new THREE.PMREMGenerator(renderer); scene.environment = pm.fromScene(new RoomEnvironment(), 0.04).texture; scene.environmentIntensity = 0.55; }
+const sun = new THREE.DirectionalLight(0xfff6e8, 2.0);
+sun.position.set(CX + NORTH.x * 260 - 120, 330, CZ + NORTH.z * 260);
+sun.target.position.set(CX, 0, CZ);
+sun.castShadow = true;
+sun.shadow.mapSize.set(4096, 4096);
+Object.assign(sun.shadow.camera, { left: -360, right: 360, top: 360, bottom: -360, near: 10, far: 1100 });
+sun.shadow.bias = -0.0004;
+sun.shadow.normalBias = 0.05;
+scene.add(sun, sun.target);
+
+function applyTheme() {
+  const c = getComputedStyle(document.documentElement).getPropertyValue('--scene').trim() || '#dde3e9';
+  scene.background = new THREE.Color(c);
+  scene.fog = new THREE.Fog(c, 900, 2600);
+}
+applyTheme();
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applyTheme);
+
+/* ---------- Utilidades ---------- */
+const matCache = new Map();
+const mat = (color, extra = {}) => {
+  const key = color + JSON.stringify(extra);
+  if (!matCache.has(key)) matCache.set(key, new THREE.MeshStandardMaterial({ color, roughness: 0.85, metalness: 0.05, ...extra }));
+  return matCache.get(key);
+};
+const pickables = [];
+function box(parent, w, h, d, color, x, y, z, { cast = true, receive = true, zone, material } = {}) {
+  const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), material || mat(color));
+  m.position.set(x, y, z);
+  m.castShadow = cast; m.receiveShadow = receive;
+  if (zone) { m.userData.zone = zone; pickables.push(m); }
+  parent.add(m);
+  return m;
+}
+const rbox = (parent, r, h, color, y0 = 0, opts) => box(parent, r.x1 - r.x0, h, r.z1 - r.z0, color, (r.x0 + r.x1) / 2, y0 + h / 2, (r.z0 + r.z1) / 2, opts);
+function floorRect(parent, r, color, y, zone, material) {
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(r.x1 - r.x0, r.z1 - r.z0), material || mat(color));
+  m.rotation.x = -Math.PI / 2;
+  m.position.set((r.x0 + r.x1) / 2, y, (r.z0 + r.z1) / 2);
+  m.receiveShadow = true;
+  if (zone) { m.userData.zone = zone; pickables.push(m); }
+  parent.add(m);
+  return m;
+}
+function floorPoly(parent, pts, color, y, zone, material) {
+  const s = new THREE.Shape(pts.map(([x, z]) => new THREE.Vector2(x, -z)));
+  const m = new THREE.Mesh(new THREE.ShapeGeometry(s), material || mat(color));
+  m.rotation.x = -Math.PI / 2; m.position.y = y; m.receiveShadow = true;
+  if (zone) { m.userData.zone = zone; pickables.push(m); }
+  parent.add(m);
+  return m;
+}
+function label(parent, html, cls, x, y, z, zone) {
+  const el = document.createElement('div');
+  el.className = cls; el.innerHTML = html;
+  if (zone) el.dataset.zone = zone;
+  const o = new CSS2DObject(el);
+  o.position.set(x, y, z);
+  parent.add(o);
+  return o;
+}
+const dimMat = new THREE.LineBasicMaterial({ color: 0xe5a900 });
+function dim(parent, a, b, text) {
+  const A = new THREE.Vector3(...a), B = new THREE.Vector3(...b), up = new THREE.Vector3(0, 1.2, 0);
+  parent.add(new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(
+    [A, B, A.clone().sub(up), A.clone().add(up), B.clone().sub(up), B.clone().add(up)]), dimMat));
+  const m = A.clone().lerp(B, 0.5);
+  label(parent, text, 'dim', m.x, m.y, m.z);
+}
+function canvasTex(w, h, draw, rep) {
+  const c = document.createElement('canvas'); c.width = w; c.height = h;
+  draw(c.getContext('2d'), w, h);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8;
+  if (rep) { t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(...rep); }
+  return t;
+}
+const rng = (() => { let s = 7; return () => (s = (s * 16807) % 2147483647) / 2147483647; })();
+
+/* ---------- Texturas ---------- */
+const roofTex = (base, rib) => canvasTex(64, 64, (g, w, h) => {
+  g.fillStyle = base; g.fillRect(0, 0, w, h);
+  for (let x = 0; x < w; x += 8) { g.fillStyle = rib; g.fillRect(x, 0, 3, h); g.fillStyle = 'rgba(255,255,255,.18)'; g.fillRect(x + 3, 0, 1, h); }
+}, [1, 1]);
+const groundTex = (base, dots) => canvasTex(256, 256, (g, w, h) => {
+  g.fillStyle = base; g.fillRect(0, 0, w, h);
+  for (let i = 0; i < 2600; i++) { g.fillStyle = dots[i % dots.length]; g.globalAlpha = 0.18 + rng() * 0.25; g.fillRect(rng() * w, rng() * h, 1 + rng() * 2, 1 + rng() * 2); }
+  g.globalAlpha = 1;
+}, [40, 20]);
+const yardMat = new THREE.MeshStandardMaterial({ map: groundTex('#b9b2a4', ['#8f887b', '#d6d0c3', '#a49d8f']), roughness: 0.95 });
+const asphaltMat = new THREE.MeshStandardMaterial({ map: groundTex('#6f7377', ['#5b5f63', '#868a8e', '#7b7f83']), roughness: 0.9 });
+const outsideMat = new THREE.MeshStandardMaterial({ map: groundTex('#a8a294', ['#958f82', '#bbb5a7']), roughness: 1 });
+const ballastMat = new THREE.MeshStandardMaterial({ map: groundTex('#8d8170', ['#6e6457', '#a39886']), roughness: 1 });
+
+/* ---------- Vehículos, árboles y señalética ---------- */
+const glassM = mat('#1c2732', { metalness: 0.5, roughness: 0.12 });
+const tireM = mat('#161616', { roughness: 0.95 });
+const rimM = mat('#c3c8cd', { metalness: 0.8, roughness: 0.3 });
+const chromeM = mat('#d7dbdf', { metalness: 0.9, roughness: 0.2 });
+const wheelG = new THREE.CylinderGeometry(1, 1, 1, 18), rimG = new THREE.CylinderGeometry(1, 1, 1, 10);
+function wheel(g, x, z, r = 0.52, wdt = 0.36) {
+  const w = new THREE.Mesh(wheelG, tireM); w.scale.set(r, wdt, r); w.rotation.x = Math.PI / 2; w.position.set(x, r, z); w.castShadow = true; g.add(w);
+  const h = new THREE.Mesh(rimG, rimM); h.scale.set(r * 0.55, wdt + 0.02, r * 0.55); h.rotation.x = Math.PI / 2; h.position.set(x, r, z); g.add(h);
+}
+const contTexX = canvasTex(256, 64, (g, w, h) => {
+  g.fillStyle = '#ffffff'; g.fillRect(0, 0, w, h);
+  for (let x = 0; x < w; x += 7) { g.fillStyle = 'rgba(0,0,0,.14)'; g.fillRect(x, 3, 2, h - 6); g.fillStyle = 'rgba(255,255,255,.5)'; g.fillRect(x + 2, 3, 1, h - 6); }
+  g.fillStyle = 'rgba(0,0,0,.28)'; g.fillRect(0, 0, w, 3); g.fillRect(0, h - 3, w, 3); g.fillRect(0, 0, 4, h); g.fillRect(w - 4, 0, 4, h);
+});
+const contMats = new Map();
+const contMat = col => { if (!contMats.has(col)) contMats.set(col, new THREE.MeshStandardMaterial({ map: contTexX, color: col, roughness: 0.55, metalness: 0.3 })); return contMats.get(col); };
+function makeTruck(cab = '#f2c230', load = '#f2f4f5') {
+  const g = new THREE.Group();
+  // semirremolque
+  box(g, 13.4, 0.32, 2.3, '#2f3338', -0.6, 1.28, 0);
+  [-0.95, 0.95].forEach(z => box(g, 13.2, 0.4, 0.12, '#3a3f45', -0.6, 1.05, z));
+  if (load) { const c = new THREE.Mesh(new THREE.BoxGeometry(12.19, 2.59, 2.44), contMat(load)); c.position.set(-0.6, 2.75, 0); c.castShadow = c.receiveShadow = true; g.add(c); }
+  [-5.6, -4.3].forEach(x => [-0.98, 0.98].forEach(z => wheel(g, x, z)));
+  box(g, 0.5, 0.25, 2.4, '#d0402f', -7.25, 0.9, 0);                       // parachoques trasero
+  box(g, 0.12, 1.0, 0.12, '#3a3f45', 3.2, 0.6, 0.8); box(g, 0.12, 1.0, 0.12, '#3a3f45', 3.2, 0.6, -0.8);   // patas de apoyo
+  // tracto
+  box(g, 6.6, 0.4, 1.1, '#26292d', 8.4, 0.95, 0);
+  box(g, 2.2, 0.22, 2.3, '#3a3f45', 6.7, 1.25, 0);                        // quinta rueda
+  box(g, 2.3, 2.5, 2.48, cab, 9.7, 2.7, 0);                               // cabina
+  box(g, 2.0, 0.7, 2.4, cab, 9.5, 4.25, 0);                               // deflector
+  box(g, 1.9, 1.35, 2.3, cab, 11.75, 2.1, 0);                             // capó
+  box(g, 0.08, 1.05, 1.5, chromeM, 12.72, 2.05, 0);                       // parrilla
+  box(g, 0.35, 0.35, 2.5, '#c9ccd0', 12.8, 1.15, 0);                      // parachoques
+  [-0.85, 0.85].forEach(z => box(g, 0.06, 0.22, 0.4, '#fff7d0', 12.76, 1.65, z));
+  box(g, 0.06, 0.95, 2.2, glassM, 10.86, 3.25, 0);                        // parabrisas
+  [-1.25, 1.25].forEach(z => { box(g, 1.3, 0.85, 0.04, glassM, 9.9, 3.25, z); box(g, 0.1, 0.5, 0.1, '#222', 10.95, 3.3, z * 1.12); });
+  [-1.0, 1.0].forEach(z => { const t = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.28, 1.4, 12), chromeM); t.rotation.z = Math.PI / 2; t.position.set(9.6, 0.95, z * 1.05); g.add(t); });
+  const ex = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 2.2, 8), chromeM); ex.position.set(8.5, 3.6, 1.15); g.add(ex);
+  [11.7, 8.1, 6.9].forEach(x => [-0.98, 0.98].forEach(z => wheel(g, x, z)));
+  g.traverse(o => { if (o.isMesh) o.castShadow = true; });
+  return g;
+}
+function makeCar(col = '#e8e8e8', kind = 'sedan') {
+  const g = new THREE.Group();
+  const bodyM = mat(col, { metalness: 0.55, roughness: 0.35 });
+  if (kind === 'pickup') {
+    box(g, 5.1, 0.7, 1.85, null, 0, 0.75, 0, { material: bodyM });
+    box(g, 2.2, 0.75, 1.75, null, 0.55, 1.45, 0, { material: glassM }); box(g, 2.1, 0.08, 1.7, null, 0.5, 1.86, 0, { material: bodyM });
+    [-0.88, 0.88].forEach(z => box(g, 2.2, 0.45, 0.08, null, -1.45, 1.3, z, { material: bodyM })); box(g, 0.08, 0.45, 1.8, null, -2.53, 1.3, 0, { material: bodyM });
+  } else {
+    const tall = kind === 'suv';
+    box(g, 4.4, tall ? 0.85 : 0.65, 1.8, null, 0, tall ? 0.8 : 0.68, 0, { material: bodyM });
+    box(g, tall ? 2.9 : 2.3, tall ? 0.7 : 0.55, 1.66, null, -0.15, tall ? 1.55 : 1.27, 0, { material: glassM });
+    box(g, tall ? 2.8 : 2.1, 0.08, 1.6, null, -0.15, tall ? 1.93 : 1.57, 0, { material: bodyM });
+  }
+  const L = kind === 'pickup' ? 2.5 : 2.15;
+  [-0.85, 0.85].forEach(z => { box(g, 0.05, 0.14, 0.32, '#fff6d8', L + 0.02, 0.85, z * 0.85, { cast: false }); box(g, 0.05, 0.14, 0.32, '#c0281e', -L - 0.02, 0.85, z * 0.85, { cast: false }); });
+  [L - 0.8, -L + 0.8].forEach(x => [-0.84, 0.84].forEach(z => wheel(g, x, z, 0.34, 0.24)));
+  return g;
+}
+function tree(parent, x, z, sc = 1, eucalipto = false) {
+  const t = new THREE.Mesh(new THREE.CylinderGeometry(0.22 * sc, 0.32 * sc, (eucalipto ? 9 : 4) * sc, 8), mat('#6b5440'));
+  t.position.set(x, (eucalipto ? 4.5 : 2) * sc, z); t.castShadow = true; parent.add(t);
+  const leaf = mat(eucalipto ? '#476b3c' : '#4f7f3a', { flatShading: true });
+  const blobs = eucalipto ? [[0, 10, 0, 3.6], [1.6, 12.5, 0.8, 2.8], [-1.4, 13.5, -0.6, 2.6], [0.3, 15.5, 0.2, 2.2]] : [[0, 4.6, 0, 2.2], [0.9, 5.6, 0.4, 1.6], [-0.8, 5.4, -0.5, 1.5]];
+  blobs.forEach(([a, b, c, r]) => { const m = new THREE.Mesh(new THREE.IcosahedronGeometry(r * sc, 1), leaf); m.position.set(x + a * sc, b * sc, z + c * sc); m.castShadow = true; parent.add(m); });
+}
+const arrowGeo = (() => { const s = new THREE.Shape(); s.moveTo(-2.4, -0.35); s.lineTo(0.6, -0.35); s.lineTo(0.6, -0.9); s.lineTo(2.4, 0); s.lineTo(0.6, 0.9); s.lineTo(0.6, 0.35); s.lineTo(-2.4, 0.35); s.closePath(); return new THREE.ShapeGeometry(s); })();
+const arrowM = new THREE.MeshStandardMaterial({ color: '#f4f2ea', roughness: 0.8 });
+function arrow(parent, x, z, ang, sc = 1) { const m = new THREE.Mesh(arrowGeo, arrowM); m.rotation.set(-Math.PI / 2, 0, -ang); m.scale.setScalar(sc); m.position.set(x, 0.11, z); m.receiveShadow = true; parent.add(m); }
+
+/* ---------- Entorno ---------- */
+const world = new THREE.Group(); scene.add(world);
+{
+  const g = new THREE.Mesh(new THREE.PlaneGeometry(3000, 3000), outsideMat);
+  g.material.map.repeat.set(120, 120);
+  g.rotation.x = -Math.PI / 2; g.position.set(CX, -0.05, CZ); g.receiveShadow = true; world.add(g);
+  const nb = ['#b9b2a6', '#c4bdb1', '#aea79b', '#cfc8bb'];
+  // faja ferroviaria con varias vías
+  floorRect(world, { x0: -260, x1: 820, z0: -62, z1: -2 }, null, 0.01, null, ballastMat);
+  const railM = mat('#4a4a4a', { metalness: 0.6, roughness: 0.4 }), tieM = mat('#6b5a47');
+  [-10, -20, -30, -40, -52].forEach(zc => {
+    for (const d of [-0.72, 0.72]) box(world, 1080, 0.18, 0.12, null, 280, 0.2, zc + d, { cast: false, material: railM });
+    const ties = new THREE.InstancedMesh(new THREE.BoxGeometry(0.25, 0.12, 2.4), tieM, 1800);
+    const o = new THREE.Object3D();
+    for (let i = 0; i < 1800; i++) { o.position.set(-260 + i * 0.6, 0.08, zc); o.updateMatrix(); ties.setMatrixAt(i, o.matrix); }
+    ties.receiveShadow = true; world.add(ties);
+  });
+  // calles exteriores
+  const road = '#45484d';
+  floorPoly(world, [[100, 206], [600, 233], [600, 247], [100, 220]], road, 0.02);                  // Antonio de la Fuente
+  floorPoly(world, [[582, -2], [596, -2], [600, 247], [586, 247]], road, 0.02);                    // Maritano
+  floorPoly(world, [[-6, 4], [100, 146], [120, 203], [106, 208], [86, 150], [-18, 8]], road, 0.02);   // Nuressa
+  floorPoly(world, [[106, 208], [120, 203], [60, 330], [46, 330]], road, 0.021);                      // Pasaje Uno
+  label(world, 'Pasaje Uno', 'street', 40, 0.6, 80);
+  for (let i = 0; i < 6; i++) { const z = 30 + i * 13; box(world, 8 + rng() * 6, 3 + rng() * 3, 8 + rng() * 4, nb[i % 4], soX(z) - 30 - rng() * 10, 2.5, z); }
+  const dash = mat('#e9e6dc');
+  for (let x = 110; x < 590; x += 9) { const z = 213 + (x - 100) * 27 / 500; const b = box(world, 4, 0.03, 0.2, null, x, 0.04, z, { cast: false, material: dash }); b.rotation.y = -Math.atan2(27, 500); }
+  label(world, 'Calle Antonio de la Fuente', 'street', 360, 0.6, 229);
+  label(world, 'Calle Maritano', 'street', 591, 0.6, 120);
+  label(world, 'Vía férrea · Santiago ↔ San Antonio', 'street', 320, 0.6, -30);
+  for (let i = 0; i < 70; i++) {
+    const x = 60 + (i % 14) * 38 + rng() * 8, z = 268 + Math.floor(i / 14) * 30 + rng() * 6;
+    box(world, 9 + rng() * 9, 3 + rng() * 3, 8 + rng() * 7, nb[i % 4], x, 2.5, z + (x - 100) * 0.054);
+  }
+  for (let i = 0; i < 36; i++) {
+    const x = -200 + (i % 18) * 52 + rng() * 10, z = -110 - Math.floor(i / 18) * 36 - rng() * 8;
+    box(world, 10 + rng() * 10, 3 + rng() * 3, 9 + rng() * 7, nb[i % 4], x, 2.5, z);
+  }
+  for (let i = 0; i < 16; i++) box(world, 12 + rng() * 10, 3 + rng() * 4, 12 + rng() * 8, nb[i % 4], 625 + (i % 2) * 26, 2.5, 10 + Math.floor(i / 2) * 30);
+}
+
+/* ---------- Site ---------- */
+const site = new THREE.Group(); scene.add(site);
+const roofG = new THREE.Group(); site.add(roofG);
+const dims = new THREE.Group(); scene.add(dims);
+const contG = new THREE.Group(); scene.add(contG);
+const trucksG = new THREE.Group(); scene.add(trucksG);
+const hl = new THREE.Group(); scene.add(hl);
+{
+  // piso del site
+  floorPoly(site, SITE, null, 0.03, null, yardMat);
+  // caminos interiores (asfalto)
+  floorPoly(site, [[118, 190], [578, 217], [578, 229], [118, 202]], null, 0.05, null, asphaltMat);       // perimetral SE
+  floorRect(site, { x0: 126, x1: 138, z0: 20, z1: 196 }, null, 0.05, null, asphaltMat);                  // camino oeste bodegas 4-6
+  floorRect(site, { x0: 240, x1: 244, z0: 17, z1: 196 }, null, 0.05, null, asphaltMat);
+  floorRect(site, { x0: 297, x1: 306, z0: 3, z1: 214 }, null, 0.05, null, asphaltMat);                   // Calle 3
+  // línea férrea interna: entra por la esquina NE y corre junto al cerco hasta la zona de consolidación para descargar
+  floorRect(site, { x0: 246, x1: 576, z0: 2.5, z1: 11 }, null, 0.05, null, ballastMat);
+  {
+    const railM = mat('#4a4a4a', { metalness: 0.6, roughness: 0.4 }), tieM = mat('#6b5a47');
+    const pts = [];
+    for (let x = 250; x <= 560; x += 2) pts.push([x, 7]);
+    for (let t = 0; t <= 1; t += 0.05) { const x = 560 + t * 80, z = 7 - 17 * (3 * t * t - 2 * t * t * t); pts.push([x, z]); }
+    const ties = new THREE.InstancedMesh(new THREE.BoxGeometry(0.25, 0.12, 2.4), tieM, pts.length * 3);
+    const o = new THREE.Object3D(); let n = 0;
+    for (let i = 1; i < pts.length; i++) {
+      const [xa, za] = pts[i - 1], [xb, zb] = pts[i], L = Math.hypot(xb - xa, zb - za), a = Math.atan2(zb - za, xb - xa);
+      for (const d of [-0.72, 0.72]) { const r = box(site, L + 0.05, 0.18, 0.12, null, (xa + xb) / 2 - Math.sin(a) * d, 0.22, (za + zb) / 2 + Math.cos(a) * d, { cast: false, material: railM }); r.rotation.y = -a; }
+      for (let k = 0; k < 3; k++) { const f = k / 3; o.position.set(xa + (xb - xa) * f, 0.1, za + (zb - za) * f); o.rotation.y = -a; o.updateMatrix(); ties.setMatrixAt(n++, o.matrix); }
+    }
+    ties.count = n; ties.receiveShadow = true; site.add(ties);
+    // tope al final de la línea
+    box(site, 1.2, 1.4, 3, '#c0392b', 248, 0.7, 7);
+  }
+  floorRect(site, { x0: 306, x1: 556, z0: 59, z1: 68 }, null, 0.05, null, asphaltMat);                   // Calle B
+  floorRect(site, { x0: 306, x1: 556, z0: 114, z1: 123 }, null, 0.05, null, asphaltMat);                 // Calle C
+  floorRect(site, { x0: 429, x1: 438, z0: 11, z1: 158 }, null, 0.05, null, asphaltMat);                  // Calle 2
+  floorRect(site, { x0: 556, x1: 572, z0: 3, z1: 226 }, null, 0.05, null, asphaltMat);                   // Calle 1
+  floorRect(site, { x0: 306, x1: 556, z0: 158, z1: 168 }, null, 0.05, null, asphaltMat);
+  const dash = mat('#f1efe6');
+  const dashes = (x0, x1, z, horiz = true) => { for (let t = x0; t < x1; t += 9) horiz ? box(site, 4.5, 0.02, 0.2, null, t, 0.07, z, { cast: false, material: dash }) : box(site, 0.2, 0.02, 4.5, null, z, 0.07, t, { cast: false, material: dash }); };
+  dashes(310, 552, 63.5); dashes(310, 552, 118.5); dashes(8, 210, 301.5, false); dashes(14, 222, 433.5, false); dashes(8, 222, 564, false); dashes(24, 192, 132, false);
+  [['Calle B', 370, 63.5], ['Calle C', 370, 118.5]].forEach(([t, x, z]) => label(site, t, 'calle', x, 0.4, z));
+  label(site, 'Línea férrea interna de descarga', 'lbl tag', 470, 4, 7);
+  [['Calle 3', 301.5, 90], ['Calle 2', 433.5, 90], ['Calle 1', 564, 90]].forEach(([t, x, z]) => label(site, t, 'calle', x, 0.4, z));
+  label(site, 'Camino perimetral', 'calle', 330, 0.4, 211);
+  // sentido de circulación: perimetral hacia el oriente, calle 1 al norte, calles B y C al poniente, calles 2 y 3 al sur, camino oeste al norte
+  const pa = Math.atan2(27, 460);
+  [200, 300, 400, 500].forEach(x => arrow(site, x, 202 + (x - 118) * 27 / 460 - 6.5, pa));
+  [180, 120, 60].forEach(z => { arrow(site, 564, z, -Math.PI / 2); arrow(site, 132, z, -Math.PI / 2); });
+  [520, 400].forEach(x => { arrow(site, x, 63.5, Math.PI); arrow(site, x, 118.5, Math.PI); });
+  [40, 150].forEach(z => { arrow(site, 301.5, z, Math.PI / 2); arrow(site, 433.5, z + 10, Math.PI / 2); });
+
+  // zonas pintadas
+  const zoneMat = (c, o = 0.55) => new THREE.MeshStandardMaterial({ color: c, transparent: true, opacity: o, roughness: 0.95, depthWrite: false });
+  const PRE = [[18, 28], [124, 28], [124, 112], [82, 112], [16, 30]];
+  floorPoly(site, PRE, null, 0.06, 'pre', zoneMat('#d9a46a', 0.42));
+  floorRect(site, R.consol, null, 0.06, 'consol', zoneMat('#c98a3a', 0.4));
+  floorRect(site, R.fumig, null, 0.07, 'fumig', zoneMat('#f2c230', 0.5));
+  floorRect(site, R.consdo, null, 0.06, 'consol', zoneMat('#c98a3a', 0.4));
+  // contorno rojo discontinuo del pre stacking
+  const lineDash = new THREE.LineDashedMaterial({ color: 0xd9534f, dashSize: 4, gapSize: 2.5 });
+  const preL = new THREE.Line(new THREE.BufferGeometry().setFromPoints([...PRE, PRE[0]].map(([x, z]) => new THREE.Vector3(x, 0.12, z))), lineDash);
+  preL.computeLineDistances(); site.add(preL);
+
+  // cerco perimetral con accesos (Área A en la punta y acceso principal en el borde SE)
+  const meshT = canvasTex(64, 64, (g, w, h) => { g.clearRect(0, 0, w, h); g.strokeStyle = 'rgba(70,110,160,.9)'; g.lineWidth = 2;
+    for (let i = -64; i < 128; i += 10) { g.beginPath(); g.moveTo(i, 0); g.lineTo(i + 64, 64); g.stroke(); g.beginPath(); g.moveTo(i, 64); g.lineTo(i + 64, 0); g.stroke(); }
+    g.fillStyle = 'rgba(60,95,140,1)'; g.fillRect(0, 0, w, 4); g.fillRect(0, h - 4, w, 4); });
+  const fenceM = new THREE.MeshStandardMaterial({ map: meshT, transparent: true, alphaTest: 0.2, side: THREE.DoubleSide, roughness: 0.6, metalness: 0.3 });
+  const postM = mat('#4f7fb5', { metalness: 0.4, roughness: 0.5 });
+  const fencePosts = [];
+  const fence = (a, b, gaps = []) => {
+    const [x0, z0] = a, [x1, z1] = b, L = Math.hypot(x1 - x0, z1 - z0), ang = Math.atan2(z1 - z0, x1 - x0);
+    let segs = [[0, L]];
+    gaps.forEach(([g0, g1]) => { segs = segs.flatMap(([s0, s1]) => g1 <= s0 || g0 >= s1 ? [[s0, s1]] : [[s0, g0], [g1, s1]].filter(([p, q]) => q - p > 0.5)); });
+    segs.forEach(([s0, s1]) => {
+      const m = (s0 + s1) / 2, cx = x0 + Math.cos(ang) * m, cz = z0 + Math.sin(ang) * m;
+      const w = new THREE.Mesh(new THREE.PlaneGeometry(s1 - s0, 2.4), fenceM.clone());
+      w.material.map = meshT.clone(); w.material.map.needsUpdate = true; w.material.map.repeat.set((s1 - s0) / 2.4, 1);
+      w.position.set(cx, 1.2, cz); w.rotation.y = -ang; site.add(w);
+      for (let t = s0; t <= s1; t += 3) fencePosts.push([x0 + Math.cos(ang) * t, z0 + Math.sin(ang) * t, ang]);
+    });
+    gaps.forEach(([g0, g1]) => [g0, g1].forEach(t => box(site, 0.6, 3.2, 0.6, null, x0 + Math.cos(ang) * t, 1.6, z0 + Math.sin(ang) * t, { material: postM })));
+  };
+  fence([-10, 0], [576, 0]);
+  fence([576, 0], [578, 229], [[1, 12]]);        // portón de la línea férrea interna
+  fence([578, 229], [120, 203]);
+  fence([120, 203], [100, 146], [[42.4, 61]]);   // entrada principal, junto al vértice
+  fence([100, 146], [-4, 6], [[152, 168]]);      // acceso Área A, junto a la punta
+  {
+    const pm = new THREE.InstancedMesh(new THREE.BoxGeometry(0.12, 2.9, 0.12), postM, fencePosts.length);
+    const vm = new THREE.InstancedMesh(new THREE.BoxGeometry(0.08, 0.8, 0.08), postM, fencePosts.length * 2);
+    const o = new THREE.Object3D();
+    fencePosts.forEach(([x, z, a], i) => {
+      o.position.set(x, 1.45, z); o.rotation.set(0, -a, 0); o.updateMatrix(); pm.setMatrixAt(i, o.matrix);
+      [-1, 1].forEach((sg, k) => { o.position.set(x - Math.sin(a) * sg * 0.25, 3.1, z + Math.cos(a) * sg * 0.25); o.rotation.set(0, -a, 0); o.rotateX(sg * 0.6); o.updateMatrix(); vm.setMatrixAt(i * 2 + k, o.matrix); });
+    });
+    pm.castShadow = vm.castShadow = true; site.add(pm, vm);
+  }
+  // --- Entrada principal: portón en el borde corto junto al vértice; la pista sigue recta hacia la Bodega N°6
+  {
+    const U = [0.331, 0.944], N = [0.944, -0.331];            // U: a lo largo del cerco (hacia el sur) · N: hacia adentro, rumbo a la bodega
+    const G = (s, n = 0) => [100 + U[0] * s + N[0] * n, 146 + U[1] * s + N[1] * n];
+    const ang = Math.atan2(N[1], N[0]), angU = Math.atan2(U[1], U[0]);
+    const concrete = new THREE.MeshStandardMaterial({ map: groundTex('#c9c6be', ['#b3afa6', '#dedbd3', '#a9a59c']), roughness: 0.9 });
+    concrete.map.repeat.set(6, 6);
+    floorPoly(site, [G(0, 0), G(18, 0), G(18, 34), G(0, 34)], null, 0.09, null, concrete);
+    floorPoly(world, [G(0, 0), G(18, 0), G(22, -18), G(-2, -18)], null, 0.03, null, concrete);
+    // carril de entrada (lado sur) y de salida, eje segmentado y flechas
+    for (let n = 1; n < 33; n += 4) { const [x, z] = G(9, n); box(site, 2.2, 0.03, 0.18, '#f4f2ea', x, 0.12, z, { cast: false }).rotation.y = -ang; }
+    { const [x, z] = G(13.5, 16); arrow(site, x, z, ang, 1.1); }
+    { const [x, z] = G(4.5, 16); arrow(site, x, z, ang + Math.PI, 1.1); }
+    // lomo de toro amarillo/negro de lado a lado
+    for (let k = 0; k < 9; k++) { const [x, z] = G(1 + k * 2, 6); box(site, 2, 0.08, 0.7, k % 2 ? '#2b2b2b' : '#f2c230', x, 0.13, z, { cast: false }).rotation.y = -angU; }
+    // caseta de guardia (control de acceso) a la derecha al entrar
+    const [cx, cz] = G(21.5, 4);
+    const cas = new THREE.Group(); cas.position.set(cx, 0, cz); cas.rotation.y = -ang; site.add(cas);
+    box(cas, 3.2, 2.5, 3.2, '#f2f2ef', 0, 1.25, 0, { zone: 'ctrl' });
+    box(cas, 3.24, 1.0, 2.2, null, 0, 1.6, 0, { cast: false, material: glassM });
+    box(cas, 2.2, 1.0, 3.24, null, 0, 1.6, 0, { cast: false, material: glassM });
+    [[1.62, 0], [0, 1.62], [-1.62, 0], [0, -1.62]].forEach(([a, b]) => box(cas, a ? 0.08 : 3.3, 0.12, b ? 0.08 : 3.3, '#3c6ea8', a, 2.15, b, { cast: false }));
+    box(cas, 5.5, 0.18, 5, '#2e3b4a', 0.4, 3.6, 0, { zone: 'ctrl' });
+    [[-1.9, -2.3], [2.7, -2.3], [-1.9, 2.3], [2.7, 2.3]].forEach(([a, b]) => box(cas, 0.12, 3.6, 0.12, '#2e3b4a', a, 1.8, b));
+    // barrera levadiza
+    { const [bx, bz] = G(17.4, 9); box(site, 0.35, 1.1, 0.35, '#e8e3d6', bx, 0.55, bz); const a = box(site, 0.12, 0.12, 8, '#d6362b', bx - U[0] * 4, 1.05, bz - U[1] * 4); a.rotation.y = -angU + Math.PI / 2; }
+    // letrero PARE y señal de lomo de toro
+    const [sx, sz] = G(18.6, 1.5);
+    box(site, 0.1, 2.6, 0.1, '#8a8f95', sx, 1.3, sz);
+    const pare = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.42, 0.05, 8), mat('#c62828')); pare.rotation.set(Math.PI / 2, 0, Math.PI / 8); pare.position.set(sx, 2.75, sz); site.add(pare);
+    box(site, 0.6, 0.6, 0.04, '#f2c230', sx, 2.1, sz + 0.05).rotation.z = Math.PI / 4;
+    // barreras de hormigón amarillo/negro en el costado izquierdo (lado del vértice)
+    for (let k = 0; k < 7; k++) { const [x, z] = G(-1, 2 + k * 2.1); box(site, 2, 0.8, 0.6, k % 2 ? '#2b2b2b' : '#f2c230', x, 0.4, z).rotation.y = -ang; }
+    // portones corredizos azules, abiertos contra la reja
+    [[19, 25], [25.4, 31.4]].forEach(([a, b], k) => { const [x0, z0] = G(a, -0.5 - k * 0.4), [x1, z1] = G(b, -0.5 - k * 0.4);
+      const g = new THREE.Mesh(new THREE.PlaneGeometry(6, 2.4), fenceM); g.position.set((x0 + x1) / 2, 1.2, (z0 + z1) / 2); g.rotation.y = -angU; site.add(g); });
+    // camión entrando
+    { const t = makeTruck('#f2c230', '#2f6db3'); const [tx, tz] = G(13.5, 4); t.position.set(tx, 0, tz); t.rotation.y = -ang; trucksG.add(t); }
+    label(site, 'Entrada principal', 'lbl tag', ...(() => { const [x, z] = G(9, -5); return [x, 5, z]; })());
+    // calle Nuressa hacia pasaje Uno
+    floorPoly(world, [G(-2, -18), G(22, -18), G(30, -46), G(6, -46)], '#45484d', 0.025);
+    label(world, 'Nuressa', 'street', ...(() => { const [x, z] = G(14, -32); return [x, 0.6, z]; })());
+  }
+
+  // --- Bodegas con techo a dos aguas (naves a lo largo de la vía)
+  const wallM = new THREE.MeshStandardMaterial({ color: '#253f6e', roughness: 0.7, metalness: 0.15 });
+  const roofBase = roofTex('#9a8f80', '#857b6e'), roofGalp = roofTex('#a39889', '#8b8174');
+  const doorM = mat('#2a3443', { metalness: 0.3, roughness: 0.6 }), skyM = mat('#eef3f8', { emissive: '#b8c8da', emissiveIntensity: 0.25, roughness: 0.3 });
+  const roofDark = roofTex('#527a77', '#43655f'), roofLight = roofTex('#ada293', '#958b7e'), roofTeal = roofTex('#5f8d89', '#4c7673');
+  const warehouse = (id, roofT = roofBase, shades) => {
+    const r = R[id], w = r.x1 - r.x0, d = r.z1 - r.z0, H = r.h, cx = (r.x0 + r.x1) / 2, cz = (r.z0 + r.z1) / 2;
+    box(site, w, H, d, null, cx, H / 2, cz, { material: wallM, zone: id });
+    // portones en la cara SE (cada 12 m) y en la cara SO
+    for (let x = r.x0 + 6; x < r.x1 - 3; x += 12) box(site, 4.5, Math.min(5, H - 1.5), 0.15, null, x, Math.min(5, H - 1.5) / 2, r.z1 + 0.08, { material: doorM, cast: false });
+    for (let k = 0; k < r.naves; k++) { const zc = r.z0 + (k + 0.5) * d / r.naves; box(site, 0.15, 5, 4.5, null, r.x0 - 0.08, 2.5, zc, { material: doorM, cast: false }); }
+    // zócalo blanco y franja de ventanas altas
+    box(site, w + 0.1, 1.1, 0.06, '#eceef0', cx, 0.55, r.z1 + 0.04, { cast: false });
+    box(site, 0.06, 1.1, d + 0.1, '#eceef0', r.x0 - 0.04, 0.55, cz, { cast: false });
+    for (let x = r.x0 + 3; x < r.x1 - 2; x += 4) box(site, 1.4, 0.8, 0.06, '#a9c2d6', x, H - 1.4, r.z1 + 0.05, { cast: false });
+    // techos: una nave por cada vano, cumbrera a lo largo de x
+    const nw = d / r.naves, rise = r.rise;
+    const rm = new THREE.MeshStandardMaterial({ map: roofT.clone(), roughness: 0.55, metalness: 0.35 });
+    rm.map.needsUpdate = true; rm.map.repeat.set(w / 2.5, 1);
+    for (let k = 0; k < r.naves; k++) {
+      const rmk = shades ? (() => { const q = new THREE.MeshStandardMaterial({ map: shades[k].clone(), roughness: 0.55, metalness: 0.35 }); q.map.needsUpdate = true; q.map.repeat.set(w / 2.5, 1); return q; })() : rm;
+      const s = new THREE.Shape(); s.moveTo(0, 0); s.lineTo(nw, 0); s.lineTo(nw / 2, rise); s.closePath();
+      const g = new THREE.ExtrudeGeometry(s, { depth: w, bevelEnabled: false });
+      const m = new THREE.Mesh(g, [mat('#d8d6cf'), rmk]);
+      m.rotation.y = Math.PI / 2;
+      m.position.set(r.x0, H, r.z0 + (k + 1) * nw);
+      m.castShadow = true; m.receiveShadow = true; m.userData.zone = id; pickables.push(m); roofG.add(m);
+      // tragaluces
+      for (let x = r.x0 + 8; x < r.x1 - 6; x += 10) {
+        const sk = box(roofG, 2.2, 0.08, nw / 2 * 0.7, null, x, H + rise * 0.5 + 0.1, r.z0 + k * nw + nw * 0.72, { material: skyM, cast: false });
+        sk.rotation.x = Math.atan2(rise, nw / 2);
+      }
+    }
+  };
+  ['b1a', 'b1b', 'b2', 'b3', 'b4', 'b7'].forEach(id => warehouse(id));
+  warehouse('b5', roofLight);
+  warehouse('b6', roofTeal, [roofTeal, roofDark, roofTeal]);
+  // portones grandes con alero azul en la fachada sur de la Bodega N°6
+  [152, 176, 204, 228].forEach(x => { box(site, 6.5, 5.6, 0.2, '#1b2430', x, 2.8, R.b6.z1 + 0.1, { cast: false }); box(site, 7.4, 0.18, 2.6, '#2f6db3', x, 6.1, R.b6.z1 + 1.3); });
+  warehouse('galpon', roofGalp);
+  // andenes de la Bodega N°6 hacia el camino oeste
+  box(site, 3, 1.2, 50, '#b8b4ab', R.b6.x0 - 1.5, 0.6, 107);
+
+  // --- Bodega Modular N°8 (mitad operativa)
+  rbox(site, R.m8, 6, '#eef0f2', 0, { zone: 'm8' });
+  const ribT = canvasTex(64, 16, (g, w, h) => { g.fillStyle = '#dfe3e6'; g.fillRect(0, 0, w, h); g.fillStyle = '#c4cacf'; for (let x = 0; x < w; x += 6) g.fillRect(x, 0, 2, h); }, [12, 1]);
+  box(site, 61, 0.4, 26, null, 274, 6.2, 152.5, { material: new THREE.MeshStandardMaterial({ map: ribT, roughness: 0.6, metalness: 0.3 }), zone: 'm8' });
+
+  // --- Edificios menores
+  const small = (id, color, roof = '#8c99a6', win = true) => {
+    const r = R[id];
+    rbox(site, r, r.h, color, 0, { zone: id });
+    box(site, r.x1 - r.x0 + 0.4, 0.3, r.z1 - r.z0 + 0.4, roof, (r.x0 + r.x1) / 2, r.h + 0.15, (r.z0 + r.z1) / 2, { zone: id });
+    if (win) for (let y = 1.4; y < r.h - 1; y += 3) box(site, r.x1 - r.x0 - 2, 1.1, 0.06, '#5f87ab', (r.x0 + r.x1) / 2, y + 0.5, r.z1 + 0.04, { cast: false });
+  };
+  // fumigación: 3 módulos junto al cerco del Área E · baños al lado
+  [0, 1, 2].forEach(k => {
+    const g = new THREE.Group(); const t = 27 + k * 9.6;
+    g.position.set(100 + 0.331 * t + 0.944 * 7, 0, 146 + 0.944 * t - 0.331 * 7); g.rotation.y = -Math.atan2(0.944, 0.331); site.add(g);
+    box(g, 9, 2.8, 4.6, '#f6ecc8', 0, 1.4, 0, { zone: 'fumi' }); box(g, 9.4, 0.25, 5, '#b79a3e', 0, 2.95, 0, { zone: 'fumi' });
+    box(g, 1, 2.1, 0.06, '#7a6a3a', 2.5, 1.05, 2.33, { cast: false });
+  });
+  { const g = new THREE.Group(); const t = 55; g.position.set(100 + 0.331 * t + 0.944 * 7, 0, 146 + 0.944 * t - 0.331 * 7); g.rotation.y = -Math.atan2(0.944, 0.331); site.add(g);
+    box(g, 9, 2.8, 5, '#e8eef3', 0, 1.4, 0, { zone: 'banos' }); box(g, 9.4, 0.25, 5.4, '#7fa7c9', 0, 2.95, 0, { zone: 'banos' });
+    [-2, 1].forEach(x => box(g, 0.9, 2, 0.06, '#3d5a78', x, 1, 2.53, { cast: false })); }
+  // oficinas según la foto del dron: franja de pasto con árboles, cobertizo, edificio de techo oscuro, explanada,
+  // contenedor-oficina, edificio de techo blanco y estacionamientos al oeste y al sur
+  {
+    const grass = new THREE.MeshStandardMaterial({ map: groundTex('#6f9a52', ['#5d8744', '#86ad66', '#78a05a']), roughness: 1 });
+    floorRect(site, { x0: 136, x1: 244, z0: 137.6, z1: 143 }, null, 0.08, null, grass);
+    box(site, 106, 0.22, 0.25, '#f2c230', 190, 0.12, 143.1, { cast: false });
+    [146, 170, 196, 214, 232].forEach((x, k) => tree(site, x, 140.2, 0.9 + (k % 2) * 0.15));
+    tree(site, 158, 140.4, 1, true);
+    const conc = new THREE.MeshStandardMaterial({ map: groundTex('#bdbab2', ['#a8a49b', '#cfccc4']), roughness: 0.9 });
+    floorRect(site, { x0: 168, x1: 204, z0: 144, z1: 172 }, null, 0.09, 'ofic', conc);
+    const roofDk = new THREE.MeshStandardMaterial({ map: roofTex('#3c434b', '#30363d').clone(), roughness: 0.6, metalness: 0.3 }); roofDk.map.needsUpdate = true; roofDk.map.repeat.set(6, 1);
+    const roofWh = new THREE.MeshStandardMaterial({ map: roofTex('#e9ebec', '#cfd3d6').clone(), roughness: 0.6, metalness: 0.2 }); roofWh.map.needsUpdate = true; roofWh.map.repeat.set(6, 1);
+    const office = (x0, x1, z0, z1, h, roofM) => {
+      const w = x1 - x0, d = z1 - z0, cx = (x0 + x1) / 2, cz = (z0 + z1) / 2;
+      box(site, w, h, d, '#f1f2f0', cx, h / 2, cz, { zone: 'ofic' });
+      box(site, w + 0.5, 0.25, d + 0.5, null, cx, h + 0.12, cz, { material: roofM, zone: 'ofic' });
+      for (let x = x0 + 1.4; x < x1 - 1; x += 2.6) { box(site, 1.5, 1.1, 0.05, null, x, 1.9, z1 + 0.03, { material: glassM, cast: false }); box(site, 1.5, 1.1, 0.05, null, x, 1.9, z0 - 0.03, { material: glassM, cast: false }); }
+      for (let z = z0 + 1.4; z < z1 - 1; z += 2.6) { box(site, 0.05, 1.1, 1.5, null, x0 - 0.03, 1.9, z, { material: glassM, cast: false }); box(site, 0.05, 1.1, 1.5, null, x1 + 0.03, 1.9, z, { material: glassM, cast: false }); }
+    };
+    office(169, 181.6, 149, 166, 3.4, roofDk);           // edificio principal, techo oscuro
+    office(168, 181, 166, 171.5, 3.2, roofDk);           // ala sur
+    office(189.5, 202.6, 160, 170.5, 3.4, roofWh);       // edificio de techo blanco
+    office(182, 186, 164.5, 167.6, 2.6, roofDk);         // sala chica
+    office(190.5, 203.2, 144, 147, 2.9, mat('#e3e5e6')); // contenedor-oficina 40'
+    office(182, 187, 144, 147, 2.7, mat('#e3e5e6'));
+    // cobertizo de acceso (techo café sobre pilares) en el borde norte
+    box(site, 26, 0.25, 5, '#8a7d6c', 169, 3.2, 146.5);
+    for (let x = 157; x <= 181; x += 4) [144.3, 148.7].forEach(z => box(site, 0.18, 3.1, 0.18, '#6c6f73', x, 1.55, z));
+    // explanada con baldosa celeste
+    box(site, 6, 0.04, 6, '#7fc6e8', 196.5, 0.12, 154.5, { cast: false });
+    // estacionamiento oeste (en batería) y sur
+    const stall = mat('#f2c230');
+    for (let k = 0; k <= 7; k++) box(site, 5, 0.03, 0.12, null, 164.5, 0.12, 147.5 + k * 3, { cast: false, material: stall });
+    [['#f2f2f0', 'sedan'], ['#f2f2f0', 'pickup'], ['#ececea', 'pickup'], ['#2f6db3', 'sedan'], ['#c7ccd1', 'sedan'], ['#4a4f55', 'suv'], ['#b32b25', 'sedan']]
+      .forEach(([c, k], i) => { const v = makeCar(c, k); v.position.set(164.5, 0, 149 + i * 3); trucksG.add(v); });
+    for (let k = 0; k <= 13; k++) box(site, 0.12, 0.03, 5, null, 168 + k * 2.7, 0.12, 176, { cast: false, material: stall });
+    [['#e8e8e8', 'sedan', 1], ['#c7ccd1', 'suv', 2], ['#3a3f45', 'sedan', 5], ['#f2f2f0', 'pickup', 8], ['#8a1f1f', 'suv', 10], ['#c7ccd1', 'sedan', 12]]
+      .forEach(([c, k, i]) => { const v = makeCar(c, k); v.position.set(169.35 + i * 2.7, 0, 176); v.rotation.y = Math.PI / 2; trucksG.add(v); });
+    // contenedor 40' sobre chasis, cargador y madera apilada al oriente de las oficinas
+    { const t = makeTruck('#c23b2e', '#b5402f'); t.position.set(208, 0, 156); t.rotation.y = Math.PI / 2; trucksG.add(t); }
+    { const g = new THREE.Group(); box(g, 4, 1.4, 2.2, '#e0b020', 0, 1.3, 0); box(g, 1.6, 1.4, 1.8, '#e0b020', -0.6, 2.6, 0); box(g, 1.5, 1.0, 1.7, null, -0.6, 2.7, 0, { material: glassM });
+      box(g, 0.4, 1.0, 2.4, '#e0b020', 2.6, 0.9, 0); [-1.3, 1.3].forEach(x => [-1, 1].forEach(z => wheel(g, x, z, 0.65, 0.4))); g.position.set(214, 0, 168); g.rotation.y = 0.4; trucksG.add(g); }
+    const wood = mat('#e2c08c', { roughness: 0.9 });
+    for (let r = 0; r < 3; r++) for (let k = 0; k < 7; k++) { const n = 2 + ((r + k) % 3); for (let t = 0; t < n; t++) box(site, 2.4, 1.1, 1.2, null, 222 + k * 3, 0.55 + t * 1.12, 152 + r * 9, { material: wood }); }
+  }
+  small('garage', '#d5d9dd', '#6f7a85', false); small('emr', '#f1d2cb', '#a5584c', false);
+  small('wh', '#dfe2e5', '#7d8790', false); small('ofdep', '#eef1f4', '#7d8a98');
+  rbox(site, R.plat, 1.4, '#b7bec5', 0, { zone: 'plat' });
+  for (let z = R.plat.z0; z <= R.plat.z1; z += 5) box(site, 0.12, 1.1, 0.12, '#e0a32e', R.plat.x0, 1.95, z, { cast: false });
+  // lavado: cobertizo abierto
+  const L = R.lavado;
+  [[L.x0, L.z0], [L.x1, L.z0], [L.x0, L.z1], [L.x1, L.z1], [(L.x0 + L.x1) / 2, L.z0], [(L.x0 + L.x1) / 2, L.z1]].forEach(([x, z]) => box(site, 0.4, 6, 0.4, '#4a6f8c', x, 3, z));
+  box(site, L.x1 - L.x0 + 1, 0.35, L.z1 - L.z0 + 1, '#6fa5cf', (L.x0 + L.x1) / 2, 6.2, (L.z0 + L.z1) / 2, { zone: 'lavado' });
+  // instalaciones a lo largo del borde SO
+  const SO = [['Camarines', 0.28], ['Sala eléctrica', 0.37], ['Comedor 2', 0.46]];
+  SO.forEach(([n, t]) => {
+    const z = 60 + t * 100, x = soX(z) + 7;
+    const b = box(site, 9, 3, 6, '#e6e8ea', x, 1.5, z); b.rotation.y = -0.93;
+    box(site, 9.4, 0.25, 6.4, '#7d8a98', x, 3.1, z).rotation.y = -0.93;
+    label(site, n, 'lbl tag', x, 5, z);
+  });
+  // torres de iluminación
+  [[368, 63.5], [433.5, 140], [300, 60], [150, 186], [520, 63.5]].forEach(([x, z]) => {
+    box(site, 0.5, 26, 0.5, '#5a6168', x, 13, z);
+    box(site, 4, 1.2, 1.2, '#3b4249', x, 26.4, z);
+    const l = new THREE.Mesh(new THREE.BoxGeometry(3.6, 0.6, 0.2), mat('#fff3b0', { emissive: '#ffe680', emissiveIntensity: 0.6 })); l.position.set(x, 26.2, z + 0.7); site.add(l);
+  });
+
+  // --- Etiquetas
+  const lbl = (id, x, y, z, big) => label(site, `<b>${ZONES[id].name}</b>${ZONES[id].area ? `<span>${fmt(ZONES[id].area)} m²</span>` : ZONES[id].dims ? `<span>${ZONES[id].dims}</span>` : ''}`, 'lbl' + (big ? ' big' : ''), x, y, z, id);
+  ORDER.forEach(id => { const r = R[id]; lbl(id, (r.x0 + r.x1) / 2, r.h + r.rise + 3, (r.z0 + r.z1) / 2, true); });
+  lbl('galpon', 216, 15, 37); lbl('m8', 274, 10, 152); lbl('pre', 50, 4, 40); lbl('yard', 433, 18, 40);
+  const tag = (id, x, y, z) => label(site, ZONES[id].name, 'lbl tag', x, y, z, id);
+  tag('consol', 270, 3, 37); tag('fumig', 526, 4, 31); tag('lavado', 270, 9, 110); tag('garage', 255, 8, 127); tag('emr', 530, 8.5, 135);
+  tag('wh', 375, 8, 161); tag('ofdep', 470, 8, 169); tag('ofic', 186, 7, 158); tag('fumi', 117, 6, 182); tag('banos', 124, 6, 198);
+  tag('ctrl', 109, 7, 165); tag('plat', 550, 4, 178);
+  label(site, 'Bloque reefer · 46 conexiones', 'lbl tag', 368, 10, 36);
+  label(site, 'Consolidado', 'lbl tag', 370, 3, 197.5);
+  [['Área A', 14, 16], ['Área B', 60, 100], ['Área C', 214, 186], ['Área E', 130, 160]].forEach(([t, x, z]) => label(site, t, 'lbl area', x, 2, z));
+  label(site, 'Acceso Área A', 'lbl tag', 2, 5, 20);
+  
+
+  // --- Cotas
+  dim(dims, [R.b6.x0, 16, R.b6.z1 + 2], [R.b6.x1, 16, R.b6.z1 + 2], '100 m');
+  dim(dims, [R.b6.x0 - 2, 16, R.b6.z0], [R.b6.x0 - 2, 16, R.b6.z1], '60 m');
+  dim(dims, [R.b1a.x0, 13, R.b1a.z1 + 2], [R.b1a.x1, 13, R.b1a.z1 + 2], '80 m');
+  dim(dims, [R.b2.x0, 11, -2], [R.b2.x1, 11, -2], '110 m');
+  dim(dims, [R.b3.x0, 10, -2], [R.b3.x1, 10, -2], '45 m');
+  dim(dims, [R.b4.x0, 14, R.b4.z0 - 1], [R.galpon.x1, 14, R.b4.z0 - 1], '96 m');
+  dim(dims, [R.b7.x0, 12, R.b7.z0 - 2], [R.b7.x1, 12, R.b7.z0 - 2], '77 m');
+  dim(dims, [-10, 0.6, -4], [576, 0.6, -4], 'Cerco vía férrea · 586 m');
+}
+
+/* ---------- Contenedores (instanciados) ---------- */
+{
+  const geo = new THREE.BoxGeometry(2.44, 2.59, 12.19);
+  const sideT = canvasTex(128, 32, (g, w, h) => { g.fillStyle = '#ffffff'; g.fillRect(0, 0, w, h); g.fillStyle = 'rgba(0,0,0,.16)'; for (let x = 0; x < w; x += 6) g.fillRect(x, 0, 2, h); g.fillStyle = 'rgba(0,0,0,.25)'; g.fillRect(0, 0, w, 2); g.fillRect(0, h - 2, w, 2); });
+  const cm = new THREE.MeshStandardMaterial({ map: sideT, roughness: 0.6, metalness: 0.25 });
+  const slots = [];
+  const COLS = ['#d9a441', '#c0392b', '#3d8a6b', '#e67e22', '#2f6db3', '#8e3b33', '#d8c34a', '#7fb069'];
+  const PAL = ['#f4f6f7', '#f4f6f7', '#f4f6f7', '#f4f6f7', '#e9ecee', '#e9ecee', '#dfe3e6', '#b5402f', '#a8382b', '#f4f6f7', '#e9ecee', '#c9cdd1'];
+  const block = (x0, x1, z0, z1, tiers, reefer = 0, fill = 0.94) => {
+    for (let x = x0; x + 2.44 <= x1; x += 2.75) for (let z = z0; z + 12.2 <= z1; z += 12.9) {
+      if (rng() > fill) continue;
+      const n = tiers[0] + Math.floor(rng() * (tiers[1] - tiers[0] + 1));
+      for (let t = 0; t < n; t++) slots.push([x + 1.22, t * 2.6 + 1.3, z + 6.1, rng() < reefer ? (rng() < 0.8 ? '#b5402f' : '#8f9aa3') : (fill === 1 ? COLS[Math.floor(rng() * COLS.length)] : PAL[Math.floor(rng() * PAL.length)])]);
+    }
+  };
+  block(308, 428, 13, 58, [3, 5], 0.03);  // reefer (blancos)
+  block(440, 498, 13, 58, [3, 5]);
+  block(308, 428, 70, 113, [3, 5], 0.55); // dry (rojos)
+  block(440, 554, 70, 113, [3, 5], 0.05);
+  block(308, 428, 125, 155, [2, 4]);
+  block(440, 515, 125, 156, [2, 4]);
+  block(248, 292, 62, 98, [2, 3]);         // junto a consolidación
+  block(70, 100, 54, 88, [3, 4], 0.04);    // pre stacking full: dos bloques blancos
+  block(104, 121, 62, 88, [1, 1], 0, 1);   // fila de colores
+  block(60, 75, 32, 46, [1, 1], 0, 0.6);
+  block(505, 549, 30, 50, [1, 1], 0, 0.4); // fumigado
+  
+  // hilera paralela a la reja de pasaje Uno (como en la imagen satelital), detrás de la romana
+  const D = [0.596, 0.803], M = [0.803, -0.596], rot = Math.atan2(D[0], D[1]);
+  const PAST = ['#cfd88a', '#e59a86', '#e8cf7a', '#d9cfb8', '#9cc58a', '#c96b5c', '#e3e1d6', '#7fa37a'];
+  const along = (s, off) => [-4 + D[0] * s + M[0] * off, 6 + D[1] * s + M[1] * off];
+  for (const [s0, s1] of [[14, 126]]) for (let s = s0; s + 12.4 <= s1; s += 13.2) {
+    if (rng() < 0.12) continue;
+    const n = rng() < 0.4 ? 2 : 1;
+    for (let col = 0; col < 2; col++) { if (col && rng() < 0.5) continue;
+      const [x, z] = along(s + 6.1, 11 + col * 2.7);
+      for (let t = 0; t < n; t++) slots.push([x, t * 2.6 + 1.3, z, PAST[Math.floor(rng() * PAST.length)], rot]);
+    }
+  }
+  const im = new THREE.InstancedMesh(geo, cm, slots.length);
+  const o = new THREE.Object3D(), c = new THREE.Color();
+  slots.forEach(([x, y, z, col, ry = 0], i) => { o.position.set(x, y, z); o.rotation.set(0, ry, 0); o.updateMatrix(); im.setMatrixAt(i, o.matrix); im.setColorAt(i, c.set(col)); });
+  im.castShadow = im.receiveShadow = true; contG.add(im);
+  // romana (báscula de camiones) entre la hilera de contenedores y la reja
+  {
+    const [x, z] = along(81, 6), g = new THREE.Group(); g.position.set(x, 0, z); g.rotation.y = rot; site.add(g);
+    box(g, 3.6, 0.35, 22, '#5f666d', 0, 0.18, 0, { zone: 'romana' });
+    box(g, 3.8, 0.36, 0.3, '#f2c230', 0, 0.18, 11.1); box(g, 3.8, 0.36, 0.3, '#f2c230', 0, 0.18, -11.1);
+    for (let k = -10; k <= 10; k += 2.5) box(g, 3.5, 0.37, 0.06, '#4a5056', 0, 0.18, k, { cast: false });
+    box(g, 3.6, 0.2, 4, '#9a968e', 0, 0.1, 13.2, { cast: false }); box(g, 3.6, 0.2, 4, '#9a968e', 0, 0.1, -13.2, { cast: false });
+    box(g, 2.4, 2.5, 2.4, '#e8e6df', -3.6, 1.25, 8, { zone: 'romana' }); box(g, 2.8, 0.15, 2.8, '#3c6ea8', -3.6, 2.6, 8);
+    box(g, 0.06, 0.8, 1.6, '#1f3550', -2.38, 1.6, 8, { cast: false });
+    R.romana = { x0: x - 4, x1: x + 4, z0: z - 10, z1: z + 10, h: 1 };
+    label(site, 'Romana · pesaje de camiones', 'lbl tag', x, 4, z, 'romana');
+  }
+  // reach stackers
+  const rs = (x, z, rot) => {
+    const g = new THREE.Group();
+    box(g, 8, 2.2, 3.8, '#d9a400', 0, 1.6, 0); box(g, 2.6, 2.2, 2.2, '#2c3a4b', 1.5, 3.8, 0);
+    const bm = new THREE.Mesh(new THREE.BoxGeometry(11, 1, 1), mat('#d9a400')); bm.position.set(-3, 5.2, 0); bm.rotation.z = -0.35; g.add(bm);
+    box(g, 0.6, 0.4, 6, '#3c4148', -8, 7, 0);
+    g.position.set(x, 0, z); g.rotation.y = rot; contG.add(g);
+  };
+  rs(420, 64, 0); rs(360, 119, Math.PI); rs(96, 100, 0); rs(270, 58, -1.4);
+}
+
+/* ---------- Camiones y tren ---------- */
+{
+  const truck = (x, z, rot, cab, load) => { const g = makeTruck(cab, load); g.position.set(x, 0, z); g.rotation.y = rot; trucksG.add(g); };
+  truck(250, 194.5, 0.06, '#2f6db3', '#f2f4f5'); truck(330, 199, 0.06, '#f2c230', '#b5402f'); truck(470, 205.5, 0.06, '#2f6db3', null);
+  truck(118, 85, 0, '#c23b2e', '#2f6db3'); truck(118, 98, 0, '#f2c230', '#f2f4f5'); truck(132, 160, -Math.PI / 2, '#f2f2f0', '#e4e7ea');
+  truck(301.5, 140, -Math.PI / 2, '#2f6db3', '#f2f4f5'); truck(564, 120, Math.PI / 2, '#27ae60', '#f2f4f5'); truck(380, 163, Math.PI, '#c23b2e', '#8e3b33');
+  // tren en la vía principal y vagones en el desvío
+  const wag = (x, z, load) => { box(trucksG, 14, 0.8, 2.6, '#5a4636', x, 1.1, z); if (load) box(trucksG, 12.2, 2.59, 2.44, load, x, 2.8, z); };
+  for (let i = 0; i < 22; i++) wag(160 + i * 15, -20, i % 5 ? ['#f2f4f5', '#e4e7ea', '#2f6db3', '#d8473b'][i % 4] : null);
+  box(trucksG, 18, 3.6, 3, '#d9a400', 160 - 17, 2.3, -20);
+  for (let i = 0; i < 3; i++) wag(250 + i * 15, -10, '#f2f4f5');
+  for (let i = 0; i < 9; i++) wag(262 + i * 15, 7, i % 3 ? ['#f2f4f5', '#2f6db3', '#d8473b'][i % 3] : '#e4e7ea');
+  for (let i = 0; i < 8; i++) { box(trucksG, 14, 3, 2.8, '#3f7d5a', -2 + i * 15, 2.2, -10); box(trucksG, 14, 0.6, 2.9, '#2c3a33', -2 + i * 15, 3.9, -10); }
+}
+
+/* ---------- Selección ---------- */
+let selected = null;
+const markColor = () => new THREE.Color(getComputedStyle(document.documentElement).getPropertyValue('--mark').trim() || '#e5a900');
+function highlight(r) {
+  hl.traverse(o => o.geometry && o.geometry.dispose()); hl.clear();
+  const c = markColor(), w = r.x1 - r.x0, d = r.z1 - r.z0, h = (r.h || 0.2) + (r.rise || 0);
+  const e = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(w + 1, h + 0.5, d + 1)), new THREE.LineBasicMaterial({ color: c }));
+  e.position.set((r.x0 + r.x1) / 2, (h + 0.5) / 2, (r.z0 + r.z1) / 2); hl.add(e);
+  const f = new THREE.Mesh(new THREE.PlaneGeometry(w, d), new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity: 0.3, depthWrite: false }));
+  f.rotation.x = -Math.PI / 2; f.position.set((r.x0 + r.x1) / 2, 0.2, (r.z0 + r.z1) / 2); hl.add(f);
+}
+function markUI(id) {
+  document.querySelectorAll('#zone-rows tr').forEach(tr => tr.classList.toggle('sel', tr.dataset.id === id));
+  document.querySelectorAll('.lbl[data-zone]').forEach(el => el.classList.toggle('sel', el.dataset.zone === id));
+}
+function selectZone(id, flyTo = true) {
+  selected = id; const r = R[id], Z = ZONES[id];
+  highlight(r); markUI(id);
+  $('#info').innerHTML = `<h3>${Z.name}</h3>
+    <dl class="kv"><dt>${Z.area ? 'Medidas' : 'Ubicación'}</dt><dd>${Z.dims}</dd>
+    ${Z.area ? `<dt>Superficie</dt><dd>${fmt(Z.area)} m²</dd>` : ''}</dl>
+    <p class="note">${Z.note}</p>`;
+  if (flyTo) {
+    const ctr = new THREE.Vector3((r.x0 + r.x1) / 2, (r.h || 0) / 3, (r.z0 + r.z1) / 2);
+    const size = Math.max(r.x1 - r.x0, r.z1 - r.z0) + (r.h || 0) * 2;
+    fly(ctr.clone().add(new THREE.Vector3(0.35, 0.8, 0.85).multiplyScalar(size * 0.95 + 25)), ctr);
+  }
+}
+
+/* ---------- Cámara ---------- */
+let anim = null;
+function fly(pos, target, ms = 900) {
+  if (reduce) ms = 0;
+  const p0 = camera.position.clone(), t0 = controls.target.clone(), start = performance.now();
+  anim = now => {
+    const k = ms ? Math.min(1, (now - start) / ms) : 1, e = k < .5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2;
+    camera.position.lerpVectors(p0, pos, e); controls.target.lerpVectors(t0, target, e);
+    if (k >= 1) anim = null;
+  };
+}
+const V = (x, y, z) => new THREE.Vector3(x, y, z);
+const views = {
+  general: () => [V(120, 430, 640), V(280, 0, 95)],
+  planta:  () => [V(CX, 720, CZ + 1), V(CX, 0, CZ)],
+  acceso:  () => [V(52, 24, 168), V(108, 2, 134)],
+  bodegas: () => [V(40, 150, 250), V(170, 5, 70)],
+  oficinas: () => [V(232, 55, 222), V(186, 2, 158)],
+  patio:   () => [V(560, 150, 290), V(430, 5, 80)],
+};
+function setView(name) {
+  Object.keys(views).forEach(n => $('#v-' + n).setAttribute('aria-pressed', String(n === name)));
+  const [p, t] = views[name](); fly(p, t);
+}
+function applyToggles() {
+  roofG.visible = $('#t-roof').checked;
+  labelR.domElement.classList.toggle('no-zones', !$('#t-labels').checked);
+  labelR.domElement.classList.toggle('no-dims', !$('#t-dims').checked);
+  dims.visible = $('#t-dims').checked;
+  contG.visible = $('#t-cont').checked;
+  trucksG.visible = $('#t-trucks').checked;
+}
+
+/* ---------- Panel ---------- */
+$('#zone-rows').innerHTML = ORDER.map(id => {
+  const Z = ZONES[id];
+  return `<tr data-id="${id}" tabindex="0"><td class="sw"><i style="background:${Z.color}"></i></td><td>${Z.name}</td><td class="dm">${Z.dims}</td><td class="ar">${fmt(Z.area)} m²</td></tr>`;
+}).join('') + EXTRA.map(id => `<tr data-id="${id}" tabindex="0" class="extra"><td class="sw"><i style="background:${ZONES[id].color}"></i></td><td>${ZONES[id].name}</td><td class="dm">${ZONES[id].area ? ZONES[id].dims : ZONES[id].dims}</td><td class="ar">${ZONES[id].area ? fmt(ZONES[id].area) + ' m²' : '—'}</td></tr>`).join('');
+$('#tot').textContent = fmt(ORDER.reduce((a, id) => a + ZONES[id].area, 0)) + ' m²';
+const onRow = e => { const tr = e.target.closest('tr'); if (tr) selectZone(tr.dataset.id); };
+$('#zone-rows').addEventListener('click', onRow);
+$('#zone-rows').addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onRow(e); } });
+Object.keys(views).forEach(n => $('#v-' + n).addEventListener('click', () => setView(n)));
+['#t-roof', '#t-labels', '#t-dims', '#t-cont', '#t-trucks'].forEach(s => $(s).addEventListener('change', applyToggles));
+
+const ray = new THREE.Raycaster(), ptr = new THREE.Vector2();
+let down = null;
+const isShown = o => { for (let p = o; p; p = p.parent) if (!p.visible) return false; return true; };
+renderer.domElement.addEventListener('pointerdown', e => { down = [e.clientX, e.clientY]; $('#hint').hidden = true; });
+renderer.domElement.addEventListener('pointerup', e => {
+  if (!down || Math.hypot(e.clientX - down[0], e.clientY - down[1]) > 5) return;
+  const r = renderer.domElement.getBoundingClientRect();
+  ptr.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+  ray.setFromCamera(ptr, camera);
+  const hit = ray.intersectObjects(pickables.filter(isShown), false)[0];
+  if (hit && hit.object.userData.zone) selectZone(hit.object.userData.zone, false);
+});
+
+function resize() {
+  const w = view.clientWidth, h = view.clientHeight;
+  renderer.setSize(w, h); labelR.setSize(w, h);
+  camera.aspect = w / h; camera.updateProjectionMatrix();
+}
+new ResizeObserver(resize).observe(view);
+resize();
+
+const fwd = new THREE.Vector3(), right = new THREE.Vector3(), upv = new THREE.Vector3();
+function updateCompass() {
+  camera.matrixWorld.extractBasis(right, upv, fwd);
+  const screenUp = upv.clone().sub(fwd); screenUp.y = 0; screenUp.normalize();
+  right.y = 0; right.normalize();
+  $('#needle').style.transform = `rotate(${Math.atan2(NORTH.dot(right), NORTH.dot(screenUp)) * 180 / Math.PI}deg)`;
+}
+
+applyToggles();
+const initial = new URLSearchParams(location.search).get('vista') || 'general';
+const [p0, t0] = (views[initial] || views.general)();
+camera.position.copy(p0); controls.target.copy(t0);
+if (views[initial]) Object.keys(views).forEach(n => $('#v-' + n).setAttribute('aria-pressed', String(n === initial)));
+renderer.setAnimationLoop(now => {
+  if (anim) anim(now);
+  controls.update();
+  updateCompass();
+  renderer.render(scene, camera);
+  labelR.render(scene, camera);
+});
+window.__listo = true;
+</script>
+
+</body>
+</html>
