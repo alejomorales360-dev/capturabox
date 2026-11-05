@@ -719,12 +719,13 @@ const hl = new THREE.Group(); scene.add(hl);
     const r = R[id], w = r.x1 - r.x0, d = r.z1 - r.z0, H = r.h, cx = (r.x0 + r.x1) / 2, cz = (r.z0 + r.z1) / 2;
     box(site, w, H, d, null, cx, H / 2, cz, { material: wallM, zone: id });
     // portones en la cara SE (cada 12 m) y en la cara SO
-    for (let x = r.x0 + 6; x < r.x1 - 3; x += 12) box(site, 4.5, Math.min(5, H - 1.5), 0.15, null, x, Math.min(5, H - 1.5) / 2, r.z1 + 0.08, { material: doorM, cast: false });
+    const blindS = id === 'b6';                       // la N°6 no tiene puertas ni ventanas hacia las oficinas
+    if (!blindS) for (let x = r.x0 + 6; x < r.x1 - 3; x += 12) box(site, 4.5, Math.min(5, H - 1.5), 0.15, null, x, Math.min(5, H - 1.5) / 2, r.z1 + 0.08, { material: doorM, cast: false });
     for (let k = 0; k < r.naves; k++) { const zc = r.z0 + (k + 0.5) * d / r.naves; box(site, 0.15, 5, 4.5, null, r.x0 - 0.08, 2.5, zc, { material: doorM, cast: false }); }
     // zócalo blanco y franja de ventanas altas
     box(site, w + 0.1, 1.1, 0.06, '#eceef0', cx, 0.55, r.z1 + 0.04, { cast: false });
     box(site, 0.06, 1.1, d + 0.1, '#eceef0', r.x0 - 0.04, 0.55, cz, { cast: false });
-    for (let x = r.x0 + 3; x < r.x1 - 2; x += 4) box(site, 1.4, 0.8, 0.06, '#a9c2d6', x, H - 1.4, r.z1 + 0.05, { cast: false });
+    if (!blindS) for (let x = r.x0 + 3; x < r.x1 - 2; x += 4) box(site, 1.4, 0.8, 0.06, '#a9c2d6', x, H - 1.4, r.z1 + 0.05, { cast: false });
     // techos: una nave por cada vano, cumbrera a lo largo de x
     const nw = d / r.naves, rise = r.rise;
     const rm = new THREE.MeshStandardMaterial({ map: roofT.clone(), roughness: 0.55, metalness: 0.35 });
@@ -747,8 +748,6 @@ const hl = new THREE.Group(); scene.add(hl);
   ['b1a', 'b1b', 'b2', 'b3', 'b4', 'b7'].forEach(id => warehouse(id));
   warehouse('b5', roofLight);
   warehouse('b6', roofTeal, [roofTeal, roofDark, roofTeal]);
-  // portones grandes con alero azul en la fachada sur de la Bodega N°6
-  [152, 176, 204, 228].forEach(x => { box(site, 6.5, 5.6, 0.2, '#1b2430', x, 2.8, R.b6.z1 + 0.1, { cast: false }); box(site, 7.4, 0.18, 2.6, '#2f6db3', x, 6.1, R.b6.z1 + 1.3); });
   warehouse('galpon', roofGalp);
   // andenes de la Bodega N°6 hacia el camino oeste
   box(site, 3, 1.2, 50, '#b8b4ab', R.b6.x0 - 1.5, 0.6, 107);
