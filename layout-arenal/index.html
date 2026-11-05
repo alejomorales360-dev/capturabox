@@ -54,7 +54,8 @@ button,input{font:inherit;color:inherit}
 .lbl b{display:block;font-weight:700}
 .lbl span{font:500 10.5px var(--f-mono);color:var(--muted)}
 .lbl.big b{font-size:13.5px}
-.lbl.sel{border-color:var(--mark);box-shadow:0 0 0 2px var(--mark)}
+.lbl.sel,.lbl.tag.sel{border-color:#ff2d95;background:#ff2d95;color:#fff;box-shadow:0 0 0 3px rgba(255,45,149,.35),0 4px 14px rgba(0,0,0,.25);z-index:5}
+.lbl.sel span{color:#ffe3f1}
 .lbl.tag{font-size:10.5px;padding:2px 6px;background:#f2c230;color:#1b1b1b;border-color:#c99d10}
 .lbl.area{background:#14243a;color:#fff;border-color:#14243a;border-radius:999px;padding:3px 10px;font-size:12px}
 .lbl.gone{background:transparent;border-style:dashed;color:var(--muted)}
@@ -90,7 +91,8 @@ table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
 td{padding:6px 4px;border-bottom:1px solid var(--line);vertical-align:middle}
 tbody tr{cursor:pointer}
 tbody tr:hover td{background:color-mix(in srgb,var(--ink) 7%,transparent)}
-tbody tr.sel td{background:color-mix(in srgb,var(--mark) 22%,transparent)}
+tbody tr.sel td{background:color-mix(in srgb,#ff2d95 18%,transparent)}
+tbody tr.sel td:first-child{box-shadow:inset 3px 0 0 #ff2d95}
 tbody tr.extra td{color:var(--muted)}
 td.sw{width:14px;padding-right:0}
 td.sw i{display:block;width:10px;height:10px;border-radius:2px;border:1px solid rgba(0,0,0,.2)}
@@ -962,13 +964,37 @@ const hl = new THREE.Group(); scene.add(hl);
 /* ---------- Selección ---------- */
 let selected = null;
 const markColor = () => new THREE.Color(getComputedStyle(document.documentElement).getPropertyValue('--mark').trim() || '#e5a900');
+const HL = '#ff2d95';                                   // magenta: contrasta con techos, fachadas azules y patio
 function highlight(r) {
-  hl.traverse(o => o.geometry && o.geometry.dispose()); hl.clear();
-  const c = markColor(), w = r.x1 - r.x0, d = r.z1 - r.z0, h = (r.h || 0.2) + (r.rise || 0);
-  const e = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(w + 1, h + 0.5, d + 1)), new THREE.LineBasicMaterial({ color: c }));
-  e.position.set((r.x0 + r.x1) / 2, (h + 0.5) / 2, (r.z0 + r.z1) / 2); hl.add(e);
-  const f = new THREE.Mesh(new THREE.PlaneGeometry(w, d), new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity: 0.3, depthWrite: false }));
-  f.rotation.x = -Math.PI / 2; f.position.set((r.x0 + r.x1) / 2, 0.2, (r.z0 + r.z1) / 2); hl.add(f);
+  hl.traverse(o => { if (o.geometry) o.geometry.dispose(); if (o.element) o.element.remove(); }); hl.clear();
+  const w = r.x1 - r.x0, d = r.z1 - r.z0, h = (r.h || 0.2) + (r.rise || 0) + 0.6, cx = (r.x0 + r.x1) / 2, cz = (r.z0 + r.z1) / 2;
+  const solid = new THREE.MeshBasicMaterial({ color: HL, depthTest: false, transparent: true, opacity: 0.95 });
+  // volumen translúcido que envuelve la selección
+  const vol = new THREE.Mesh(new THREE.BoxGeometry(w + 1.2, h, d + 1.2), new THREE.MeshBasicMaterial({ color: HL, transparent: true, opacity: 0.18, depthWrite: false }));
+  vol.position.set(cx, h / 2, cz); vol.renderOrder = 10; vol.userData.pulse = 'vol'; hl.add(vol);
+  // aristas gruesas (siempre visibles, aunque haya algo delante)
+  const t = Math.max(0.35, Math.min(1.2, Math.max(w, d) / 90)), X0 = r.x0 - 0.6, X1 = r.x1 + 0.6, Z0 = r.z0 - 0.6, Z1 = r.z1 + 0.6;
+  const edge = (ew, eh, ed, x, y, z) => { const m = new THREE.Mesh(new THREE.BoxGeometry(ew, eh, ed), solid); m.position.set(x, y, z); m.renderOrder = 11; hl.add(m); };
+  [0.15, h].forEach(y => { edge(X1 - X0 + t, t, t, cx, y, Z0); edge(X1 - X0 + t, t, t, cx, y, Z1); edge(t, t, Z1 - Z0 + t, X0, y, cz); edge(t, t, Z1 - Z0 + t, X1, y, cz); });
+  [[X0, Z0], [X1, Z0], [X0, Z1], [X1, Z1]].forEach(([x, z]) => edge(t, h, t, x, h / 2, z));
+  // piso iluminado
+  const f = new THREE.Mesh(new THREE.PlaneGeometry(w + 1.2, d + 1.2), new THREE.MeshBasicMaterial({ color: HL, transparent: true, opacity: 0.45, depthWrite: false }));
+  f.rotation.x = -Math.PI / 2; f.position.set(cx, 0.25, cz); f.renderOrder = 9; hl.add(f);
+  // pin flotante sobre la selección
+  const ps = Math.max(0.6, Math.min(1.6, Math.max(w, d) / 50));
+  const pin = new THREE.Group(); pin.scale.setScalar(ps); pin.position.set(cx, h + 6 * ps, cz); pin.userData.pulse = 'pin'; pin.userData.y = h + 6 * ps; hl.add(pin);
+  const cone = new THREE.Mesh(new THREE.ConeGeometry(2.2, 5, 20), solid); cone.rotation.x = Math.PI; cone.renderOrder = 12; pin.add(cone);
+  const ball = new THREE.Mesh(new THREE.SphereGeometry(2.2, 20, 14), solid); ball.position.y = 3.2; ball.renderOrder = 12; pin.add(ball);
+  const ring = new THREE.Mesh(new THREE.RingGeometry(Math.max(w, d) / 2 + 2, Math.max(w, d) / 2 + 3.2, 48), new THREE.MeshBasicMaterial({ color: HL, transparent: true, opacity: 0.6, side: THREE.DoubleSide, depthWrite: false }));
+  ring.rotation.x = -Math.PI / 2; ring.position.set(cx, 0.3, cz); ring.userData.pulse = 'ring'; hl.add(ring);
+}
+function animateHighlight(now) {
+  const k = (Math.sin(now / 300) + 1) / 2;
+  hl.children.forEach(o => {
+    if (o.userData.pulse === 'vol') o.material.opacity = 0.1 + 0.18 * k;
+    else if (o.userData.pulse === 'pin') o.position.y = o.userData.y + k * 2.5;
+    else if (o.userData.pulse === 'ring') { o.material.opacity = 0.7 * (1 - k); o.scale.setScalar(1 + k * 0.25); }
+  });
 }
 function markUI(id) {
   document.querySelectorAll('#zone-rows tr').forEach(tr => tr.classList.toggle('sel', tr.dataset.id === id));
@@ -1290,6 +1316,7 @@ camera.position.copy(p0); controls.target.copy(t0);
 if (views[initial]) Object.keys(views).forEach(n => $('#v-' + n).setAttribute('aria-pressed', String(n === initial)));
 renderer.setAnimationLoop(now => {
   if (anim) anim(now);
+  if (hl.children.length && !reduce) animateHighlight(now);
   controls.update();
   updateCompass();
   renderer.render(scene, camera);
