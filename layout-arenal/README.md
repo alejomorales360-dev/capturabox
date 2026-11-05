@@ -12,8 +12,8 @@ Es una sola página (`index.html`), sin instalación ni compilación. Usa [three
 
 ## Qué incluye
 
-- **Deslindes:** el polígono del terreno se midió sobre la imagen satelital, con la punta del Área A al SO, el cerco de la vía al NO, calle Maritano al NE y calle Antonio de la Fuente al SE.
-- **Bodegas, según el Excel "Layout Arenal" y el letrero del depot:**
+- **Deslindes:** el polígono del terreno tiene la punta del Área A al SO, el cerco de la vía al NO, calle Maritano al NE y calle Antonio de la Fuente al SE.
+- **Bodegas:**
   - 1-A (80 × 20 m), 1-B (25 × 20 m), N°2 (110 m) y N°3 (45 m) a lo largo de la vía.
   - Bloque de 96 × 40 m dividido entre la Bodega N°4 y el galpón de reparaciones.
   - N°5 (96 × 20 m) y N°6 (100 × 60 m, 3 naves).
@@ -25,7 +25,7 @@ Es una sola página (`index.html`), sin instalación ni compilación. Usa [three
   - Línea férrea interna: entra por la esquina NE y corre junto al cerco hasta la zona de consolidación para descargar.
   - Lavado, garage, EMR, warehouse, oficinas, fumigación, baños, control de acceso y plataforma de inspección.
   - Las áreas A, B, C y E y los dos accesos. La entrada principal va por Nuressa, junto al vértice con pasaje Uno, recta hacia la Bodega N°6.
-  - Oficinas, estacionamientos, fachadas azul marino y colores de techo según fotos de dron.
+  - Oficinas, estacionamientos, fachadas azul marino y colores de techo.
   - Flechas pintadas con el sentido de circulación de las calles.
 - **Vistas y opciones:**
   - Vistas: general, planta, acceso, bodegas, oficinas y patio.
