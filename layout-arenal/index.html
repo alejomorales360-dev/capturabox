@@ -239,25 +239,6 @@ textarea#rep-notes{width:100%;min-height:80px;border:1px solid var(--line);borde
       </dl>
     </section>
 
-    <section>
-      <h2>Supuestos del modelo</h2>
-      <ul class="list">
-        <li>Deslindes y posiciones medidos sobre la imagen satelital; medidas de bodegas según el Excel “Layout Arenal” y el letrero del depot.</li>
-        <li>El bloque de 96 × 40 m detrás de la Bodega N°2 se reparte en Bodega N°4 (48 × 40) y Galpón de reparaciones (48 × 40).</li>
-        <li>Bodega N°2 de 110 × 11,5 m y N°3 de 45 × 10,7 m, para cumplir los m² del letrero.</li>
-        <li>Alturas supuestas: bodegas 8–11 m al alero; pilas de contenedores hasta 5 alturas.</li>
-        <li>Oficinas, estacionamientos, fachadas y colores de techo según fotos de dron. Sentido de circulación: perimetral hacia el oriente, calle 1 al norte, calles B y C al poniente, calles 2 y 3 al sur.</li>
-        <li>Bodega Modular N°9 desarmada; de la N°8 queda operativa la mitad hacia las bodegas (1.500 m²).</li>
-      </ul>
-    </section>
-
-    <section>
-      <h2>Por confirmar</h2>
-      <ul class="list">
-        <li>Si el acceso del Área A sigue habilitado.</li>
-        <li>Posición exacta de camarines, sala eléctrica, comedor 2 y bodega chica a lo largo del deslinde.</li>
-      </ul>
-    </section>
   </aside>
 </main>
 
@@ -280,7 +261,7 @@ const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
 /* ---------- Plano del site (metros) ----------
    x: a lo largo del cerco de la vía férrea, de SO (punta Área A) a NE (calle Maritano).
    z: desde el cerco de la vía hacia calle Antonio de la Fuente (SE).
-   Medido sobre la imagen satelital girada para dejar la vía horizontal. */
+*/
 const SITE = [[-10, 0], [576, 0], [576, 222], [126.6, 222], [100, 146], [-4, 6]];   // borde de Antonio de la Fuente recto y paralelo a la vía
 const soX = z => -4 + (z - 6) * 104 / 140;               // borde SO (pasaje Uno)
 const seZ = x => 222;                                   // borde SE (calle Antonio de la Fuente), paralelo a la vía
@@ -313,10 +294,10 @@ const R = {
 const ZONES = {
   b1a:    { name: 'Bodega N°1-A', dims: '80 × 20 m', area: 1600, color: '#9aa7ae', bod: true, note: 'Primera bodega junto a la vía, desde la punta del Área A.' },
   b1b:    { name: 'Bodega N°1-B', dims: '25 × 20 m', area: 500,  color: '#9aa7ae', bod: true, note: 'A continuación de la 1-A, junto a la vía.' },
-  b2:     { name: 'Bodega N°2',   dims: '110 × 11,5 m', area: 1265, color: '#9aa7ae', bod: true, note: 'Junto a la vía. El Excel indica 110 × 15 m (1.650 m²); el letrero 1.265 m².' },
-  b3:     { name: 'Bodega N°3',   dims: '45 × 10,7 m', area: 483,  color: '#9aa7ae', bod: true, note: 'Junto a la vía, al final de la N°2. El Excel indica 45 × 15 m (675 m²); el letrero 483 m².' },
-  b4:     { name: 'Bodega N°4',   dims: '48 × 40 m', area: 1920, color: '#9aa7ae', bod: true, note: 'Mitad SO del bloque de 96 × 40 m detrás de la N°2. La otra mitad la ocupa el galpón de reparaciones.' },
-  galpon: { name: 'Galpón de reparaciones', dims: '48 × 40 m', area: 1920, color: '#7d8b84', note: 'Ocupa la mitad NE del bloque de la Bodega N°4.' },
+  b2:     { name: 'Bodega N°2',   dims: '110 × 11,5 m', area: 1265, color: '#9aa7ae', bod: true, note: 'Junto a la vía.' },
+  b3:     { name: 'Bodega N°3',   dims: '45 × 10,7 m', area: 483,  color: '#9aa7ae', bod: true, note: 'Junto a la vía, al final de la N°2.' },
+  b4:     { name: 'Bodega N°4',   dims: '48 × 40 m', area: 1920, color: '#9aa7ae', bod: true, note: 'Detrás de la N°2, junto al galpón de reparaciones.' },
+  galpon: { name: 'Galpón de reparaciones', dims: '48 × 40 m', area: 1920, color: '#7d8b84', note: 'Junto a la Bodega N°4.' },
   b5:     { name: 'Bodega N°5',   dims: '96 × 20 m', area: 1920, color: '#9aa7ae', bod: true, note: 'Entre la N°4 y la N°6.' },
   b6:     { name: 'Bodega N°6',   dims: '100 × 60 m', area: 6000, color: '#9aa7ae', bod: true, note: 'La bodega más grande, de 3 naves. Andenes hacia el camino oeste.' },
   b7:     { name: 'Bodega N°7',   dims: '77 × 20 m', area: 1540, color: '#9aa7ae', bod: true, note: 'Sector oriente, junto al camino perimetral. Consolidado al frente.' },
@@ -964,7 +945,7 @@ const hl = new THREE.Group(); scene.add(hl);
   { const g = new THREE.Group(); const t = 55; g.position.set(100 + 0.331 * t + 0.944 * 7, 0, 146 + 0.944 * t - 0.331 * 7); g.rotation.y = -Math.atan2(0.944, 0.331); site.add(g);
     box(g, 9, 2.8, 5, '#e8eef3', 0, 1.4, 0, { zone: 'banos' }); box(g, 9.4, 0.25, 5.4, '#7fa7c9', 0, 2.95, 0, { zone: 'banos' });
     [-2, 1].forEach(x => box(g, 0.9, 2, 0.06, '#3d5a78', x, 1, 2.53, { cast: false })); }
-  // oficinas según la foto del dron: franja de pasto con árboles, cobertizo, edificio de techo oscuro, explanada,
+  // oficinas: franja de pasto con árboles, cobertizo, edificio de techo oscuro, explanada,
   // contenedor-oficina, edificio de techo blanco y estacionamientos al oeste y al sur
   {
     const grass = new THREE.MeshStandardMaterial({ map: groundTex('#6f9a52', ['#5d8744', '#86ad66', '#78a05a']), roughness: 1 });
@@ -1094,7 +1075,7 @@ const hl = new THREE.Group(); scene.add(hl);
   block(60, 75, 32, 46, [1, 1], 0, 0.6);
   block(505, 549, 30, 50, [1, 1], 0, 0.4); // fumigado
   
-  // hilera paralela a la reja de pasaje Uno (como en la imagen satelital), detrás de la romana
+  // hilera paralela a la reja de pasaje Uno, detrás de la romana
   const D = [0.596, 0.803], M = [0.803, -0.596], rot = Math.atan2(D[0], D[1]);
   const PAST = ['#cfd88a', '#e59a86', '#e8cf7a', '#d9cfb8', '#9cc58a', '#c96b5c', '#e3e1d6', '#7fa37a'];
   const along = (s, off) => [-4 + D[0] * s + M[0] * off, 6 + D[1] * s + M[1] * off];
