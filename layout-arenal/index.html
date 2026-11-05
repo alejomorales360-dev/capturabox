@@ -484,66 +484,210 @@ const outsideMat = new THREE.MeshStandardMaterial({ map: groundTex('#a8a294', ['
 const ballastMat = new THREE.MeshStandardMaterial({ map: groundTex('#8d8170', ['#6e6457', '#a39886']), roughness: 1 });
 
 /* ---------- Vehículos, árboles y señalética ---------- */
-const glassM = mat('#1c2732', { metalness: 0.5, roughness: 0.12 });
-const tireM = mat('#161616', { roughness: 0.95 });
-const rimM = mat('#c3c8cd', { metalness: 0.8, roughness: 0.3 });
-const chromeM = mat('#d7dbdf', { metalness: 0.9, roughness: 0.2 });
-const wheelG = new THREE.CylinderGeometry(1, 1, 1, 18), rimG = new THREE.CylinderGeometry(1, 1, 1, 10);
-function wheel(g, x, z, r = 0.52, wdt = 0.36) {
-  const w = new THREE.Mesh(wheelG, tireM); w.scale.set(r, wdt, r); w.rotation.x = Math.PI / 2; w.position.set(x, r, z); w.castShadow = true; g.add(w);
-  const h = new THREE.Mesh(rimG, rimM); h.scale.set(r * 0.55, wdt + 0.02, r * 0.55); h.rotation.x = Math.PI / 2; h.position.set(x, r, z); g.add(h);
+/* ---------- Contenedores con la imagen real de las líneas ----------
+   Maersk: dry en azul Maersk (#42B0D5, desde 2025) o gris (flota anterior), reefer blanco.
+   Logo: estrella blanca de 7 puntas sobre cuadrado azul Maersk + palabra MAERSK.
+   Hamburg Süd (hoy parte de Maersk): dry rojo con letras blancas. */
+const MAERSK_BLUE = '#42B0D5';
+function maerskStar(g, cx, cy, r) {
+  g.beginPath();
+  for (let i = 0; i < 14; i++) {
+    const a = -Math.PI / 2 + i * Math.PI / 7, rr = i % 2 ? r * 0.36 : r;
+    g.lineTo(cx + Math.cos(a) * rr, cy + Math.sin(a) * rr);
+  }
+  g.closePath(); g.fill();
 }
-const contTexX = canvasTex(256, 64, (g, w, h) => {
-  g.fillStyle = '#ffffff'; g.fillRect(0, 0, w, h);
-  for (let x = 0; x < w; x += 7) { g.fillStyle = 'rgba(0,0,0,.14)'; g.fillRect(x, 3, 2, h - 6); g.fillStyle = 'rgba(255,255,255,.5)'; g.fillRect(x + 2, 3, 1, h - 6); }
-  g.fillStyle = 'rgba(0,0,0,.28)'; g.fillRect(0, 0, w, 3); g.fillRect(0, h - 3, w, 3); g.fillRect(0, 0, 4, h); g.fillRect(w - 4, 0, 4, h);
-});
-const contMats = new Map();
-const contMat = col => { if (!contMats.has(col)) contMats.set(col, new THREE.MeshStandardMaterial({ map: contTexX, color: col, roughness: 0.55, metalness: 0.3 })); return contMats.get(col); };
+function maerskLogo(g, x, y, s, border) {
+  g.fillStyle = MAERSK_BLUE; g.fillRect(x, y, s, s);
+  if (border) { g.strokeStyle = '#ffffff'; g.lineWidth = s * 0.05; g.strokeRect(x + s * 0.025, y + s * 0.025, s * 0.95, s * 0.95); }
+  g.fillStyle = '#ffffff'; maerskStar(g, x + s / 2, y + s / 2, s * 0.4);
+}
+const CONT_KIND = {
+  reefer: { body: '#f3f5f6', text: MAERSK_BLUE, word: 'MAERSK', logo: true, ribs: 'fine', reefer: true },
+  blue:   { body: MAERSK_BLUE, text: '#ffffff', word: 'MAERSK', logo: true, border: true, ribs: 'dry' },
+  grey:   { body: '#8d959c', text: '#ffffff', word: 'MAERSK', logo: true, ribs: 'dry' },
+  hsd:    { body: '#b8232c', text: '#ffffff', word: 'HAMBURG SÜD', logo: false, ribs: 'dry' },
+  plain:  { body: '#ffffff', ribs: 'dry' },
+};
+function contTextures(k) {
+  const K = CONT_KIND[k];
+  const ribs = (g, w, h, vertical) => {
+    const step = K.ribs === 'fine' ? 6 : 14;
+    for (let p = 0; p < (vertical ? w : h); p += step) {
+      g.fillStyle = 'rgba(0,0,0,.12)'; vertical ? g.fillRect(p, 0, step * 0.35, h) : g.fillRect(0, p, w, step * 0.35);
+      g.fillStyle = 'rgba(255,255,255,.14)'; vertical ? g.fillRect(p + step * 0.35, 0, step * 0.15, h) : g.fillRect(0, p + step * 0.35, w, step * 0.15);
+    }
+  };
+  const frame = (g, w, h, t) => { g.fillStyle = 'rgba(0,0,0,.28)'; g.fillRect(0, 0, w, t); g.fillRect(0, h - t, w, t); g.fillRect(0, 0, t, h); g.fillRect(w - t, 0, t, h); };
+  const dirt = (g, w, h) => { for (let i = 0; i < 10; i++) { g.fillStyle = `rgba(90,62,35,${0.05 + rng() * 0.08})`; g.fillRect(rng() * w, h * (0.55 + rng() * 0.45), 20 + rng() * 60, 3 + rng() * 10); } };
+  const side = canvasTex(1024, 220, (g, w, h) => {
+    g.fillStyle = K.body; g.fillRect(0, 0, w, h); ribs(g, w, h, true); dirt(g, w, h); frame(g, w, h, 10);
+    if (K.word) {
+      g.textBaseline = 'middle'; g.textAlign = 'left';
+      const fs = K.word.length > 7 ? 92 : 118; g.font = `900 ${fs}px "Arial Black", Archivo, Arial, sans-serif`;
+      try { g.letterSpacing = K.word.length > 7 ? '2px' : '6px'; } catch (e) {}
+      const tw = g.measureText(K.word).width, ls = K.logo ? 126 : 0, gap = K.logo ? 34 : 0, x0 = (w - tw - ls - gap) / 2;
+      if (K.logo) maerskLogo(g, x0, h / 2 - ls / 2, ls, K.border);
+      g.fillStyle = K.text; g.fillText(K.word, x0 + ls + gap, h / 2 + 4);
+    }
+    g.font = '600 15px Arial'; g.fillStyle = K.body === '#f3f5f6' ? '#555' : 'rgba(255,255,255,.85)'; g.textAlign = 'left';
+    g.fillText(k === 'hsd' ? 'SUDU 512833 2  45G1' : 'MSKU 704512 6  45G1', 26, 30);
+  });
+  const door = canvasTex(256, 256, (g, w, h) => {
+    g.fillStyle = K.body; g.fillRect(0, 0, w, h); ribs(g, w, h, false); frame(g, w, h, 8);
+    g.fillStyle = 'rgba(0,0,0,.45)'; g.fillRect(w / 2 - 2, 8, 4, h - 16);
+    g.fillStyle = '#3c3f43'; [40, 92, 160, 212].forEach(x => { g.fillRect(x, 12, 7, h - 24); g.fillRect(x - 6, h / 2 - 8, 19, 16); });
+    if (K.logo) maerskLogo(g, w - 80, 22, 48, K.border);
+    g.font = '700 16px Arial'; g.fillStyle = K.body === '#f3f5f6' ? '#444' : '#fff'; g.fillText(k === 'hsd' ? 'SUDU 512833 2' : 'MSKU 704512 6', 22, 34);
+  });
+  const machine = canvasTex(256, 256, (g, w, h) => {   // extremo del reefer con el equipo de frío
+    g.fillStyle = K.body; g.fillRect(0, 0, w, h); frame(g, w, h, 8);
+    g.fillStyle = '#2d3136'; g.fillRect(18, 18, w - 36, h - 36);
+    g.fillStyle = '#4a5057'; for (let y = 30; y < h * 0.55; y += 8) g.fillRect(28, y, w - 56, 4);
+    g.fillStyle = '#1b1e22'; g.beginPath(); g.arc(w * 0.32, h * 0.72, 34, 0, 7); g.fill(); g.beginPath(); g.arc(w * 0.68, h * 0.72, 34, 0, 7); g.fill();
+    g.fillStyle = '#e8eaec'; g.fillRect(w * 0.42, h * 0.6, 36, 26);
+  });
+  const top = canvasTex(64, 256, (g, w, h) => { g.fillStyle = K.body; g.fillRect(0, 0, w, h); g.fillStyle = 'rgba(0,0,0,.12)'; for (let y = 0; y < h; y += 8) g.fillRect(0, y, w, 2); });
+  const m = t => new THREE.MeshStandardMaterial({ map: t, roughness: 0.5, metalness: 0.3 });
+  const S = m(side), T = m(top), D = m(door);
+  return [S, S, T, T, K.reefer ? m(machine) : D, D];
+}
+const contMatsByKind = {};
+const contMaterials = k => contMatsByKind[k] || (contMatsByKind[k] = contTextures(k));
+const RED = ['#b5402f', '#a8382b', '#c0392b', '#8e3b33', '#d8473b', '#b32b25'];
+const WHITE = ['#f2f4f5', '#f4f6f7', '#e9ecee', '#dfe3e6', '#e4e7ea', '#f2f2f0', '#ececea', '#e8e8e8'];
+const GREY = ['#c9cdd1', '#8f9aa3', '#cfd4d9', '#c7ccd1'];
+function contKind(col) {
+  col = (col || '').toLowerCase();
+  if (RED.includes(col)) return 'hsd';
+  if (WHITE.includes(col)) return 'reefer';
+  if (col === '#2f6db3') return 'blue';
+  if (GREY.includes(col)) return rng() < 0.6 ? 'blue' : 'grey';
+  return 'plain';
+}
+const contGeo = new THREE.BoxGeometry(2.44, 2.59, 12.19);
+function brandContainer(col, alongX = true) {
+  const k = contKind(col), m = new THREE.Mesh(contGeo, k === 'plain' ? contMaterials('plain').map(x => { const c = x.clone(); c.color.set(col); return c; }) : contMaterials(k));
+  if (alongX) m.rotation.y = Math.PI / 2;
+  m.castShadow = m.receiveShadow = true; return m;
+}
+
+/* ---------- Ruedas, camiones, autos y maquinaria con formas redondeadas ---------- */
+const glassM = new THREE.MeshStandardMaterial({ color: '#1a2633', metalness: 0.6, roughness: 0.08, envMapIntensity: 1.4 });
+const glassSideM = glassM.clone(); glassSideM.side = THREE.DoubleSide;
+const tireM = mat('#1b1b1c', { roughness: 0.92 });
+const rimM = mat('#c9ced3', { metalness: 0.85, roughness: 0.28 });
+const chromeM = mat('#e3e6e9', { metalness: 0.95, roughness: 0.15 });
+const darkM = mat('#26292d', { roughness: 0.7, metalness: 0.3 });
+const tireGeo = (() => {   // perfil de neumático con hombros redondeados, girado sobre su eje
+  const p = [], w = 0.5, r0 = 0.62, r1 = 1;
+  for (let i = 0; i <= 8; i++) { const a = -Math.PI / 2 + i * Math.PI / 8; p.push(new THREE.Vector2(r1 - 0.12 + Math.cos(a) * 0.12, Math.sin(a) * w * 0.5 + 0)); }
+  p.unshift(new THREE.Vector2(r0, -w / 2)); p.push(new THREE.Vector2(r0, w / 2));
+  const g = new THREE.LatheGeometry(p, 28); g.rotateX(Math.PI / 2); return g;
+})();
+const rimGeo = (() => { const p = [[0, 0.22], [0.5, 0.2], [0.58, 0.12], [0.6, -0.05], [0.66, -0.2], [0, -0.2]].map(([a, b]) => new THREE.Vector2(a, b)); const g = new THREE.LatheGeometry(p, 24); g.rotateX(Math.PI / 2); return g; })();
+function wheel(g, x, z, r = 0.52, wdt = 0.36, flip = false) {
+  const w = new THREE.Mesh(tireGeo, tireM); w.scale.set(r, r, wdt / 0.5); w.position.set(x, r, z); w.castShadow = true; g.add(w);
+  const h = new THREE.Mesh(rimGeo, rimM); h.scale.set(r, r, wdt / 0.5); h.position.set(x, r, z); if ((z > 0) === flip) h.rotation.y = Math.PI; g.add(h);
+}
+function extrude(points, depth, material, bevel = 0.06, curves) {
+  const s = new THREE.Shape(); s.moveTo(...points[0]);
+  points.slice(1).forEach(p => p.length === 4 ? s.quadraticCurveTo(p[0], p[1], p[2], p[3]) : s.lineTo(p[0], p[1]));
+  s.closePath();
+  const g = new THREE.ExtrudeGeometry(s, { depth: depth - bevel * 2, bevelEnabled: bevel > 0, bevelThickness: bevel, bevelSize: bevel, bevelSegments: 3, curveSegments: curves || 10 });
+  g.translate(0, 0, -(depth - bevel * 2) / 2);
+  const m = new THREE.Mesh(g, material); m.castShadow = true; m.receiveShadow = true; return m;
+}
 function makeTruck(cab = '#f2c230', load = '#f2f4f5') {
   const g = new THREE.Group();
-  // semirremolque
-  box(g, 13.4, 0.32, 2.3, '#2f3338', -0.6, 1.28, 0);
-  [-0.95, 0.95].forEach(z => box(g, 13.2, 0.4, 0.12, '#3a3f45', -0.6, 1.05, z));
-  if (load) { const c = new THREE.Mesh(new THREE.BoxGeometry(12.19, 2.59, 2.44), contMat(load)); c.position.set(-0.6, 2.75, 0); c.castShadow = c.receiveShadow = true; g.add(c); }
-  [-5.6, -4.3].forEach(x => [-0.98, 0.98].forEach(z => wheel(g, x, z)));
-  box(g, 0.5, 0.25, 2.4, '#d0402f', -7.25, 0.9, 0);                       // parachoques trasero
-  box(g, 0.12, 1.0, 0.12, '#3a3f45', 3.2, 0.6, 0.8); box(g, 0.12, 1.0, 0.12, '#3a3f45', 3.2, 0.6, -0.8);   // patas de apoyo
-  // tracto
-  box(g, 6.6, 0.4, 1.1, '#26292d', 8.4, 0.95, 0);
-  box(g, 2.2, 0.22, 2.3, '#3a3f45', 6.7, 1.25, 0);                        // quinta rueda
-  box(g, 2.3, 2.5, 2.48, cab, 9.7, 2.7, 0);                               // cabina
-  box(g, 2.0, 0.7, 2.4, cab, 9.5, 4.25, 0);                               // deflector
-  box(g, 1.9, 1.35, 2.3, cab, 11.75, 2.1, 0);                             // capó
-  box(g, 0.08, 1.05, 1.5, chromeM, 12.72, 2.05, 0);                       // parrilla
-  box(g, 0.35, 0.35, 2.5, '#c9ccd0', 12.8, 1.15, 0);                      // parachoques
-  [-0.85, 0.85].forEach(z => box(g, 0.06, 0.22, 0.4, '#fff7d0', 12.76, 1.65, z));
-  box(g, 0.06, 0.95, 2.2, glassM, 10.86, 3.25, 0);                        // parabrisas
-  [-1.25, 1.25].forEach(z => { box(g, 1.3, 0.85, 0.04, glassM, 9.9, 3.25, z); box(g, 0.1, 0.5, 0.1, '#222', 10.95, 3.3, z * 1.12); });
-  [-1.0, 1.0].forEach(z => { const t = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.28, 1.4, 12), chromeM); t.rotation.z = Math.PI / 2; t.position.set(9.6, 0.95, z * 1.05); g.add(t); });
-  const ex = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 2.2, 8), chromeM); ex.position.set(8.5, 3.6, 1.15); g.add(ex);
-  [11.7, 8.1, 6.9].forEach(x => [-0.98, 0.98].forEach(z => wheel(g, x, z)));
-  g.traverse(o => { if (o.isMesh) o.castShadow = true; });
+  const cabM = new THREE.MeshStandardMaterial({ color: cab, metalness: 0.45, roughness: 0.32 });
+  const frameM = mat('#2a2d31', { metalness: 0.4, roughness: 0.6 });
+  // --- chasis porta-contenedor (esqueleto 40')
+  [-0.5, 0.5].forEach(z => { box(g, 12.2, 0.32, 0.18, null, -0.7, 1.2, z, { material: frameM }); box(g, 2.0, 0.3, 0.18, null, 4.2, 1.42, z, { material: frameM }); });
+  for (let x = -6.6; x <= 3.4; x += 1.25) box(g, 0.14, 0.18, 1.2, null, x, 1.24, 0, { material: frameM, cast: false });
+  [-6.75, 3.3].forEach(x => box(g, 0.22, 0.24, 2.44, null, x, 1.38, 0, { material: frameM }));
+  [-6.75, 5.1].forEach(x => [-1.15, 1.15].forEach(z => box(g, 0.2, 0.12, 0.2, '#c9a227', x, 1.53, z)));   // twistlocks
+  [2.8].forEach(x => [-0.55, 0.55].forEach(z => { box(g, 0.12, 1.0, 0.12, null, x, 0.62, z, { material: frameM }); box(g, 0.35, 0.06, 0.35, null, x, 0.12, z, { material: frameM }); }));
+  [-6.0, -4.7, -3.4].forEach(x => { box(g, 0.14, 0.14, 2.1, null, x, 0.5, 0, { material: frameM, cast: false }); [-0.72, -1.05, 0.72, 1.05].forEach(z => wheel(g, x, z, 0.5, 0.3)); });
+  [-1.2, 1.2].forEach(z => { box(g, 3.6, 0.08, 0.5, null, -4.7, 1.05, z * 0.98, { material: frameM }); box(g, 0.04, 0.55, 0.55, '#111', -7.0, 0.62, z * 0.9, { cast: false }); });
+  box(g, 0.2, 0.22, 2.4, '#3a3d41', -7.05, 0.85, 0);
+  [-0.95, -0.6, 0.6, 0.95].forEach((z, i) => box(g, 0.05, 0.12, 0.22, i % 3 ? '#ffb000' : '#d4141a', -7.17, 0.86, z, { cast: false }));
+  if (load) { const c = brandContainer(load); c.position.set(-0.7, 1.36 + 1.295, 0); g.add(c); }
+  // --- tracto (cabina tipo cab-over con techo redondeado)
+  [-0.42, 0.42].forEach(z => box(g, 6.6, 0.32, 0.14, null, 9.1, 0.95, z, { material: frameM }));
+  const fw = new THREE.Mesh(new THREE.CylinderGeometry(0.95, 0.95, 0.12, 24), mat('#3a3d41', { metalness: 0.5 })); fw.position.set(6.95, 1.22, 0); g.add(fw);
+  const cabG = extrude([[9.05, 1.15], [12.62, 1.15], [12.78, 1.55], [12.74, 2.42], [12.5, 3.52], [12.42, 3.95, 11.95, 3.98], [9.35, 3.98], [9.05, 3.98, 9.05, 3.65]], 2.46, cabM, 0.09, 12);
+  g.add(cabG);
+  g.add(extrude([[9.25, 3.98], [11.5, 3.98], [11.75, 4.05, 11.6, 4.35], [9.4, 4.62], [9.2, 4.6, 9.2, 4.3]], 2.3, cabM, 0.07, 10));   // deflector de techo
+  { const w = new THREE.Group(); w.position.set(12.62, 2.98, 0); w.rotation.z = Math.atan2(0.24, 1.1); const p = new THREE.Mesh(new THREE.PlaneGeometry(2.24, 1.06), glassM); p.rotation.y = Math.PI / 2; p.position.x = 0.07; w.add(p); g.add(w); }
+  [-1, 1].forEach(sg => {
+    const s = new THREE.Mesh(new THREE.ShapeGeometry(new THREE.Shape([[10.95, 2.5], [12.62, 2.5], [12.44, 3.42], [10.95, 3.42]].map(([a, b]) => new THREE.Vector2(a, b)))), glassSideM);
+    s.position.z = sg * 1.325; g.add(s);
+    box(g, 0.08, 0.06, 0.55, null, 12.3, 3.1, sg * 1.5, { material: darkM }); box(g, 0.14, 0.62, 0.24, null, 12.3, 2.85, sg * 1.78, { material: darkM });   // espejos
+    box(g, 0.5, 0.06, 0.6, null, 11.0, 0.95, sg * 1.18, { material: darkM }); box(g, 0.5, 0.06, 0.6, null, 11.0, 1.45, sg * 1.18, { material: darkM });   // peldaños
+    const t = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.32, 1.5, 20), rimM); t.rotation.z = Math.PI / 2; t.position.set(9.4, 0.95, sg * 1.02); t.castShadow = true; g.add(t);   // estanque
+    box(g, 2.2, 0.1, 0.55, null, 7.5, 1.38, sg * 1.02, { material: darkM });   // tapabarros trasero
+  });
+  box(g, 0.06, 0.62, 1.7, null, 12.82, 1.95, 0, { material: chromeM, cast: false });   // parrilla
+  for (let y = 1.7; y <= 2.2; y += 0.1) box(g, 0.08, 0.03, 1.66, null, 12.84, y, 0, { material: darkM, cast: false });
+  box(g, 0.32, 0.42, 2.48, null, 12.78, 1.12, 0, { material: mat('#5a5e63', { metalness: 0.4, roughness: 0.5 }) });   // parachoques
+  [-0.9, 0.9].forEach(z => { box(g, 0.06, 0.2, 0.42, '#fff6d8', 12.95, 1.42, z, { cast: false }); });
+  box(g, 0.5, 0.08, 2.4, null, 12.55, 3.62, 0, { material: darkM });   // visera
+  const ex = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 2.4, 10), chromeM); ex.position.set(8.95, 3.4, 1.18); g.add(ex);
+  [[11.75, 0.55], [8.15, 0.52], [6.9, 0.52]].forEach(([x, r], i) => [-1, 1].forEach(sg => { if (i) { wheel(g, x, sg * 0.72, r, 0.3); wheel(g, x, sg * 1.04, r, 0.3); } else wheel(g, x, sg * 1.02, r, 0.34); }));
+  g.traverse(o => { if (o.isMesh && o.material !== glassM) o.castShadow = true; });
   return g;
 }
 function makeCar(col = '#e8e8e8', kind = 'sedan') {
   const g = new THREE.Group();
-  const bodyM = mat(col, { metalness: 0.55, roughness: 0.35 });
-  if (kind === 'pickup') {
-    box(g, 5.1, 0.7, 1.85, null, 0, 0.75, 0, { material: bodyM });
-    box(g, 2.2, 0.75, 1.75, null, 0.55, 1.45, 0, { material: glassM }); box(g, 2.1, 0.08, 1.7, null, 0.5, 1.86, 0, { material: bodyM });
-    [-0.88, 0.88].forEach(z => box(g, 2.2, 0.45, 0.08, null, -1.45, 1.3, z, { material: bodyM })); box(g, 0.08, 0.45, 1.8, null, -2.53, 1.3, 0, { material: bodyM });
-  } else {
-    const tall = kind === 'suv';
-    box(g, 4.4, tall ? 0.85 : 0.65, 1.8, null, 0, tall ? 0.8 : 0.68, 0, { material: bodyM });
-    box(g, tall ? 2.9 : 2.3, tall ? 0.7 : 0.55, 1.66, null, -0.15, tall ? 1.55 : 1.27, 0, { material: glassM });
-    box(g, tall ? 2.8 : 2.1, 0.08, 1.6, null, -0.15, tall ? 1.93 : 1.57, 0, { material: bodyM });
-  }
-  const L = kind === 'pickup' ? 2.5 : 2.15;
-  [-0.85, 0.85].forEach(z => { box(g, 0.05, 0.14, 0.32, '#fff6d8', L + 0.02, 0.85, z * 0.85, { cast: false }); box(g, 0.05, 0.14, 0.32, '#c0281e', -L - 0.02, 0.85, z * 0.85, { cast: false }); });
-  [L - 0.8, -L + 0.8].forEach(x => [-0.84, 0.84].forEach(z => wheel(g, x, z, 0.34, 0.24)));
+  const bodyM = new THREE.MeshStandardMaterial({ color: col, metalness: 0.6, roughness: 0.28 });
+  const L = kind === 'pickup' ? 2.6 : 2.25, wx = kind === 'pickup' ? 1.6 : 1.35, wr = kind === 'sedan' ? 0.33 : 0.38, low = kind === 'sedan' ? 0.3 : 0.4;
+  const s = new THREE.Shape();
+  s.moveTo(-L, low + 0.1); s.lineTo(-wx - wr - 0.05, low + 0.05);
+  s.absarc(-wx, wr, wr + 0.06, Math.PI, 0, true); s.lineTo(wx - wr - 0.06, low + 0.05);
+  s.absarc(wx, wr, wr + 0.06, Math.PI, 0, true); s.lineTo(L - 0.05, low + 0.08);
+  s.quadraticCurveTo(L + 0.06, low + 0.35, L - 0.05, low + 0.62);
+  s.lineTo(0.95, low + 0.72); s.lineTo(-L + 0.25, low + 0.74); s.quadraticCurveTo(-L - 0.04, low + 0.6, -L, low + 0.1);
+  const bg = new THREE.ExtrudeGeometry(s, { depth: 1.62, bevelEnabled: true, bevelThickness: 0.08, bevelSize: 0.06, bevelSegments: 3, curveSegments: 12 });
+  bg.translate(0, 0, -0.81); const body = new THREE.Mesh(bg, bodyM); body.castShadow = true; g.add(body);
+  const top = low + 0.72, roof = kind === 'suv' ? top + 0.72 : kind === 'pickup' ? top + 0.66 : top + 0.56;
+  const back = kind === 'pickup' ? -0.55 : kind === 'suv' ? -L + 0.25 : -L + 0.55;
+  const gh = extrude([[0.95, top], [0.22, roof - 0.04], [0.15, roof, 0.05, roof], [back + 0.25, roof], [back + 0.05, roof, back, roof - 0.12], [back - (kind === 'sedan' ? 0.25 : 0), top]], 1.5, glassM, 0.05, 8);
+  g.add(gh);
+  g.add(extrude([[0.18, roof - 0.02], [back + 0.2, roof - 0.02], [back + 0.2, roof + 0.05], [0.12, roof + 0.05]], 1.46, bodyM, 0.03));   // techo
+  [-0.78, 0.78].forEach(z => box(g, 0.12, roof - top, 0.06, null, (0.2 + back) / 2, (top + roof) / 2, z, { material: bodyM }));   // pilar B
+  if (kind === 'pickup') { [-0.86, 0.86].forEach(z => box(g, L - 0.7, 0.45, 0.07, null, (-L - 0.55) / 2 + 0.1, top + 0.2, z, { material: bodyM })); box(g, 0.07, 0.45, 1.7, null, -L + 0.05, top + 0.2, 0, { material: bodyM }); box(g, L - 0.7, 0.04, 1.6, '#2a2c2f', (-L - 0.55) / 2 + 0.1, top + 0.01, 0, { cast: false }); }
+  [-0.62, 0.62].forEach(z => { box(g, 0.06, 0.12, 0.36, '#fff6d8', L + 0.04, low + 0.5, z, { cast: false }); box(g, 0.06, 0.12, 0.34, '#c0281e', -L - 0.06, low + 0.55, z, { cast: false }); });
+  box(g, 0.08, 0.16, 1.4, '#2b2e32', L + 0.06, low + 0.22, 0, { cast: false });
+  [-0.93, 0.93].forEach(z => box(g, 0.18, 0.1, 0.14, null, 0.8, top + 0.12, z, { material: bodyM }));   // espejos
+  [wx, -wx].forEach(x => [-0.8, 0.8].forEach(z => wheel(g, x, z, wr, 0.24)));
   return g;
 }
+function makeReachStacker() {
+  const g = new THREE.Group(), Y = mat('#e3a90b', { metalness: 0.35, roughness: 0.45 }), K = darkM;
+  g.add(extrude([[-4.2, 0.55], [3.6, 0.55], [3.9, 0.9], [3.9, 1.9], [-1.6, 1.9], [-2.2, 2.7], [-4.6, 2.7], [-4.7, 1.0]], 3.4, Y, 0.1));   // chasis y contrapeso
+  box(g, 1.4, 0.4, 3.5, null, -4.2, 2.85, 0, { material: K });
+  // cabina vidriada desplazada
+  const cab = new THREE.Group(); cab.position.set(0.6, 1.9, 0.75); g.add(cab);
+  box(cab, 1.9, 0.08, 1.5, null, 0, 2.15, 0, { material: K });
+  box(cab, 1.85, 2.0, 1.45, null, 0, 1.05, 0, { material: glassM });
+  [[-0.92, -0.72], [0.92, -0.72], [-0.92, 0.72], [0.92, 0.72]].forEach(([a, b]) => box(cab, 0.08, 2.1, 0.08, null, a, 1.05, b, { material: K }));
+  // pluma telescópica y cilindro de levante
+  const boom = new THREE.Group(); boom.position.set(-3.2, 3.0, -0.6); boom.rotation.z = 0.36; g.add(boom);
+  box(boom, 9.5, 1.15, 0.95, null, 4.75, 0, 0, { material: Y }); box(boom, 6.5, 0.85, 0.7, null, 11.6, 0.05, 0, { material: Y });
+  box(boom, 0.4, 1.2, 1.0, null, 9.4, 0, 0, { material: K });
+  const cyl = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.22, 4.4, 14), chromeM); cyl.position.set(1.4, 2.7, -0.6); cyl.rotation.z = -0.9; g.add(cyl);
+  // spreader (marco para tomar el contenedor) colgando de la punta
+  const tip = new THREE.Vector3(11.6 + 3.25, 0, 0).applyEuler(new THREE.Euler(0, 0, 0.36)).add(boom.position);
+  const sp = new THREE.Group(); sp.position.set(tip.x, tip.y - 1.6, tip.z); g.add(sp);
+  box(sp, 1.0, 0.8, 1.0, null, 0, 1.0, 0, { material: K });
+  box(sp, 0.7, 0.5, 12.2, null, 0, 0.3, 0, { material: Y });
+  [-6, 6].forEach(z => box(sp, 2.44, 0.35, 0.5, null, 0, 0.1, z, { material: Y }));
+  [[3.4, 0.95], [-3.0, 0.82]].forEach(([x, r]) => [-1.45, -1.05, 1.05, 1.45].forEach(z => { if (x < 0 && Math.abs(z) < 1.2) return; wheel(g, x, z, r, 0.42); }));
+  g.traverse(o => { if (o.isMesh && o.material !== glassM) o.castShadow = true; });
+  return g;
+}
+
 function tree(parent, x, z, sc = 1, eucalipto = false) {
   const t = new THREE.Mesh(new THREE.CylinderGeometry(0.22 * sc, 0.32 * sc, (eucalipto ? 9 : 4) * sc, 8), mat('#6b5440'));
   t.position.set(x, (eucalipto ? 4.5 : 2) * sc, z); t.castShadow = true; parent.add(t);
@@ -917,27 +1061,6 @@ const hl = new THREE.Group(); scene.add(hl);
 
 /* ---------- Contenedores (instanciados) ---------- */
 {
-  const geo = new THREE.BoxGeometry(2.44, 2.59, 12.19);
-  const sideTex = logo => canvasTex(512, 112, (g, w, h) => {
-    g.fillStyle = '#ffffff'; g.fillRect(0, 0, w, h);
-    for (let x = 0; x < w; x += 9) { g.fillStyle = 'rgba(0,0,0,.13)'; g.fillRect(x, 6, 3, h - 12); g.fillStyle = 'rgba(255,255,255,.6)'; g.fillRect(x + 3, 6, 2, h - 12); }
-    g.fillStyle = 'rgba(0,0,0,.3)'; g.fillRect(0, 0, w, 6); g.fillRect(0, h - 6, w, 6); g.fillRect(0, 0, 8, h); g.fillRect(w - 8, 0, 8, h);
-    for (let i = 0; i < 6; i++) { g.fillStyle = 'rgba(90,60,30,.12)'; g.fillRect(rng() * w, rng() * h, 14 + rng() * 30, 3 + rng() * 6); }
-    if (logo) { g.font = '800 46px Archivo, Arial, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
-      g.fillStyle = 'rgba(255,255,255,.75)'; g.fillRect(w / 2 - 150, h / 2 - 28, 300, 56); g.fillStyle = logo[1]; g.fillText(logo[0], w / 2, h / 2 + 2); }
-  });
-  const doorTex = canvasTex(128, 128, (g, w, h) => {
-    g.fillStyle = '#ffffff'; g.fillRect(0, 0, w, h);
-    g.fillStyle = 'rgba(0,0,0,.12)'; for (let y = 10; y < h - 6; y += 10) g.fillRect(6, y, w - 12, 3);
-    g.fillStyle = 'rgba(0,0,0,.45)'; g.fillRect(w / 2 - 1, 4, 2, h - 8); g.fillRect(0, 0, w, 5); g.fillRect(0, h - 5, w, 5); g.fillRect(0, 0, 5, h); g.fillRect(w - 5, 0, 5, h);
-    g.fillStyle = 'rgba(40,40,40,.75)'; [22, 46, 82, 106].forEach(x => g.fillRect(x, 6, 4, h - 12));
-    g.fillStyle = 'rgba(30,30,30,.85)'; [22, 46, 82, 106].forEach(x => g.fillRect(x - 3, h / 2 - 3, 10, 7));
-  });
-  const topTex = canvasTex(64, 256, (g, w, h) => { g.fillStyle = '#f2f2f2'; g.fillRect(0, 0, w, h); g.fillStyle = 'rgba(0,0,0,.1)'; for (let y = 0; y < h; y += 8) g.fillRect(0, y, w, 2); });
-  const cmat = logo => { const side = new THREE.MeshStandardMaterial({ map: sideTex(logo), roughness: 0.55, metalness: 0.3 });
-    const door = new THREE.MeshStandardMaterial({ map: doorTex, roughness: 0.55, metalness: 0.3 }), top = new THREE.MeshStandardMaterial({ map: topTex, roughness: 0.6, metalness: 0.25 });
-    return [side, side, top, top, door, door]; };
-  const LINES = [null, ['MAERSK', '#2a6fa8'], ['MAERSK', '#2a6fa8'], ['HAMBURG SÜD', '#b3262d']];
   const slots = [];
   const COLS = ['#d9a441', '#c0392b', '#3d8a6b', '#e67e22', '#2f6db3', '#8e3b33', '#d8c34a', '#7fb069'];
   const PAL = ['#f4f6f7', '#f4f6f7', '#f4f6f7', '#f4f6f7', '#e9ecee', '#e9ecee', '#dfe3e6', '#b5402f', '#a8382b', '#f4f6f7', '#e9ecee', '#c9cdd1'];
@@ -984,10 +1107,11 @@ const hl = new THREE.Group(); scene.add(hl);
     }
   }
   const o = new THREE.Object3D(), c = new THREE.Color();
-  LINES.forEach((logo, li) => {
-    const mine = slots.filter((_, i) => i % LINES.length === li);
-    const im = new THREE.InstancedMesh(geo, cmat(logo), mine.length);
-    mine.forEach(([x, y, z, col, ry = 0], i) => { o.position.set(x, y, z); o.rotation.set(0, ry, 0); o.updateMatrix(); im.setMatrixAt(i, o.matrix); im.setColorAt(i, c.set(col)); });
+  const byKind = {};
+  slots.forEach(sl => { const k = contKind(sl[3]); (byKind[k] = byKind[k] || []).push(sl); });
+  Object.entries(byKind).forEach(([k, mine]) => {
+    const im = new THREE.InstancedMesh(contGeo, contMaterials(k), mine.length);
+    mine.forEach(([x, y, z, col, ry = 0], i) => { o.position.set(x, y, z); o.rotation.set(0, ry, 0); o.updateMatrix(); im.setMatrixAt(i, o.matrix); im.setColorAt(i, c.set(k === 'plain' ? col : '#ffffff')); });
     im.castShadow = im.receiveShadow = true; contG.add(im);
   });
   // romana (báscula de camiones) entre la hilera de contenedores y la reja
@@ -1003,13 +1127,7 @@ const hl = new THREE.Group(); scene.add(hl);
     label(site, 'Romana · pesaje de camiones', 'lbl tag', x, 4, z, 'romana');
   }
   // reach stackers
-  const rs = (x, z, rot) => {
-    const g = new THREE.Group();
-    box(g, 8, 2.2, 3.8, '#d9a400', 0, 1.6, 0); box(g, 2.6, 2.2, 2.2, '#2c3a4b', 1.5, 3.8, 0);
-    const bm = new THREE.Mesh(new THREE.BoxGeometry(11, 1, 1), mat('#d9a400')); bm.position.set(-3, 5.2, 0); bm.rotation.z = -0.35; g.add(bm);
-    box(g, 0.6, 0.4, 6, '#3c4148', -8, 7, 0);
-    g.position.set(x, 0, z); g.rotation.y = rot; contG.add(g);
-  };
+  const rs = (x, z, rot) => { const g = makeReachStacker(); g.position.set(x, 0, z); g.rotation.y = rot; contG.add(g); };
   rs(420, 64, 0); rs(360, 119, Math.PI); rs(96, 100, 0); rs(270, 58, -1.4);
 }
 
@@ -1017,10 +1135,10 @@ const hl = new THREE.Group(); scene.add(hl);
 {
   const truck = (x, z, rot, cab, load) => { const g = makeTruck(cab, load); g.position.set(x, 0, z); g.rotation.y = rot; trucksG.add(g); };
   truck(250, 216, 0, '#2f6db3', '#f2f4f5'); truck(340, 216, 0, '#f2c230', '#b5402f'); 
-  truck(118, 85, 0, '#c23b2e', '#2f6db3'); truck(118, 98, 0, '#f2c230', '#f2f4f5'); truck(132, 160, -Math.PI / 2, '#f2f2f0', '#e4e7ea');
+  truck(132, 62, -Math.PI / 2, '#c23b2e', '#2f6db3'); truck(132, 112, Math.PI / 2, '#f2c230', '#f2f4f5'); truck(132, 160, -Math.PI / 2, '#f2f2f0', '#e4e7ea');
   truck(301.5, 140, -Math.PI / 2, '#2f6db3', '#f2f4f5'); truck(564, 120, Math.PI / 2, '#27ae60', '#f2f4f5'); truck(380, 163, Math.PI, '#c23b2e', '#8e3b33');
   // tren en la vía principal y vagones en el desvío
-  const wag = (x, z, load) => { box(trucksG, 14, 0.8, 2.6, '#5a4636', x, 1.1, z); if (load) box(trucksG, 12.2, 2.59, 2.44, load, x, 2.8, z); };
+  const wag = (x, z, load) => { box(trucksG, 14, 0.8, 2.6, '#5a4636', x, 1.1, z); [-5, 5].forEach(dx => [-0.75, 0.75].forEach(dz => wheel(trucksG, x + dx, z + dz, 0.45, 0.2))); if (load) { const c = brandContainer(load); c.position.set(x, 2.8, z); trucksG.add(c); } };
   for (let i = 0; i < 22; i++) wag(160 + i * 15, -20, i % 5 ? ['#f2f4f5', '#e4e7ea', '#2f6db3', '#d8473b'][i % 4] : null);
   box(trucksG, 18, 3.6, 3, '#d9a400', 160 - 17, 2.3, -20);
   for (let i = 0; i < 3; i++) wag(250 + i * 15, -10, '#f2f4f5');
