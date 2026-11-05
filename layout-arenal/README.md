@@ -29,7 +29,7 @@ Es una sola página (`index.html`), sin instalación ni compilación. Usa [three
   - Flechas pintadas con el sentido de circulación de las calles.
 - **Vistas y opciones:**
   - Vistas: general, planta, acceso, bodegas, oficinas y patio.
-  - Se pueden mostrar u ocultar los techos, las etiquetas, las cotas, los contenedores y los camiones y el tren.
+  - Se pueden mostrar u ocultar los techos, las etiquetas, las cotas, los contenedores y los camiones y el tren, y activar el modo noche (torres de iluminación encendidas).
   - Al tocar una bodega o una zona se ve su ficha.
 
 ## Boceto e informe
