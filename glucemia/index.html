@@ -70,6 +70,7 @@
   --low: #f08a8a;
 }
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
 html, body { margin: 0; }
 body {
   background: var(--bg); color: var(--text);
@@ -174,13 +175,66 @@ td.act button { border: 0; background: none; cursor: pointer; color: var(--text-
 details summary { cursor: pointer; font-weight: 600; }
 ol.steps { padding-left: 20px; margin: 8px 0; }
 ol.steps li { margin: 4px 0; }
+.grid.three { display: grid; gap: 16px; }
+@media (min-width: 820px) { .grid.three { grid-template-columns: repeat(3, 1fr); } }
+.btn.sm { min-height: 32px; padding: 5px 10px; font-size: 13px; }
+.meal-list { margin-top: 8px; }
+.meal-row { display: grid; grid-template-columns: 150px 1fr 56px auto; gap: 12px; align-items: center; padding: 10px 0; border-top: 1px solid var(--border); }
+.meal-when { display: flex; flex-direction: column; font-size: 13px; }
+.meal-ch { text-align: right; display: flex; flex-direction: column; font-variant-numeric: tabular-nums; }
+.meal-act { display: flex; gap: 6px; justify-content: flex-end; flex-wrap: wrap; }
+@media (max-width: 700px) {
+  .meal-row { grid-template-columns: 1fr auto; gap: 4px 12px; }
+  .meal-when { grid-column: 1 / -1; flex-direction: row; gap: 8px; align-items: baseline; }
+  .meal-act { grid-column: 1 / -1; justify-content: flex-start; margin-top: 4px; }
+}
+.eq-grid { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); margin-bottom: 10px; }
+.eq { background: var(--surface-2); border-radius: 10px; padding: 10px 12px; display: flex; flex-direction: column; gap: 2px; }
+.plate-wrap { display: flex; gap: 24px; align-items: center; flex-wrap: wrap; }
+.plate { width: 220px; max-width: 100%; flex: none; margin: 0 auto; }
+.plate-legend { list-style: none; padding: 0; margin: 0; flex: 1; min-width: 240px; display: grid; gap: 12px; }
+.plate-legend li { display: flex; gap: 10px; align-items: flex-start; }
+.plate-legend .dot { width: 14px; height: 14px; margin-top: 3px; }
+ul.food, ul.shop { margin: 0; padding-left: 18px; }
+ul.food li { margin: 5px 0; font-size: 14px; }
+ul.shop { list-style: none; padding: 0; }
+ul.shop li { padding: 6px 0; border-bottom: 1px solid var(--border); font-size: 14px; }
+ul.shop input { width: 18px; height: 18px; vertical-align: -3px; margin-right: 6px; }
+ul.shop input:checked + * , ul.shop label:has(input:checked) { text-decoration: line-through; color: var(--muted); }
+.card-h { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
+.card-h h2 { margin: 0; }
+.task { display: flex; gap: 12px; align-items: center; padding: 10px 0; border-top: 1px solid var(--border); }
+.task .note { font-size: 13px; }
+.chk { width: 30px; height: 30px; flex: none; border-radius: 50%; border: 2px solid var(--border); background: var(--bg); display: inline-flex; align-items: center; justify-content: center; font-weight: 700; color: #fff; cursor: pointer; padding: 0; }
+span.chk { cursor: default; }
+.task.done .chk { background: var(--ok); border-color: var(--ok); }
+.task.done > div b { text-decoration: line-through; text-decoration-color: var(--muted); }
+.insight { padding: 10px 12px; border-radius: 10px; background: var(--surface-2); margin-bottom: 8px; border-left: 4px solid var(--accent); }
+.insight.crit { border-left-color: var(--danger); }
+.insight.warn { border-left-color: var(--high); }
+.insight.ok { border-left-color: var(--ok); }
+.bar-goal { height: 10px; background: var(--surface-2); border-radius: 5px; overflow: hidden; }
+.bar-goal div { height: 100%; background: var(--ok); border-radius: 5px; }
+.adh { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+.adh span { aspect-ratio: 1.6; border-radius: 6px; font-size: 11px; display: flex; align-items: center; justify-content: center; color: var(--text); }
+.times { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 4px; }
+.times span { display: inline-flex; gap: 2px; align-items: center; }
+.times input { padding: 8px; border-radius: 10px; border: 1px solid var(--border); background: var(--bg); min-height: 40px; }
+.times button { border: 0; background: none; cursor: pointer; color: var(--muted); padding: 4px; }
+.med { display: flex; gap: 12px; padding: 12px 0; border-top: 1px solid var(--border); flex-wrap: wrap; }
+.med-act { display: flex; gap: 6px; align-items: flex-start; flex-wrap: wrap; }
+.plan-step { border: 1px solid var(--border); border-radius: 12px; padding: 12px; }
+.plan-step.cur { border: 2px solid var(--accent); }
+.grid.two { display: grid; gap: 16px; }
 .print-only { display: none; }
 @media print {
   header.top, nav, .filters, .no-print, .toast { display: none !important; }
   body { background: #fff; color: #000; }
   main { padding: 0; }
   section.view { display: none !important; }
-  section#v-resumen { display: block !important; }
+  body:not(.pd) section#v-resumen { display: block !important; }
+  body.pd section#v-alimentacion { display: block !important; }
+  .meal-row { grid-template-columns: 150px 1fr 56px; }
   .card, .tile { break-inside: avoid; border-color: #ccc; }
   .print-only { display: block; }
 }
@@ -196,16 +250,23 @@ ol.steps li { margin: 4px 0; }
     </button>
   </div>
   <nav class="tabs" role="tablist">
-    <button role="tab" data-v="resumen" aria-selected="true">Resumen</button>
+    <button role="tab" data-v="hoy" aria-selected="true">Hoy</button>
+    <button role="tab" data-v="resumen" aria-selected="false">Resumen</button>
     <button role="tab" data-v="registrar" aria-selected="false">Registrar</button>
     <button role="tab" data-v="historial" aria-selected="false">Historial</button>
+    <button role="tab" data-v="alimentacion" aria-selected="false">Alimentación</button>
+    <button role="tab" data-v="ejercicio" aria-selected="false">Ejercicio</button>
+    <button role="tab" data-v="medicamentos" aria-selected="false">Medicamentos</button>
     <button role="tab" data-v="ajustes" aria-selected="false">Ajustes</button>
   </nav>
 </header>
 
 <main>
+  <!-- HOY -->
+  <section class="view active" id="v-hoy"><div id="hoy-body"></div></section>
+
   <!-- RESUMEN -->
-  <section class="view active" id="v-resumen">
+  <section class="view" id="v-resumen">
     <div class="print-only"><h1 style="margin:0">Informe de glucemia</h1><p id="print-meta"></p></div>
     <div class="filters">
       <div class="seg" id="period" role="group" aria-label="Periodo">
@@ -264,6 +325,14 @@ ol.steps li { margin: 4px 0; }
       <div class="tablewrap"><table id="h-table"></table></div>
     </div>
   </section>
+
+  <!-- ALIMENTACIÓN -->
+  <section class="view" id="v-alimentacion">
+    <div id="diet-body"></div>
+  </section>
+
+  <section class="view" id="v-ejercicio"><div id="ex-body"></div></section>
+  <section class="view" id="v-medicamentos"><div id="meds-body"></div></section>
 
   <!-- AJUSTES -->
   <section class="view" id="v-ajustes">
@@ -398,6 +467,10 @@ function show(v) {
   if (v === 'resumen') renderResumen();
   if (v === 'historial') renderHistorial();
   if (v === 'ajustes') fillSettings();
+  if (v === 'alimentacion') renderDieta();
+  if (v === 'hoy') renderHoy();
+  if (v === 'ejercicio') renderEx();
+  if (v === 'medicamentos') renderMeds();
   if (v === 'registrar' && !$('#f-id').value) resetForm();
   window.scrollTo(0, 0);
 }
@@ -814,7 +887,7 @@ $('#d-csv').addEventListener('click', () => {
   download(`glucemia-${stamp()}.csv`, '﻿' + rows.join('\r\n'), 'text/csv;charset=utf-8');
 });
 $('#d-json').addEventListener('click', () => {
-  download(`glucemia-respaldo-${stamp()}.json`, JSON.stringify({ app: 'mi-glucemia', version: 1, ajustes: S, lecturas: data }, null, 1), 'application/json');
+  download(`glucemia-respaldo-${stamp()}.json`, JSON.stringify({ app: 'mi-glucemia', version: 2, ajustes: S, lecturas: data, control: C, alimentacion: D }, null, 1), 'application/json');
 });
 $('#d-import').addEventListener('click', () => $('#d-file').click());
 $('#d-file').addEventListener('change', async e => {
@@ -825,6 +898,8 @@ $('#d-file').addEventListener('change', async e => {
     if (/^\s*[{[]/.test(text)) {
       const j = JSON.parse(text);
       incoming = (Array.isArray(j) ? j : j.lecturas || []).filter(r => isFinite(r.t) && isFinite(r.v));
+      if (j.control && (j.control.meds?.length || j.control.ex?.length || j.control.weight?.length) && confirm('La copia incluye medicamentos, ejercicio y peso. ¿Reemplazar los de este dispositivo?')) { C = Object.assign(C, j.control); saveCtrl(); }
+      if (j.alimentacion && j.alimentacion.peso && !D.peso) { D = Object.assign(D, j.alimentacion); saveDiet(); }
     } else {
       const lines = text.replace(/^﻿/, '').split(/\r?\n/).filter(Boolean);
       const sep = lines[0].includes(';') ? ';' : ',';
@@ -974,7 +1049,7 @@ async function syncBT() {
     const added = merge(list);
     btStatus('');
     toast(list.length ? `Sincronización lista: ${added} mediciones nuevas de ${list.length} en el glucómetro` : 'El glucómetro no tiene mediciones guardadas', 5000);
-    renderResumen(); if ($('#v-historial').classList.contains('active')) renderHistorial();
+    renderResumen(); if ($('#v-historial').classList.contains('active')) renderHistorial(); if ($('#v-hoy').classList.contains('active')) renderHoy();
   } catch (err) {
     btStatus('');
     if (err && err.name === 'NotFoundError') toast('No se eligió ningún glucómetro. Enciéndelo cerca del teléfono e intenta de nuevo.', 5000);
@@ -991,11 +1066,565 @@ $('#btn-sync2').addEventListener('click', syncBT);
 let rsT, lastW = window.innerWidth;
 window.addEventListener('resize', () => { if (window.innerWidth === lastW) return; lastW = window.innerWidth; clearTimeout(rsT); rsT = setTimeout(() => { if ($('#v-resumen').classList.contains('active')) renderResumen(); }, 200); });
 
+/* ---------- Alimentación ---------- */
+const KEY_DIET = 'glucemia.alimentacion.v1';
+let D = Object.assign({ sexo: '', edad: '', peso: '', talla: '', act: 'leve', obj: 'mantener', seed: 1, swaps: {}, sub: 'menu' }, store.get(KEY_DIET, {}));
+const saveDiet = () => store.set(KEY_DIET, D);
+
+// Ingredientes para la lista de compras: clave → [nombre, sección]
+const ING = {
+  avena: ['Avena tradicional', 'Granos, panes y legumbres'], panInt: ['Pan integral (molde o marraqueta integral)', 'Granos, panes y legumbres'],
+  arrozInt: ['Arroz integral', 'Granos, panes y legumbres'], quinoa: ['Quínoa', 'Granos, panes y legumbres'], fideosInt: ['Fideos integrales', 'Granos, panes y legumbres'],
+  lentejas: ['Lentejas', 'Granos, panes y legumbres'], garbanzos: ['Garbanzos', 'Granos, panes y legumbres'], porotos: ['Porotos (granados o secos)', 'Granos, panes y legumbres'],
+  galletaArroz: ['Galletas de arroz integral', 'Granos, panes y legumbres'], tortillaInt: ['Tortillas integrales (wrap)', 'Granos, panes y legumbres'], papa: ['Papas', 'Verduras'],
+  leche: ['Leche descremada sin azúcar', 'Lácteos'], yogur: ['Yogur natural sin azúcar', 'Lácteos'], quesillo: ['Quesillo', 'Lácteos'], quesoFresco: ['Queso fresco', 'Lácteos'],
+  huevo: ['Huevos', 'Proteínas'], pollo: ['Pechuga o trutro de pollo sin piel', 'Proteínas'], pavo: ['Pavo (pechuga o jamón de pavo bajo en sodio)', 'Proteínas'],
+  pescado: ['Pescado blanco (merluza o reineta)', 'Proteínas'], salmon: ['Salmón o jurel', 'Proteínas'], atun: ['Atún al agua', 'Proteínas'], carne: ['Carne magra (posta o lomo liso)', 'Proteínas'],
+  lechuga: ['Lechuga', 'Verduras'], tomate: ['Tomates', 'Verduras'], pepino: ['Pepino', 'Verduras'], cebolla: ['Cebolla', 'Verduras'], zanahoria: ['Zanahoria', 'Verduras'],
+  repollo: ['Repollo', 'Verduras'], espinaca: ['Espinaca o acelga', 'Verduras'], zapallo: ['Zapallo', 'Verduras'], zapItaliano: ['Zapallo italiano', 'Verduras'],
+  brocoli: ['Brócoli o coliflor', 'Verduras'], champinon: ['Champiñones', 'Verduras'], pimenton: ['Pimentón', 'Verduras'], apio: ['Apio', 'Verduras'], porotoVerde: ['Porotos verdes', 'Verduras'],
+  choclo: ['Choclo', 'Verduras'], palta: ['Palta', 'Grasas saludables'], almendras: ['Almendras', 'Grasas saludables'], nueces: ['Nueces', 'Grasas saludables'],
+  chia: ['Semillas de chía o linaza', 'Grasas saludables'], aceiteOliva: ['Aceite de oliva o canola', 'Grasas saludables'], hummus: ['Hummus (o garbanzos para prepararlo)', 'Grasas saludables'],
+  manzana: ['Manzanas', 'Frutas'], frutillas: ['Frutillas o berries (frescos o congelados)', 'Frutas'], naranja: ['Naranjas o mandarinas', 'Frutas'], kiwi: ['Kiwis', 'Frutas'],
+  platano: ['Plátano', 'Frutas'], pera: ['Peras', 'Frutas'], canela: ['Canela', 'Despensa'], te: ['Té o infusiones (sin azúcar)', 'Despensa'], cafe: ['Café', 'Despensa'],
+  salsaTomate: ['Tomate triturado sin azúcar añadida', 'Despensa'], limon: ['Limones', 'Frutas'],
+};
+
+// ch = gramos aproximados de carbohidratos de la porción indicada
+const MEALS_DIET = [
+  { k: 'desayuno', l: 'Desayuno', h: '07:00–09:00', pct: .25, opts: [
+    { n: 'Avena cocida con canela', d: '4 cdas de avena cocida en 1 taza de leche descremada, canela y 10 almendras', ch: 32, ing: ['avena', 'leche', 'canela', 'almendras'] },
+    { n: 'Pan integral con palta y huevo', d: '1 rebanada grande de pan integral (o ½ marraqueta integral sin miga), 2 cdas de palta, 1 huevo revuelto y té sin azúcar', ch: 24, ing: ['panInt', 'palta', 'huevo', 'te'] },
+    { n: 'Yogur con frutillas y chía', d: '1 yogur natural sin azúcar, ½ taza de frutillas, 1 cda de chía y 4 mitades de nuez', ch: 20, ing: ['yogur', 'frutillas', 'chia', 'nueces'] },
+    { n: 'Tostadas con quesillo y tomate', d: '2 rebanadas de pan integral de molde, 2 láminas de quesillo, tomate y orégano; café con leche descremada', ch: 34, ing: ['panInt', 'quesillo', 'tomate', 'cafe', 'leche'] },
+    { n: 'Omelette de verduras', d: '2 huevos con espinaca y champiñones, 1 rebanada de pan integral y 1 kiwi', ch: 26, ing: ['huevo', 'espinaca', 'champinon', 'panInt', 'kiwi'] },
+    { n: 'Panqueques de avena', d: '3 cdas de avena, 1 huevo y ½ plátano batidos, a la sartén sin azúcar; con 1 cda de yogur natural', ch: 30, ing: ['avena', 'huevo', 'platano', 'yogur'] },
+    { n: 'Leche con avena y manzana', d: '1 taza de leche descremada con 3 cdas de avena, 1 manzana chica y 1 cda de linaza', ch: 36, ing: ['leche', 'avena', 'manzana', 'chia'] },
+  ] },
+  { k: 'col1', l: 'Colación de media mañana', h: '10:30–11:00', pct: .10, opts: [
+    { n: 'Manzana con almendras', d: '1 manzana chica y 10 almendras', ch: 16, ing: ['manzana', 'almendras'] },
+    { n: 'Yogur natural', d: '1 yogur natural sin azúcar con canela', ch: 8, ing: ['yogur', 'canela'] },
+    { n: 'Bastones con hummus', d: 'Zanahoria, apio y pepino en bastones con 3 cdas de hummus', ch: 12, ing: ['zanahoria', 'apio', 'pepino', 'hummus'] },
+    { n: 'Naranja', d: '1 naranja o 2 mandarinas', ch: 15, ing: ['naranja'] },
+    { n: 'Galletas de arroz con quesillo', d: '2 galletas de arroz integral con 1 lámina de quesillo', ch: 15, ing: ['galletaArroz', 'quesillo'] },
+    { n: 'Berries con nueces', d: '1 taza de frutillas o berries y 4 mitades de nuez', ch: 12, ing: ['frutillas', 'nueces'] },
+    { n: 'Huevo duro con tomates', d: '1 huevo duro y tomates cherry', ch: 4, ing: ['huevo', 'tomate'] },
+  ] },
+  { k: 'almuerzo', l: 'Almuerzo', h: '13:00–14:00', pct: .30, opts: [
+    { n: 'Pollo al horno con arroz integral', d: '1 presa de pollo sin piel, ¾ taza de arroz integral cocido y ensalada de lechuga, tomate y pepino con aceite de oliva', ch: 42, ing: ['pollo', 'arrozInt', 'lechuga', 'tomate', 'pepino', 'aceiteOliva'] },
+    { n: 'Lentejas guisadas con verduras', d: '1 taza de lentejas con zapallo, zanahoria y pimentón (sin longaniza ni arroz) y ensalada chilena', ch: 40, ing: ['lentejas', 'zapallo', 'zanahoria', 'pimenton', 'tomate', 'cebolla'] },
+    { n: 'Merluza a la plancha con papa', d: '1 filete de merluza o reineta, 1 papa mediana cocida con cáscara y ensalada de repollo y zanahoria', ch: 32, ing: ['pescado', 'papa', 'repollo', 'zanahoria', 'limon'] },
+    { n: 'Porotos con zapallo', d: '1 taza de porotos granados con zapallo y albahaca (sin mazamorra ni tallarines) y ensalada de tomate', ch: 44, ing: ['porotos', 'zapallo', 'cebolla', 'tomate'] },
+    { n: 'Charquicán con huevo', d: '1 taza de charquicán con carne magra, más zapallo y verduras que papa, 1 huevo y ensalada verde', ch: 38, ing: ['carne', 'zapallo', 'papa', 'choclo', 'porotoVerde', 'huevo', 'lechuga'] },
+    { n: 'Posta a la plancha con quínoa', d: '1 bistec de posta, ¾ taza de quínoa y verduras salteadas (zapallo italiano, pimentón, cebolla)', ch: 36, ing: ['carne', 'quinoa', 'zapItaliano', 'pimenton', 'cebolla'] },
+    { n: 'Fideos integrales con atún', d: '1 taza de fideos integrales cocidos al dente, salsa de tomate casera con atún y ensalada verde', ch: 45, ing: ['fideosInt', 'salsaTomate', 'atun', 'lechuga'] },
+    { n: 'Cazuela de pollo', d: '1 plato de cazuela con presa sin piel, ½ papa, zapallo, porotos verdes y zanahoria (sin arroz ni fideos)', ch: 28, ing: ['pollo', 'papa', 'zapallo', 'porotoVerde', 'zanahoria', 'choclo'] },
+    { n: 'Salmón con puré de coliflor', d: '1 trozo de salmón o jurel al horno, puré de coliflor, ½ taza de arroz integral y brócoli', ch: 30, ing: ['salmon', 'brocoli', 'arrozInt', 'limon'] },
+    { n: 'Garbanzos con espinaca', d: '1 taza de garbanzos guisados con espinaca, cebolla y 1 huevo', ch: 40, ing: ['garbanzos', 'espinaca', 'cebolla', 'huevo'] },
+  ] },
+  { k: 'col2', l: 'Colación de la tarde', h: '16:30–17:00', pct: .10, opts: [
+    { n: 'Pera con queso fresco', d: '1 pera chica y 1 trozo de queso fresco', ch: 15, ing: ['pera', 'quesoFresco'] },
+    { n: 'Yogur con chía', d: '1 yogur natural sin azúcar con 1 cda de chía', ch: 9, ing: ['yogur', 'chia'] },
+    { n: 'Frutillas', d: '1 taza de frutillas', ch: 11, ing: ['frutillas'] },
+    { n: 'Puñado de frutos secos', d: '15 almendras o 6 mitades de nuez, sin sal', ch: 5, ing: ['almendras'] },
+    { n: 'Kiwi y leche', d: '1 kiwi y 1 vaso de leche descremada', ch: 22, ing: ['kiwi', 'leche'] },
+    { n: 'Pepino con limón', d: '1 pepino en rodajas con limón y 1 lámina de quesillo', ch: 5, ing: ['pepino', 'limon', 'quesillo'] },
+  ] },
+  { k: 'cena', l: 'Once o cena', h: '19:30–20:30', pct: .25, opts: [
+    { n: 'Pan integral con palta y pavo', d: '1 rebanada grande de pan integral, palta, tomate y 2 láminas de pavo; té sin azúcar', ch: 26, ing: ['panInt', 'palta', 'tomate', 'pavo', 'te'] },
+    { n: 'Ensalada completa', d: 'Lechuga, tomate, pepino, 1 huevo, ½ lata de atún, 2 cdas de choclo, aceite de oliva y 1 tostada integral', ch: 24, ing: ['lechuga', 'tomate', 'pepino', 'huevo', 'atun', 'choclo', 'aceiteOliva', 'panInt'] },
+    { n: 'Crema de zapallo con huevo', d: '1 plato de crema de zapallo y zapallo italiano (sin crema), 1 huevo duro y ½ pan integral', ch: 26, ing: ['zapallo', 'zapItaliano', 'cebolla', 'huevo', 'panInt'] },
+    { n: 'Omelette con ensalada', d: '2 huevos con cebolla y pimentón, ensalada de tomate y 1 rebanada de pan integral', ch: 18, ing: ['huevo', 'cebolla', 'pimenton', 'tomate', 'panInt'] },
+    { n: 'Sopa de verduras con pollo', d: '1 plato de sopa de verduras con pollo desmenuzado y 2 galletas de arroz integral', ch: 26, ing: ['pollo', 'zanahoria', 'apio', 'zapallo', 'porotoVerde', 'galletaArroz'] },
+    { n: 'Wrap de pollo', d: '1 tortilla integral con pollo, lechuga, tomate y palta', ch: 26, ing: ['tortillaInt', 'pollo', 'lechuga', 'tomate', 'palta'] },
+    { n: 'Pescado al vapor con quínoa', d: '1 filete de pescado al vapor, verduras salteadas y ½ taza de quínoa', ch: 22, ing: ['pescado', 'brocoli', 'zapItaliano', 'quinoa'] },
+    { n: 'Quesillo con tomate', d: '2 láminas de quesillo con tomate, orégano y aceite de oliva, 1 pan integral pequeño y té', ch: 28, ing: ['quesillo', 'tomate', 'aceiteOliva', 'panInt', 'te'] },
+  ] },
+];
+const DAYS = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
+
+function rng(seed) { return () => { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+function weekMenu() {
+  const r = rng(D.seed * 7919 + 17);
+  const plan = DAYS.map(() => ({}));
+  for (const m of MEALS_DIET) {
+    // recorre las opciones en un orden aleatorio para no repetir en días seguidos
+    let order = [];
+    for (let d = 0; d < 7; d++) {
+      if (!order.length) { order = m.opts.map((_, i) => i); for (let i = order.length - 1; i > 0; i--) { const j = Math.floor(r() * (i + 1)); [order[i], order[j]] = [order[j], order[i]]; } }
+      plan[d][m.k] = order.pop();
+    }
+  }
+  for (const [key, i] of Object.entries(D.swaps || {})) { const [d, k] = key.split('|'); if (plan[d] && k in plan[d]) plan[d][k] = i; }
+  return plan;
+}
+
+function dietProfile() {
+  const peso = parseNum(D.peso), talla = parseNum(D.talla), edad = parseNum(D.edad);
+  if (!(peso > 30 && talla > 120 && edad > 14 && D.sexo)) return null;
+  const imc = peso / (talla / 100) ** 2;
+  const bmr = 10 * peso + 6.25 * talla - 5 * edad + (D.sexo === 'h' ? 5 : -161); // Mifflin-St Jeor
+  const fa = { sed: 1.2, leve: 1.375, mod: 1.55, alta: 1.725 }[D.act] || 1.375;
+  let kcal = bmr * fa;
+  if (D.obj === 'bajar') kcal -= 500;
+  kcal = Math.max(kcal, D.sexo === 'h' ? 1500 : 1200);
+  kcal = Math.round(kcal / 50) * 50;
+  const ch = Math.round(kcal * 0.45 / 4); // 45 % de las calorías desde carbohidratos
+  const prot = Math.round(Math.max(peso * 1.0, kcal * 0.2 / 4));
+  return { imc, kcal, ch, prot, porc: Math.round(ch / 15) };
+}
+const imcTxt = v => v < 18.5 ? 'bajo peso' : v < 25 ? 'peso normal' : v < 30 ? 'sobrepeso' : 'obesidad';
+
+// Efecto de las comidas: subida entre "antes de comer"/"ayunas" y "después de comer" (dentro de 3,5 h)
+function mealEffects() {
+  const out = [];
+  const sorted = data.slice().sort((a, b) => a.t - b.t);
+  for (let i = 0; i < sorted.length; i++) {
+    const r = sorted[i]; if (r.meal !== 'despues') continue;
+    for (let j = i - 1; j >= 0; j--) {
+      const p = sorted[j]; if (r.t - p.t > 3.5 * 36e5) break;
+      if (p.meal === 'antes' || p.meal === 'ayunas') { if (r.t - p.t >= 45 * 6e4) out.push({ pre: p, post: r, rise: r.v - p.v }); break; }
+    }
+  }
+  return out;
+}
+
+function renderDieta() {
+  const el = $('#diet-body');
+  const subs = [['menu', 'Menú semanal'], ['plan', 'Mi plan'], ['efecto', 'Cómo me afectan'], ['guia', 'Guía de alimentos'], ['compras', 'Lista de compras']];
+  let html = `<div class="filters no-print"><div class="seg" role="group" aria-label="Sección" style="flex-wrap:wrap">${subs.map(([k, l]) => `<button data-sub="${k}" aria-pressed="${D.sub === k}">${l}</button>`).join('')}</div></div>`;
+  const P = dietProfile();
+  const plan = weekMenu();
+  const todayIdx = (new Date().getDay() + 6) % 7;
+
+  if (D.sub === 'menu') {
+    html += `<div class="card"><div class="hero" style="gap:12px"><div style="flex:1;min-width:220px"><h2>Menú de la semana</h2>
+      <p class="sub" style="margin:0">Comidas chilenas, caseras y variadas, pensadas para controlar la glucosa. Cada comida indica sus <b>gramos aproximados de carbohidratos</b> (CH). Toca <b>Cambiar</b> para elegir otra opción.</p></div>
+      <div class="no-print" style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" id="dm-new">Generar otro menú</button><button class="btn" id="dm-print">Imprimir menú</button></div></div>
+      ${P ? `<p class="note" style="margin:10px 0 0">Tu meta diaria aproximada: <b>${P.kcal} kcal</b> y <b>${P.ch} g de CH</b> (${P.porc} porciones). ${P.ch > 190 ? 'Agrega porciones de carbohidrato (ver <i>Mi plan</i>) para llegar a tu meta.' : P.ch < 150 ? 'Usa las opciones con menos CH o reduce un poco el pan, el arroz o la papa.' : 'El menú está cerca de tu meta.'}</p>` : `<p class="note" style="margin:10px 0 0">El menú base aporta unos 1.500–1.700 kcal y 130–170 g de CH al día. Completa <b>Mi plan</b> para ver tu meta personal.</p>`}</div>`;
+    plan.forEach((day, d) => {
+      const tot = MEALS_DIET.reduce((a, m) => a + m.opts[day[m.k]].ch, 0);
+      html += `<div class="card day-card" ${d === todayIdx ? 'style="border-color:var(--accent);border-width:2px"' : ''}>
+        <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap"><h2 style="font-size:17px">${DAYS[d]}${d === todayIdx ? ' <span class="pill" style="background:var(--accent);color:var(--accent-ink)">Hoy</span>' : ''}</h2>
+        <span class="note">Total aprox.: <b style="color:var(--text)">${tot} g CH</b></span></div>
+        <div class="meal-list">${MEALS_DIET.map(m => {
+          const o = m.opts[day[m.k]];
+          return `<div class="meal-row"><div class="meal-when"><b>${m.l}</b><span class="note">${m.h}</span></div>
+            <div class="meal-what"><b>${esc(o.n)}</b><div class="note">${esc(o.d)}</div></div>
+            <div class="meal-ch"><b>${o.ch}</b><span class="note">g CH</span></div>
+            <div class="meal-act no-print"><button class="btn sm" data-swap="${d}|${m.k}">Cambiar</button>${m.k === 'col1' || m.k === 'col2' ? '' : `<button class="btn sm" data-measure="${esc(o.n)}" title="Registrar la glucosa 2 horas después de esta comida">Medir después</button>`}</div></div>`;
+        }).join('')}</div></div>`;
+    });
+    html += `<p class="note">Bebida en todas las comidas: agua, té o infusiones sin azúcar. Si usas endulzante, que sea sin calorías (sucralosa o stevia) y con moderación.</p>`;
+  }
+
+  if (D.sub === 'plan') {
+    html += `<div class="grid two"><div class="card"><h2>Mis datos</h2><p class="sub">Con estos datos se calcula una meta de calorías y carbohidratos de referencia. Tu nutricionista puede ajustarla.</p>
+      <form id="dp-form" autocomplete="off">
+      <div class="row"><label class="f">Sexo<select id="dp-sexo"><option value="">Elegir…</option><option value="m">Mujer</option><option value="h">Hombre</option></select></label>
+      <label class="f">Edad (años)<input id="dp-edad" type="number" inputmode="numeric" min="15" max="110"></label></div>
+      <div class="row"><label class="f">Peso (kg)<input id="dp-peso" type="number" inputmode="decimal" step="0.1" min="30" max="300"></label>
+      <label class="f">Estatura (cm)<input id="dp-talla" type="number" inputmode="numeric" min="120" max="230"></label></div>
+      <label class="f">Actividad física<select id="dp-act"><option value="sed">Sedentaria (casi sin ejercicio)</option><option value="leve">Leve (caminar 1–3 días por semana)</option><option value="mod">Moderada (ejercicio 3–5 días por semana)</option><option value="alta">Alta (ejercicio intenso casi todos los días)</option></select></label>
+      <label class="f">Objetivo<select id="dp-obj"><option value="mantener">Mantener mi peso</option><option value="bajar">Bajar de peso de forma gradual (≈ 0,5 kg por semana)</option></select></label>
+      <button class="btn primary" type="submit">Calcular mi plan</button></form></div>`;
+    if (P) {
+      html += `<div class="card"><h2>Mi meta diaria (referencia)</h2>
+        <div class="tiles" style="grid-template-columns:repeat(2,1fr);margin:8px 0 12px">
+          <div class="tile"><div class="k">Calorías</div><div class="v">${P.kcal.toLocaleString('es')} <small>kcal</small></div></div>
+          <div class="tile"><div class="k">Carbohidratos</div><div class="v">${P.ch} <small>g</small></div><div class="h">${P.porc} porciones de 15 g</div></div>
+          <div class="tile"><div class="k">Proteínas</div><div class="v">${P.prot} <small>g</small></div></div>
+          <div class="tile"><div class="k">IMC</div><div class="v">${P.imc.toFixed(1).replace('.', ',')}</div><div class="h">${imcTxt(P.imc)}</div></div>
+        </div>
+        <table><thead><tr><th>Comida</th><th>CH</th><th>Porciones</th></tr></thead><tbody>${MEALS_DIET.map(m => `<tr><td>${m.l}</td><td class="num">${Math.round(P.ch * m.pct)} g</td><td class="num">${Math.max(1, Math.round(P.ch * m.pct / 15))}</td></tr>`).join('')}</tbody></table>
+        <p class="note">Repartir los carbohidratos en 4–5 comidas evita subidas bruscas. Calculado con la fórmula de Mifflin‑St Jeor${D.obj === 'bajar' ? ', con 500 kcal menos para bajar de peso' : ''}; 45% de las calorías desde carbohidratos.</p></div>`;
+    } else {
+      html += `<div class="card"><h2>Mi meta diaria</h2><p class="empty">Completa tus datos para ver tu meta de calorías y carbohidratos.</p></div>`;
+    }
+    html += `</div><div class="card"><h2>¿Qué es 1 porción de carbohidratos?</h2><p class="sub">Cada porción aporta unos 15 g de carbohidratos. Puedes intercambiarlas entre sí.</p>
+      <div class="eq-grid">${[
+        ['Pan', '1 rebanada de pan integral de molde · ¼ de marraqueta o hallulla'], ['Arroz, fideos, quínoa', '⅓ taza cocidos'], ['Papa', '1 papa chica (90 g) · ½ taza de puré'],
+        ['Legumbres', '½ taza cocidas (lentejas, porotos, garbanzos)'], ['Avena', '3 cucharadas'], ['Choclo', '½ taza de granos'], ['Fruta', '1 fruta chica · 1 taza de frutillas · ½ plátano'],
+        ['Lácteos', '1 taza de leche descremada · 1 yogur natural'], ['Galletas', '2 galletas de arroz integral · 3 galletas de agua'],
+      ].map(([a, b]) => `<div class="eq"><b>${a}</b><span class="note">${b}</span></div>`).join('')}</div>
+      <p class="note">Las verduras (lechuga, tomate, pepino, repollo, brócoli, zapallo italiano, acelga…) casi no suben la glucosa: se pueden comer libremente.</p></div>`;
+  }
+
+  if (D.sub === 'efecto') {
+    const ef = mealEffects();
+    const post = data.filter(r => r.meal === 'despues');
+    html += `<div class="card"><h2>Cómo te afectan las comidas</h2><p class="sub">Compara tu glucosa <b>antes de comer</b> con la de <b>2 horas después</b>. Para que este análisis funcione, mide antes y después de la comida, marca el momento y escribe en la nota lo que comiste (el botón <b>Medir después</b> del menú lo hace por ti).</p>`;
+    if (!ef.length && !post.length) {
+      html += `<p class="empty">Todavía no hay mediciones "después de comer".</p></div>`;
+    } else {
+      const avgRise = ef.length ? ef.reduce((a, e) => a + e.rise, 0) / ef.length : NaN;
+      const over = post.filter(r => r.v > S.high).length;
+      html += `<div class="tiles" style="margin-bottom:12px">
+        <div class="tile"><div class="k">Subida promedio</div><div class="v">${isFinite(avgRise) ? (avgRise >= 0 ? '+' : '−') + fmt(Math.abs(avgRise)) : '—'} <small>${uLbl()}</small></div><div class="h">${ef.length} comidas con medición antes y después</div></div>
+        <div class="tile"><div class="k">Después de comer</div><div class="v">${fmt(post.reduce((a, r) => a + r.v, 0) / post.length)} <small>${uLbl()}</small></div><div class="h">Promedio de ${post.length} mediciones</div></div>
+        <div class="tile"><div class="k">Sobre ${fmt(S.high)}</div><div class="v">${Math.round(over / post.length * 100)}%</div><div class="h">de las mediciones después de comer</div></div>
+        <div class="tile"><div class="k">Meta</div><div class="v" style="font-size:18px">&lt; ${fmt(180)} <small>${uLbl()}</small></div><div class="h">2 h después de comer, y subida &lt; ${fmt(50)}</div></div></div>`;
+      if (ef.length) {
+        const worst = ef.slice().sort((a, b) => b.rise - a.rise).slice(0, 8);
+        html += `<h2 style="margin-top:8px">Comidas que más te subieron la glucosa</h2><div class="tablewrap"><table><thead><tr><th>Fecha</th><th>Antes</th><th>Después</th><th>Subida</th><th>Qué comiste</th></tr></thead><tbody>${worst.map(e => `<tr><td>${fDate(e.post.t)} ${fTime(e.post.t)}</td><td class="num">${fmt(e.pre.v)}</td><td class="num">${fmt(e.post.v)}</td><td class="num" style="color:${e.rise > 50 ? 'var(--danger)' : 'var(--text)'}">${e.rise >= 0 ? '+' : '−'}${fmt(Math.abs(e.rise))}</td><td>${esc(e.post.note || e.pre.note || '— sin nota —')}</td></tr>`).join('')}</tbody></table></div>
+        <p class="note">Si una comida te sube más de ${fmt(50)} ${uLbl()}, prueba con una porción menor de pan, arroz, papa o fideos, agrega más verduras o camina 10–15 minutos después de comer.</p>`;
+      }
+      html += `</div>`;
+    }
+  }
+
+  if (D.sub === 'guia') {
+    html += `<div class="card"><h2>El plato para controlar la glucosa</h2><p class="sub">Arma así el almuerzo y la cena. Es el método recomendado por la Asociación Americana de Diabetes y no requiere pesar los alimentos.</p>
+      <div class="plate-wrap"><svg viewBox="0 0 220 220" class="plate" role="img" aria-label="Plato: mitad verduras, un cuarto proteínas, un cuarto carbohidratos">
+        <circle cx="110" cy="110" r="106" fill="var(--surface-2)" stroke="var(--border)" stroke-width="2"/>
+        <path d="M110 14 A96 96 0 0 0 110 206 Z" fill="#0ca30c" opacity=".85"/>
+        <path d="M110 14 A96 96 0 0 1 206 110 L110 110 Z" fill="#2a78d6" opacity=".85"/>
+        <path d="M206 110 A96 96 0 0 1 110 206 L110 110 Z" fill="#eda100" opacity=".9"/>
+        <line x1="110" y1="14" x2="110" y2="206" stroke="var(--surface)" stroke-width="3"/><line x1="110" y1="110" x2="206" y2="110" stroke="var(--surface)" stroke-width="3"/>
+        <text x="62" y="114" text-anchor="middle" fill="#fff" font-size="13" font-weight="700">½ Verduras</text>
+        <text x="152" y="72" text-anchor="middle" fill="#fff" font-size="12" font-weight="700">¼ Proteína</text>
+        <text x="152" y="156" text-anchor="middle" fill="#1a1a19" font-size="11" font-weight="700">¼ Carbo-</text><text x="152" y="170" text-anchor="middle" fill="#1a1a19" font-size="11" font-weight="700">hidratos</text>
+      </svg>
+      <ul class="plate-legend">
+        <li><span class="dot" style="background:#0ca30c"></span><div><b>½ plato: verduras</b><div class="note">Ensaladas, verduras cocidas o salteadas: lechuga, tomate, repollo, brócoli, zapallo italiano, acelga, porotos verdes.</div></div></li>
+        <li><span class="dot" style="background:#2a78d6"></span><div><b>¼ plato: proteína</b><div class="note">Pollo o pavo sin piel, pescado (2 veces por semana), huevo, carne magra, quesillo, o legumbres.</div></div></li>
+        <li><span class="dot" style="background:#eda100"></span><div><b>¼ plato: carbohidratos</b><div class="note">Arroz integral, quínoa, papa, fideos integrales, legumbres o pan integral, en la porción indicada.</div></div></li>
+        <li><span class="dot" style="background:var(--accent)"></span><div><b>Para beber: agua</b><div class="note">O té e infusiones sin azúcar. Evita jugos y bebidas azucaradas.</div></div></li>
+      </ul></div></div>
+      <div class="grid three">
+        <div class="card" style="border-top:4px solid var(--ok)"><h2>✓ Preferir</h2><ul class="food">
+          <li>Verduras de todo tipo, ojalá en cada comida</li><li>Legumbres 2–3 veces por semana</li><li>Pan, arroz y fideos <b>integrales</b>; avena y quínoa</li><li>Pescado (jurel, salmón, merluza) 2 veces por semana</li><li>Pollo, pavo, huevo, carnes magras</li><li>Lácteos descremados sin azúcar</li><li>Fruta entera (no en jugo), 2–3 al día</li><li>Palta, frutos secos, aceite de oliva o canola</li><li>Agua, té, infusiones</li></ul></div>
+        <div class="card" style="border-top:4px solid var(--high)"><h2>▲ Con moderación</h2><ul class="food">
+          <li>Papa, choclo, arroz blanco: en porción chica y con verduras</li><li>Pan blanco (marraqueta, hallulla): máximo ½ unidad</li><li>Plátano, uva, mango, cerezas: porción chica</li><li>Quesos maduros, carnes rojas</li><li>Endulzantes sin calorías</li><li>Productos "light" o "sin azúcar": revisa los sellos ALTO EN</li><li>Sal: menos de 1 cucharadita al día</li></ul></div>
+        <div class="card" style="border-top:4px solid var(--danger)"><h2>✕ Evitar</h2><ul class="food">
+          <li>Bebidas azucaradas, jugos y néctares</li><li>Azúcar, miel, mermelada, manjar</li><li>Pasteles, queques, galletas dulces, helados</li><li>Sopaipillas, empanadas fritas, papas fritas</li><li>Cecinas, longaniza, embutidos</li><li>Cereales de desayuno azucarados</li><li>Alcohol (y nunca con el estómago vacío)</li><li>Productos con 2 o más sellos ALTO EN</li></ul></div>
+      </div>
+      <div class="card"><h2>Hábitos que bajan la glucosa</h2><ol class="steps">
+        <li><b>Come en orden:</b> primero las verduras, luego la proteína y al final los carbohidratos. Esto reduce la subida después de comer.</li>
+        <li><b>Camina 10–15 minutos después de almorzar y cenar.</b> Es una de las formas más efectivas de bajar la glucosa después de comer.</li>
+        <li><b>No te saltes comidas</b> y mantén horarios parecidos todos los días.</li>
+        <li><b>Combina siempre</b> los carbohidratos con proteína, grasa saludable o fibra. Por ejemplo: fruta con frutos secos, pan con huevo.</li>
+        <li><b>Prefiere preparaciones</b> al horno, a la plancha, al vapor o guisadas, en vez de fritas.</li>
+        <li><b>Haz al menos 150 minutos de actividad física a la semana</b>, más ejercicios de fuerza 2 días.</li>
+        <li><b>Duerme 7–8 horas.</b> Dormir mal sube la glucosa en ayunas.</li></ol></div>
+      <div class="card warn"><h2>Si la glucosa baja de ${fmt(70)} ${uLbl()} (hipoglucemia)</h2><p class="note" style="margin:0 0 8px">Aplica la <b>regla 15‑15</b>: toma 15 g de azúcar rápida, espera 15 minutos y vuelve a medir. Repite si sigue bajo ${fmt(70)}. Cuando se normalice, come una colación (por ejemplo, ½ pan con quesillo).</p>
+        <p class="note" style="margin:0"><b>15 g de azúcar rápida</b> = ½ vaso (120 ml) de jugo o bebida normal (no light) · 3 cucharaditas de azúcar disueltas en agua · 3–4 tabletas de glucosa. Si estás con insulina o pastillas que bajan la glucosa (como glibenclamida), lleva siempre algo de azúcar contigo.</p></div>`;
+  }
+
+  if (D.sub === 'compras') {
+    const count = {};
+    plan.forEach(day => MEALS_DIET.forEach(m => m.opts[day[m.k]].ing.forEach(i => count[i] = (count[i] || 0) + 1)));
+    const bySec = {};
+    Object.keys(count).forEach(i => { const [n, s] = ING[i]; (bySec[s] = bySec[s] || []).push([n, count[i]]); });
+    const order = ['Verduras', 'Frutas', 'Proteínas', 'Lácteos', 'Granos, panes y legumbres', 'Grasas saludables', 'Despensa'];
+    html += `<div class="card"><div class="hero" style="gap:12px"><div style="flex:1;min-width:200px"><h2>Lista de compras de la semana</h2><p class="sub" style="margin:0">Todo lo necesario para el menú de esta semana. El número indica en cuántas comidas se usa. Marca lo que ya tienes.</p></div>
+      <button class="btn no-print" id="dc-print">Imprimir lista</button></div></div>
+      <div class="grid three">${order.filter(s => bySec[s]).map(s => `<div class="card"><h2>${s}</h2><ul class="shop">${bySec[s].sort((a, b) => b[1] - a[1]).map(([n, c]) => `<li><label><input type="checkbox"> ${esc(n)} <span class="note">· ${c}×</span></label></li>`).join('')}</ul></div>`).join('')}</div>`;
+  }
+
+  html += `<div class="card warn"><p class="note" style="margin:0"><b>Importante:</b> este plan sigue las recomendaciones generales de alimentación para la diabetes (Asociación Americana de Diabetes y guías alimentarias chilenas), pero no reemplaza una consulta con un nutricionista o un médico. Pide una evaluación personalizada, sobre todo si usas insulina, tienes enfermedad renal, estás embarazada o tienes otra condición de salud. No cambies tus medicamentos sin indicación médica.</p></div>`;
+
+  el.innerHTML = html;
+  el.querySelectorAll('[data-sub]').forEach(b => b.addEventListener('click', () => { D.sub = b.dataset.sub; saveDiet(); renderDieta(); }));
+  el.querySelectorAll('[data-swap]').forEach(b => b.addEventListener('click', () => {
+    const [d, k] = b.dataset.swap.split('|'); const m = MEALS_DIET.find(x => x.k === k);
+    D.swaps[b.dataset.swap] = (weekMenu()[d][k] + 1) % m.opts.length; saveDiet(); renderDieta();
+  }));
+  el.querySelectorAll('[data-measure]').forEach(b => b.addEventListener('click', () => {
+    show('registrar'); formMeal = 'despues'; renderMealChips(); $('#f-note').value = b.dataset.measure; $('#f-v').focus();
+    toast('Mide tu glucosa 2 horas después de empezar a comer y guarda el valor');
+  }));
+  const nm = $('#dm-new'); if (nm) nm.addEventListener('click', () => { D.seed = (D.seed || 1) + 1; D.swaps = {}; saveDiet(); renderDieta(); toast('Nuevo menú generado'); });
+  ['#dm-print', '#dc-print'].forEach(id => { const b = $(id); if (b) b.addEventListener('click', () => { document.body.classList.add('pd'); window.print(); }); });
+  const f = $('#dp-form');
+  if (f) {
+    ['sexo', 'edad', 'peso', 'talla', 'act', 'obj'].forEach(k => $('#dp-' + k).value = D[k] || ($('#dp-' + k).tagName === 'SELECT' ? $('#dp-' + k).options[0].value : ''));
+    if (!D.act) $('#dp-act').value = 'leve';
+    f.addEventListener('submit', e => {
+      e.preventDefault();
+      ['sexo', 'edad', 'peso', 'talla', 'act', 'obj'].forEach(k => D[k] = $('#dp-' + k).value);
+      saveDiet();
+      if (!dietProfile()) { toast('Completa sexo, edad, peso y estatura'); return; }
+      renderDieta(); toast('Plan calculado');
+    });
+  }
+}
+window.addEventListener('afterprint', () => document.body.classList.remove('pd'));
+
+/* ---------- Control: medicamentos, ejercicio, peso y plan de hoy ---------- */
+const KEY_CTRL = 'glucemia.control.v1';
+let C = Object.assign({ meds: [], taken: {}, ex: [], weight: [], meals: {}, exStart: null, exGoal: 150 }, store.get(KEY_CTRL, {}));
+const saveCtrl = () => store.set(KEY_CTRL, C);
+const dkey = (d = new Date()) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+const daysBack = n => { const d = new Date(); d.setHours(12, 0, 0, 0); d.setDate(d.getDate() - n); return d; };
+const hm2min = s => { const [h, m] = String(s).split(':').map(Number); return h * 60 + (m || 0); };
+
+function goRegister(meal, note) {
+  show('registrar'); formMeal = meal; renderMealChips();
+  if (note != null) $('#f-note').value = note;
+  $('#f-v').focus();
+}
+
+// Información breve de medicamentos frecuentes para la diabetes (orientativa)
+const MED_INFO = [
+  [/metformina/i, 'Tómala con las comidas o justo después, para evitar molestias de estómago. Sola no suele causar hipoglucemia.'],
+  [/glibenclamida|glimepirida|gliclazida|glipizida/i, 'Puede bajar demasiado la glucosa (hipoglucemia). No te saltes comidas después de tomarla y lleva siempre azúcar contigo.'],
+  [/sitagliptina|linagliptina|vildagliptina|saxagliptina|alogliptina/i, 'Se puede tomar con o sin comida. Sola no suele causar hipoglucemia.'],
+  [/empagliflozina|dapagliflozina|canagliflozina/i, 'Toma suficiente agua y cuida la higiene íntima. Avisa a tu médico si tienes vómitos, deshidratación o vas a ayunar o operarte.'],
+  [/semaglutida|liraglutida|dulaglutida|tirzepatida/i, 'Puede causar náuseas al principio: come porciones pequeñas y evita las comidas grasosas.'],
+  [/insulina/i, 'Rota el sitio de inyección. Puede causar hipoglucemia: mide tu glucosa con más frecuencia y no te saltes comidas.'],
+  [/pioglitazona/i, 'Avisa a tu médico si notas hinchazón de piernas o aumento rápido de peso.'],
+];
+const medInfo = name => (MED_INFO.find(([re]) => re.test(name)) || [])[1] || '';
+const MED_SUGGEST = ['Metformina', 'Metformina de liberación prolongada', 'Glibenclamida', 'Glimepirida', 'Gliclazida', 'Sitagliptina', 'Sitagliptina + metformina', 'Linagliptina', 'Vildagliptina', 'Empagliflozina', 'Dapagliflozina', 'Semaglutida', 'Liraglutida', 'Dulaglutida', 'Insulina NPH', 'Insulina glargina', 'Insulina degludec', 'Insulina cristalina / rápida', 'Insulina lispro / aspart', 'Pioglitazona', 'Losartán', 'Enalapril', 'Atorvastatina', 'Rosuvastatina', 'Aspirina (ácido acetilsalicílico)'];
+
+function dosesFor(dateKey) {
+  const out = [];
+  const dayEnd = new Date(dateKey + 'T23:59:59').getTime();
+  C.meds.filter(m => m.active !== false && (m.created || 0) <= dayEnd).forEach(m => (m.times || []).forEach(t => out.push({ m, t, key: `${m.id}|${t}`, done: C.taken[dateKey]?.[`${m.id}|${t}`] })));
+  return out.sort((a, b) => hm2min(a.t) - hm2min(b.t));
+}
+function adherence(nDays) {
+  let total = 0, done = 0;
+  for (let i = 0; i < nDays; i++) {
+    const k = dkey(daysBack(i)); const ds = dosesFor(k);
+    if (i === 0) { const now = new Date().getHours() * 60 + new Date().getMinutes(); ds.forEach(d => { if (hm2min(d.t) <= now || d.done) { total++; if (d.done) done++; } }); }
+    else { total += ds.length; done += ds.filter(d => d.done).length; }
+  }
+  return total ? done / total * 100 : NaN;
+}
+function exMinutes(fromDate, toDate = new Date(8.64e15)) { return C.ex.filter(e => e.t >= fromDate.getTime() && e.t <= toDate.getTime()).reduce((a, e) => a + (+e.min || 0), 0); }
+const weekStart = () => { const d = new Date(); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return d; };
+
+/* ----- Recomendaciones personalizadas según tus datos ----- */
+function insights() {
+  const out = [];
+  const last = inPeriod(14);
+  const fast = last.filter(r => r.meal === 'ayunas');
+  const post = last.filter(r => r.meal === 'despues');
+  const lows = inPeriod(7).filter(r => r.v < S.low);
+  const avg = a => a.reduce((x, r) => x + r.v, 0) / a.length;
+  const usesHypoMed = C.meds.some(m => m.active !== false && /insulina|glibenclamida|glimepirida|gliclazida|glipizida/i.test(m.name));
+  if (lows.length) out.push(['crit', `Tuviste ${lows.length} medición${lows.length > 1 ? 'es' : ''} bajo ${fmt(S.low)} en los últimos 7 días.`, `Revisa con tu médico la dosis de tus medicamentos${usesHypoMed ? ' (la insulina y la glibenclamida pueden causar hipoglucemia)' : ''}. No te saltes comidas y lleva siempre azúcar contigo (regla 15‑15).`]);
+  if (fast.length >= 3 && avg(fast) > 130) out.push(['warn', `Tu glucosa en ayunas promedia ${fmt(avg(fast))} ${uLbl()} (meta 80–130).`, 'Cena más temprano (2–3 h antes de dormir), con menos pan, arroz o papa y más verduras. Evita comer de noche. Si sigue alta, coméntalo con tu médico: puede requerir un ajuste del tratamiento.']);
+  if (post.length >= 3 && post.filter(r => r.v > 180).length / post.length > 0.25) out.push(['warn', `${Math.round(post.filter(r => r.v > 180).length / post.length * 100)}% de tus mediciones después de comer superan ${fmt(180)}.`, 'Camina 10–15 minutos después de almuerzo y cena, come primero las verduras y reduce a la mitad la porción de pan, arroz, papa o fideos. Mira en Alimentación → "Cómo me afectan" qué comidas te suben más.']);
+  if (!post.length && last.length) out.push(['info', 'No tienes mediciones después de comer.', 'Mide 2 horas después del almuerzo al menos 2–3 veces por semana: es la mejor forma de saber qué alimentos te suben la glucosa.']);
+  const wk = exMinutes(daysBack(6));
+  if (wk < 150) out.push(['info', `Llevas ${wk} minutos de actividad en los últimos 7 días (meta 150).`, 'La actividad física es lo que más rápido baja la glucosa: empieza con caminatas de 10–15 minutos después de cada comida principal.']);
+  const ad = adherence(7);
+  if (C.meds.length && isFinite(ad) && ad < 90) out.push(['warn', `Tomaste el ${Math.round(ad)}% de tus dosis en los últimos 7 días.`, 'Agrega los recordatorios a tu calendario (en Medicamentos) y deja los remedios junto a algo que uses a diario, como el cepillo de dientes o la cafetera.']);
+  if (!C.meds.length) out.push(['info', 'Aún no registras tus medicamentos.', 'Agrégalos en la pestaña Medicamentos para llevar el control de cada dosis y recibir recordatorios.']);
+  if (last.length && last.length / 14 < 1) out.push(['info', 'Te mides menos de una vez al día.', 'Para tener un buen control, intenta medirte en ayunas todos los días y 2 horas después de una comida distinta cada día.']);
+  const st = stats(last);
+  if (st && st.pct.ok >= 70 && !lows.length) out.push(['ok', `¡Buen trabajo! ${fPct(st.pct.ok)} de tus mediciones están en rango.`, 'Mantén tus hábitos. La meta es superar el 70% en rango, con menos del 4% bajo 70.']);
+  return out;
+}
+
+/* ----- HOY ----- */
+function renderHoy() {
+  const el = $('#hoy-body'); const today = dkey(); const now = new Date(); const nowMin = now.getHours() * 60 + now.getMinutes();
+  const doses = dosesFor(today);
+  const todayReadings = data.filter(r => dkey(new Date(r.t)) === today);
+  const has = m => todayReadings.some(r => r.meal === m);
+  const meas = [['ayunas', 'En ayunas', 'Al despertar, antes de desayunar', '06:00'], ['despues', '2 h después de comer', 'Elige una comida distinta cada día', '15:00'], ['dormir', 'Antes de dormir', 'Opcional, sobre todo si usas insulina', '22:00']];
+  const dayIdx = (now.getDay() + 6) % 7; const menu = weekMenu()[dayIdx];
+  const mealsDone = C.meals[today] || {};
+  const exToday = exMinutes(new Date(new Date().setHours(0, 0, 0, 0)));
+  const tasks = doses.length + 2 + MEALS_DIET.length + 1;
+  const done = doses.filter(d => d.done).length + (has('ayunas') ? 1 : 0) + (has('despues') ? 1 : 0) + MEALS_DIET.filter(m => mealsDone[m.k]).length + (exToday >= 30 ? 1 : 0);
+  const pct = Math.round(done / tasks * 100);
+  const lastW = C.weight[C.weight.length - 1];
+
+  let h = `<div class="card"><div class="hero" style="gap:20px">
+    <svg viewBox="0 0 80 80" width="84" height="84" role="img" aria-label="${pct}% del plan de hoy"><circle cx="40" cy="40" r="34" fill="none" stroke="var(--surface-2)" stroke-width="9"/>
+      <circle cx="40" cy="40" r="34" fill="none" stroke="var(--ok)" stroke-width="9" stroke-linecap="round" stroke-dasharray="${2 * Math.PI * 34}" stroke-dashoffset="${2 * Math.PI * 34 * (1 - pct / 100)}" transform="rotate(-90 40 40)"/>
+      <text x="40" y="45" text-anchor="middle" font-size="17" font-weight="700" fill="var(--text)">${pct}%</text></svg>
+    <div style="flex:1;min-width:200px"><h2 style="font-size:18px">${(s => s.charAt(0).toUpperCase() + s.slice(1))(fDateLong(Date.now()))}</h2>
+    <p class="sub" style="margin:0">Cumpliste <b>${done} de ${tasks}</b> tareas de tu plan de hoy: medicamentos, mediciones, comidas y actividad física.</p></div></div></div>`;
+
+  const ins = insights();
+  if (ins.length) h += `<div class="card"><h2>Recomendaciones para ti</h2><p class="sub">Basadas en tus mediciones, medicamentos y actividad.</p>${ins.map(([k, t, d]) => `<div class="insight ${k}"><b>${{ crit: '⚠', warn: '▲', info: 'ℹ', ok: '✓' }[k]} ${esc(t)}</b><div class="note">${esc(d)}</div></div>`).join('')}</div>`;
+
+  h += `<div class="grid two">`;
+  // Medicamentos
+  h += `<div class="card"><div class="card-h"><h2>💊 Medicamentos de hoy</h2><button class="btn sm" data-go="medicamentos">Administrar</button></div>`;
+  if (!doses.length) h += `<p class="empty">Agrega tus medicamentos y sus horarios para controlar cada dosis.</p><button class="btn primary" data-go="medicamentos">+ Agregar medicamento</button>`;
+  else h += doses.map(d => {
+    const late = !d.done && hm2min(d.t) + 60 < nowMin;
+    return `<div class="task ${d.done ? 'done' : ''}"><button class="chk" data-dose="${esc(d.key)}" aria-pressed="${!!d.done}" aria-label="Marcar ${esc(d.m.name)} de las ${d.t} como tomado">${d.done ? '✓' : ''}</button>
+      <div style="flex:1"><b>${d.t}</b> · ${esc(d.m.name)} ${esc(d.m.dose || '')}<div class="note">${d.done ? 'Tomado a las ' + fTime(d.done) : late ? '<span style="color:var(--danger)">Atrasado</span>' : d.m.food ? esc(d.m.food) : 'Pendiente'}</div></div></div>`;
+  }).join('');
+  h += `</div>`;
+  // Mediciones
+  h += `<div class="card"><div class="card-h"><h2>🩸 Mediciones de hoy</h2><button class="btn sm" data-sync>Sincronizar</button></div>${meas.map(([k, l, d]) => {
+    const r = todayReadings.filter(x => x.meal === k).pop();
+    return `<div class="task ${r ? 'done' : ''}"><span class="chk" aria-hidden="true">${r ? '✓' : ''}</span><div style="flex:1"><b>${l}</b><div class="note">${r ? `${fmt(r.v)} ${uLbl()} · ${RANGE[cat(r.v)].label} · ${fTime(r.t)}` : d}</div></div>${r ? '' : `<button class="btn sm" data-reg="${k}">Registrar</button>`}</div>`;
+  }).join('')}</div>`;
+  // Comidas
+  h += `<div class="card"><div class="card-h"><h2>🥗 Comidas de hoy</h2><button class="btn sm" data-go="alimentacion">Ver menú</button></div>${MEALS_DIET.map(m => {
+    const o = m.opts[menu[m.k]];
+    return `<div class="task ${mealsDone[m.k] ? 'done' : ''}"><button class="chk" data-meal="${m.k}" aria-pressed="${!!mealsDone[m.k]}" aria-label="Marcar ${esc(m.l)} como cumplido">${mealsDone[m.k] ? '✓' : ''}</button><div style="flex:1"><b>${m.l}</b> <span class="note">${m.h}</span><div class="note">${esc(o.n)} · ${o.ch} g CH</div></div></div>`;
+  }).join('')}</div>`;
+  // Actividad y peso
+  h += `<div class="card"><div class="card-h"><h2>🚶 Actividad de hoy</h2><button class="btn sm" data-go="ejercicio">Plan de ejercicio</button></div>
+    <div class="bar-goal"><div style="width:${Math.min(100, exToday / 30 * 100)}%"></div></div><p class="note" style="margin:6px 0 12px"><b style="color:var(--text)">${exToday} de 30 min</b> recomendados al día</p>
+    <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn sm" data-quickex="Caminata después de comer|15">+ Caminata 15 min después de comer</button><button class="btn sm" data-quickex="Caminata|30">+ Caminata 30 min</button><button class="btn sm" data-quickex="Fuerza|20">+ Fuerza 20 min</button></div>
+    <hr style="border:0;border-top:1px solid var(--border);margin:16px 0"><h2>⚖️ Peso</h2>
+    <p class="note" style="margin:4px 0 8px">${lastW ? `Último: <b style="color:var(--text)">${String(lastW.kg).replace('.', ',')} kg</b> (${fDate(lastW.t)})${C.weight.length > 1 ? ` · ${(lastW.kg - C.weight[0].kg >= 0 ? '+' : '−') + Math.abs(lastW.kg - C.weight[0].kg).toFixed(1).replace('.', ',')} kg desde ${fDate(C.weight[0].t)}` : ''}` : 'Pésate una vez por semana, en ayunas.'}</p>
+    <form id="w-form" style="display:flex;gap:8px"><input id="w-kg" type="number" step="0.1" min="30" max="300" inputmode="decimal" placeholder="kg" class="btn" style="width:110px;text-align:left"><button class="btn" type="submit">Guardar peso</button></form></div>`;
+  h += `</div>`;
+
+  el.innerHTML = h;
+  bindInline(el);
+  el.querySelectorAll('[data-dose]').forEach(b => b.addEventListener('click', () => {
+    const t = C.taken[today] = C.taken[today] || {};
+    if (t[b.dataset.dose]) delete t[b.dataset.dose]; else t[b.dataset.dose] = Date.now();
+    saveCtrl(); renderHoy();
+  }));
+  el.querySelectorAll('[data-meal]').forEach(b => b.addEventListener('click', () => {
+    const t = C.meals[today] = C.meals[today] || {}; t[b.dataset.meal] = !t[b.dataset.meal]; saveCtrl(); renderHoy();
+  }));
+  el.querySelectorAll('[data-reg]').forEach(b => b.addEventListener('click', () => goRegister(b.dataset.reg)));
+  el.querySelectorAll('[data-quickex]').forEach(b => b.addEventListener('click', () => {
+    const [type, min] = b.dataset.quickex.split('|'); C.ex.push({ id: uid(), t: Date.now(), type, min: +min, int: 'moderada' }); saveCtrl(); renderHoy(); toast(`Registrado: ${type} ${min} min`);
+  }));
+  $('#w-form').addEventListener('submit', e => {
+    e.preventDefault(); const kg = parseNum($('#w-kg').value);
+    if (!(kg > 30 && kg < 300)) return toast('Escribe tu peso en kilos');
+    C.weight.push({ t: Date.now(), kg: Math.round(kg * 10) / 10 }); saveCtrl();
+    if (D) { D.peso = String(kg); saveDiet(); }
+    renderHoy(); toast('Peso guardado');
+  });
+}
+
+/* ----- MEDICAMENTOS ----- */
+function renderMeds() {
+  const el = $('#meds-body');
+  const ad7 = adherence(7), ad30 = adherence(30);
+  let h = `<div class="grid two"><div class="card"><h2 id="m-title">Agregar medicamento</h2><p class="sub">Anota exactamente lo que te indicó tu médico.</p>
+    <form id="m-form" autocomplete="off"><input type="hidden" id="m-id">
+      <label class="f">Medicamento<input id="m-name" list="m-list" required placeholder="Ej.: Metformina"></label>
+      <datalist id="m-list">${MED_SUGGEST.map(n => `<option value="${n}">`).join('')}</datalist>
+      <div class="row"><label class="f">Dosis<input id="m-dose" placeholder="Ej.: 850 mg, 1 comprimido, 10 U"></label>
+      <label class="f">Cómo tomarlo<select id="m-food"><option value="">—</option><option>Con la comida</option><option>En ayunas</option><option>Antes de la comida</option><option>Después de la comida</option><option>Antes de dormir</option></select></label></div>
+      <div class="f" style="font-size:13px;color:var(--text-2);margin-bottom:12px">Horarios<div id="m-times" class="times"></div><button class="btn sm" type="button" id="m-addtime" style="margin-top:6px">+ Otro horario</button></div>
+      <label class="f">Notas<input id="m-note" placeholder="Ej.: indicado por Dr. … el …"></label>
+      <p class="note" id="m-info"></p>
+      <div style="display:flex;gap:8px"><button class="btn primary" type="submit">Guardar</button><button class="btn" type="button" id="m-cancel" hidden>Cancelar</button></div></form></div>
+    <div class="card"><h2>Cumplimiento</h2><p class="sub">Porcentaje de dosis que marcaste como tomadas.</p>
+      <div class="tiles" style="grid-template-columns:1fr 1fr;margin-bottom:12px"><div class="tile"><div class="k">Últimos 7 días</div><div class="v">${isFinite(ad7) ? Math.round(ad7) + '%' : '—'}</div></div><div class="tile"><div class="k">Últimos 30 días</div><div class="v">${isFinite(ad30) ? Math.round(ad30) + '%' : '—'}</div></div></div>
+      <div class="adh">${Array.from({ length: 28 }, (_, i) => { const d = daysBack(27 - i); const ds = dosesFor(dkey(d)); const n = ds.filter(x => x.done).length; const c = !ds.length ? 'var(--surface-2)' : n === ds.length ? 'var(--ok)' : n ? 'var(--high)' : 'var(--low)'; return `<span title="${fDate(d)}: ${n}/${ds.length} dosis" style="background:${i === 27 && n < ds.length ? 'var(--surface-2)' : c}">${d.getDate()}</span>`; }).join('')}</div>
+      <div class="legend" style="margin-top:8px"><span><span class="dot" style="background:var(--ok)"></span>Todas</span><span><span class="dot" style="background:var(--high)"></span>Algunas</span><span><span class="dot" style="background:var(--low)"></span>Ninguna</span></div>
+      <hr style="border:0;border-top:1px solid var(--border);margin:16px 0"><h2>🔔 Recordatorios</h2>
+      <p class="note">Descarga un archivo con una alarma diaria para cada dosis y ábrelo con el calendario de tu celular (Google Calendar, Calendario de iPhone u Outlook). Vuelve a descargarlo si cambias un horario.</p>
+      <button class="btn primary" id="m-ics" ${C.meds.length ? '' : 'disabled'}>Agregar recordatorios al calendario</button></div></div>`;
+  h += `<div class="card"><h2>Mis medicamentos</h2>${C.meds.length ? C.meds.map(m => `<div class="med" style="${m.active === false ? 'opacity:.55' : ''}"><div style="flex:1 1 260px;min-width:0"><b>${esc(m.name)}</b> ${esc(m.dose || '')}${m.active === false ? ' <span class="pill">Suspendido</span>' : ''}
+      <div class="note"><b style="color:var(--text)">${(m.times || []).join(' · ')}</b>${m.food ? ' · ' + esc(m.food) : ''}${m.note ? ' · ' + esc(m.note) : ''}</div>${medInfo(m.name) ? `<div class="note">ℹ ${esc(medInfo(m.name))}</div>` : ''}</div>
+      <div class="med-act"><button class="btn sm" data-medpause="${m.id}">${m.active === false ? 'Reanudar' : 'Suspender'}</button><button class="btn sm" data-mededit="${m.id}">Editar</button><button class="btn sm danger" data-meddel="${m.id}">Eliminar</button></div></div>`).join('') : '<p class="empty">Todavía no agregas medicamentos.</p>'}
+    <p class="note" style="margin-bottom:0">La información ℹ es solo orientativa. Nunca cambies, suspendas ni dupliques una dosis sin hablar con tu médico. Si olvidaste una dosis, sigue las indicaciones del prospecto o pregunta a tu farmacéutico.</p></div>`;
+  el.innerHTML = h;
+
+  const times = $('#m-times');
+  const addTime = v => { const w = document.createElement('span'); w.innerHTML = `<input type="time" value="${v || '08:00'}" required><button type="button" aria-label="Quitar horario">✕</button>`; w.querySelector('button').onclick = () => { if (times.children.length > 1) w.remove(); }; times.appendChild(w); };
+  const resetM = () => { $('#m-form').reset(); $('#m-id').value = ''; times.innerHTML = ''; addTime('08:00'); $('#m-title').textContent = 'Agregar medicamento'; $('#m-cancel').hidden = true; $('#m-info').textContent = ''; };
+  resetM();
+  $('#m-addtime').onclick = () => addTime('20:00');
+  $('#m-cancel').onclick = resetM;
+  $('#m-name').addEventListener('input', () => { const i = medInfo($('#m-name').value); $('#m-info').textContent = i ? 'ℹ ' + i : ''; });
+  $('#m-form').addEventListener('submit', e => {
+    e.preventDefault();
+    const ts = [...times.querySelectorAll('input')].map(i => i.value).filter(Boolean).sort();
+    const m = { id: $('#m-id').value || uid(), name: $('#m-name').value.trim(), dose: $('#m-dose').value.trim(), food: $('#m-food').value, times: [...new Set(ts)], note: $('#m-note').value.trim(), active: true };
+    if (!m.name || !m.times.length) return toast('Escribe el medicamento y al menos un horario');
+    const i = C.meds.findIndex(x => x.id === m.id);
+    if (i >= 0) { m.active = C.meds[i].active; m.created = C.meds[i].created; C.meds[i] = m; } else { m.created = new Date(new Date().setHours(0, 0, 0, 0)).getTime(); C.meds.push(m); }
+    saveCtrl(); renderMeds(); toast('Medicamento guardado');
+  });
+  el.querySelectorAll('[data-mededit]').forEach(b => b.onclick = () => {
+    const m = C.meds.find(x => x.id === b.dataset.mededit); if (!m) return;
+    $('#m-id').value = m.id; $('#m-name').value = m.name; $('#m-dose').value = m.dose || ''; $('#m-food').value = m.food || ''; $('#m-note').value = m.note || '';
+    times.innerHTML = ''; (m.times || ['08:00']).forEach(addTime); $('#m-title').textContent = 'Editar medicamento'; $('#m-cancel').hidden = false;
+    $('#m-info').textContent = medInfo(m.name) ? 'ℹ ' + medInfo(m.name) : ''; window.scrollTo(0, 0);
+  });
+  el.querySelectorAll('[data-medpause]').forEach(b => b.onclick = () => { const m = C.meds.find(x => x.id === b.dataset.medpause); m.active = m.active === false; saveCtrl(); renderMeds(); });
+  el.querySelectorAll('[data-meddel]').forEach(b => b.onclick = () => { const m = C.meds.find(x => x.id === b.dataset.meddel); if (m && confirm(`¿Eliminar ${m.name}? Si solo lo dejaste por un tiempo, usa ⏸ para suspenderlo.`)) { C.meds = C.meds.filter(x => x !== m); saveCtrl(); renderMeds(); } });
+  $('#m-ics').onclick = downloadIcs;
+}
+function downloadIcs() {
+  const d = new Date(); const ds = `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}`;
+  const icsEsc = s => String(s).replace(/[\\;,]/g, c => '\\' + c).replace(/\n/g, '\\n');
+  const ev = [];
+  C.meds.filter(m => m.active !== false).forEach(m => (m.times || []).forEach(t => {
+    const hhmm = t.replace(':', '');
+    ev.push(['BEGIN:VEVENT', `UID:${m.id}-${hhmm}@mi-glucemia`, `DTSTAMP:${new Date().toISOString().replace(/[-:]/g, '').slice(0, 15)}Z`, `DTSTART:${ds}T${hhmm}00`, `DURATION:PT10M`, 'RRULE:FREQ=DAILY',
+      `SUMMARY:${icsEsc(`💊 ${m.name} ${m.dose || ''}`.trim())}`, `DESCRIPTION:${icsEsc([m.food, m.note, 'Marca la dosis como tomada en Mi Glucemia.'].filter(Boolean).join('\n'))}`,
+      'BEGIN:VALARM', 'ACTION:DISPLAY', `DESCRIPTION:${icsEsc('Hora de tomar ' + m.name)}`, 'TRIGGER:PT0M', 'END:VALARM', 'END:VEVENT'].join('\r\n'));
+  }));
+  download('recordatorios-medicamentos.ics', ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Mi Glucemia//ES', 'CALSCALE:GREGORIAN', ...ev, 'END:VCALENDAR'].join('\r\n'), 'text/calendar;charset=utf-8');
+  toast('Abre el archivo descargado para agregar las alarmas a tu calendario', 5000);
+}
+
+/* ----- EJERCICIO ----- */
+const EX_PLAN = [
+  { w: '1–2', t: 'Empezar a moverse', d: ['Camina 10 minutos después del almuerzo y de la cena, todos los días.', 'Fuerza en casa 2 días por semana: 1 vuelta de la rutina.', 'Levántate y muévete 3 minutos cada 30 minutos sentado.'], min: 100 },
+  { w: '3–4', t: 'Crear el hábito', d: ['Camina 15 minutos después de almuerzo y cena.', 'Suma 1 caminata de 20 minutos a paso rápido, 3 días por semana.', 'Fuerza 2 días por semana: 2 vueltas de la rutina.'], min: 150 },
+  { w: '5–6', t: 'Subir la intensidad', d: ['Camina 30 minutos a paso rápido 5 días por semana (puedes hablar, pero no cantar).', 'Mantén la caminata de 10–15 minutos después de cenar.', 'Fuerza 2–3 días por semana: 2–3 vueltas.'], min: 180 },
+  { w: '7–8', t: 'Consolidar', d: ['Camina 40 minutos 5 días por semana. Un día haz intervalos: 2 min rápido y 2 min suave.', 'Fuerza 3 días por semana: 3 vueltas, agregando peso (botellas de agua o mochila).', 'Prueba bicicleta, baile o natación para variar.'], min: 200 },
+];
+const STRENGTH = [
+  ['Sentadilla a la silla', 'Siéntate y párate de una silla sin usar las manos', '10–12 repeticiones'],
+  ['Flexiones en la pared', 'Manos en la pared a la altura de los hombros', '10–12 repeticiones'],
+  ['Puente de glúteos', 'Acostado boca arriba, sube la cadera', '12–15 repeticiones'],
+  ['Remo con botellas', 'Inclinado, lleva botellas de agua hacia la cintura', '12 por brazo'],
+  ['Subir un escalón', 'Alterna las piernas, apoyándote en la baranda', '10 por pierna'],
+  ['Plancha en la pared o el suelo', 'Cuerpo recto, abdomen apretado', '20–30 segundos'],
+  ['Pararse en puntillas', 'Sube y baja lento, sujetándote de una silla', '15 repeticiones'],
+];
+const EX_TYPES = ['Caminata', 'Caminata después de comer', 'Fuerza', 'Bicicleta', 'Baile', 'Natación', 'Trote', 'Trabajo de casa o jardín', 'Otro'];
+function renderEx() {
+  const el = $('#ex-body');
+  const ws = weekStart(); const wkMin = exMinutes(ws); const wkStr = C.ex.filter(e => e.t >= ws.getTime() && e.type === 'Fuerza').length;
+  const week = C.exStart ? Math.floor((Date.now() - C.exStart) / (7 * 864e5)) : -1;
+  const stage = week < 0 ? -1 : Math.min(3, Math.floor(week / 2));
+  const goal = stage >= 0 ? EX_PLAN[stage].min : 150;
+  let h = `<div class="tiles" style="margin-bottom:16px">
+    <div class="tile"><div class="k">Esta semana</div><div class="v">${wkMin} <small>min</small></div><div class="bar-goal" style="margin-top:6px"><div style="width:${Math.min(100, wkMin / goal * 100)}%"></div></div><div class="h">Meta: ${goal} min</div></div>
+    <div class="tile"><div class="k">Fuerza</div><div class="v">${wkStr} <small>de 2</small></div><div class="h">sesiones esta semana</div></div>
+    <div class="tile"><div class="k">Después de comer</div><div class="v">${C.ex.filter(e => e.t >= ws.getTime() && /después de comer/.test(e.type)).length}</div><div class="h">caminatas esta semana</div></div>
+    <div class="tile"><div class="k">Plan</div><div class="v" style="font-size:20px">${stage >= 0 ? `Semana ${week + 1}` : 'Sin iniciar'}</div><div class="h">${stage >= 0 ? EX_PLAN[stage].t : 'Comienza el plan de 8 semanas'}</div></div></div>`;
+  h += `<div class="grid two"><div class="card"><h2>Registrar actividad</h2><form id="ex-form" autocomplete="off">
+    <div class="row"><label class="f">Tipo<select id="ex-type">${EX_TYPES.map(t => `<option>${t}</option>`).join('')}</select></label><label class="f">Minutos<input id="ex-min" type="number" min="1" max="600" inputmode="numeric" required value="30"></label></div>
+    <div class="row"><label class="f">Intensidad<select id="ex-int"><option value="suave">Suave</option><option value="moderada" selected>Moderada (puedes hablar, no cantar)</option><option value="intensa">Intensa (cuesta hablar)</option></select></label><label class="f">Fecha y hora<input id="ex-t" type="datetime-local" required></label></div>
+    <button class="btn primary" type="submit">Guardar actividad</button></form>
+    <h2 style="margin-top:18px">Últimas actividades</h2>${C.ex.length ? `<table><tbody>${C.ex.slice().sort((a, b) => b.t - a.t).slice(0, 10).map(e => `<tr><td>${fDate(e.t)} <span class="note">${fTime(e.t)}</span></td><td>${esc(e.type)}</td><td class="num">${e.min} min</td><td class="act"><button data-exdel="${e.id}" title="Eliminar">✕</button></td></tr>`).join('')}</tbody></table>` : '<p class="empty">Sin actividades registradas.</p>'}</div>
+    <div class="card"><h2>Por qué el ejercicio baja la glucosa</h2><p class="note">Al mover los músculos, estos usan la glucosa de la sangre como energía, incluso sin insulina. Una caminata de 10–15 minutos después de comer puede bajar notoriamente la glucosa de esa comida, y el ejercicio regular mejora la sensibilidad a la insulina durante 24–48 horas.</p>
+    <h2 style="margin-top:14px">Antes de empezar, por seguridad</h2><ul class="food">
+      <li>Si usas <b>insulina o glibenclamida</b>, mide tu glucosa antes. Si está bajo ${fmt(100)} ${uLbl()}, come una colación (15 g de carbohidratos) antes de empezar.</li>
+      <li>Si está sobre ${fmt(250)} ${uLbl()} y te sientes mal, no hagas ejercicio intenso y consulta.</li>
+      <li>Lleva agua y algo de azúcar. Usa zapatillas cómodas y revisa tus pies después.</li>
+      <li>Detente si sientes dolor en el pecho, falta de aire intensa, mareo o palpitaciones.</li>
+      <li>Si llevas tiempo sin hacer ejercicio o tienes enfermedad del corazón, consulta a tu médico antes de subir la intensidad.</li></ul></div></div>`;
+  h += `<div class="card"><div class="card-h"><div><h2>Plan de 8 semanas</h2><p class="sub" style="margin:0">Progresivo, para caminar y fortalecer los músculos en casa, sin equipos.</p></div>
+    <button class="btn ${stage < 0 ? 'primary' : ''}" id="ex-start">${stage < 0 ? 'Comenzar plan hoy' : 'Reiniciar plan'}</button></div>
+    <div class="grid two" style="margin-top:12px">${EX_PLAN.map((p, i) => `<div class="plan-step ${i === stage ? 'cur' : ''}"><div class="note">Semanas ${p.w}${i === stage ? ' · <b style="color:var(--accent)">Estás aquí</b>' : ''}</div><b>${p.t}</b> <span class="note">· ${p.min} min/semana</span><ul class="food">${p.d.map(x => `<li>${x}</li>`).join('')}</ul></div>`).join('')}</div></div>`;
+  h += `<div class="card"><h2>Rutina de fuerza en casa (15–20 min)</h2><p class="sub">Haz los ejercicios uno tras otro (1 vuelta) y descansa 1–2 minutos entre vueltas. Calienta antes caminando 5 minutos en el lugar.</p>
+    <div class="eq-grid">${STRENGTH.map(([n, d, r], i) => `<div class="eq"><b>${i + 1}. ${n}</b><span class="note">${d}</span><span style="font-size:13px;font-weight:600">${r}</span></div>`).join('')}</div></div>`;
+  el.innerHTML = h;
+  $('#ex-t').value = dtLocal(new Date());
+  $('#ex-form').addEventListener('submit', e => {
+    e.preventDefault(); const min = +$('#ex-min').value; const t = new Date($('#ex-t').value).getTime();
+    if (!(min > 0) || !isFinite(t)) return toast('Revisa los minutos y la fecha');
+    C.ex.push({ id: uid(), t, type: $('#ex-type').value, min, int: $('#ex-int').value }); saveCtrl(); renderEx(); toast('Actividad guardada');
+  });
+  el.querySelectorAll('[data-exdel]').forEach(b => b.onclick = () => { C.ex = C.ex.filter(x => x.id !== b.dataset.exdel); saveCtrl(); renderEx(); });
+  $('#ex-start').onclick = () => { if (stage >= 0 && !confirm('¿Reiniciar el plan desde la semana 1?')) return; C.exStart = new Date(new Date().setHours(0, 0, 0, 0)).getTime(); saveCtrl(); renderEx(); toast('¡Plan iniciado! Semana 1'); };
+}
+
 /* ---------- Inicio ---------- */
 applyTheme();
 fillSettings();
 resetForm();
-renderResumen();
+renderHoy();
 })();
 </script>
 </body>
