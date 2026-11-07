@@ -2923,6 +2923,9 @@ button:active {
       <div style="font-size:12px; font-weight:800; color:#e05c2b; letter-spacing:.5px; margin-bottom:8px;">
         ⚠️ PENDIENTES EN EL DISPOSITIVO (OFFLINE)</div>
       <div id="contenedoresPendientes"></div>
+      <button type="button" onclick="abrirPapelera()"
+        style="background:#eceff1; color:#455a64; font-size:13px; font-weight:700; margin-top:4px;">
+        ♻️ Papelera: recuperar contenedores borrados</button>
     </div>
 
     <div id="listaEnviados" class="bloqueResumen" style="background:none; padding:0; margin:0;">
@@ -9993,33 +9996,19 @@ async function cargarPendientesIndexedDB() {
     });
   }
 
-  // FIX v363: propagar la eliminación automáticamente.
-  // Solo se borran parciales que CONFIRMADAMENTE estuvieron en la nube y
-  // ya no están: eso prueba que otro dispositivo los cerró o eliminó.
-  // Un parcial creado offline que nunca subió jamás entra aquí.
-  if (_aEliminar.length) {
-    for (var _e = 0; _e < _aEliminar.length; _e++) {
-      var _jf = _aEliminar[_e];
-      var _cf = _jf.datosCont.contenedor;
-      var _opf = (_jf.datosCont && _jf.datosCont.operacion) || '';
-      try {
-        await _eliminarParcialLocalSilencioso(_cf, _opf);
-        _olvidarContenedorSincronizado(_cf, _opf);
-        console.log('[SYNC] Parcial eliminado en otro dispositivo, quitado de aquí:', _cf, _opf);
-      } catch (e) {
-        console.warn('[SYNC] No se pudo quitar el parcial:', _cf, e.message);
-      }
-    }
-    // Releer la lista local ya limpia y volver a pintar
-    try {
-      var _frescos = await obtenerJobsPendientes();
-      jobs = _frescos.filter(function(j) {
-        return j.status === "parcial" || j.status === "pendiente" ||
-               j.status === "enviando" || j.status === "error";
-      });
-      esFantasma = {};
-    } catch (e) {}
-  }
+  // FIX GRAVE (pérdida de contenedores): el v363 borraba SOLO, sin
+  // preguntar, todo parcial local que ya no apareciera en la nube. Pero
+  // "no aparece en la nube" NO prueba que se haya cerrado: en el servidor,
+  // al cerrar un contenedor se borra su fila de CONSOLIDADO_PARCIAL sin
+  // candado, y si justo en ese momento otro contenedor está avisando su
+  // avance, ese aviso se escribe UNA FILA CORRIDA, encima de la fila de un
+  // tercer contenedor que sigue abierto. Ese tercero desaparece de la nube
+  // y este bloque borraba su única copia (lotes y fotos) del dispositivo.
+  // Con muchos contenedores cerrándose seguidos, pasaba 1 o 2 veces por
+  // tanda. Ahora nunca se borra nada automático: la tarjeta queda marcada
+  // en naranjo, se puede reanudar igual, y quitarla es decisión del
+  // usuario (con autorización y copia en la papelera).
+  void _aEliminar;
 
   if (jobs.length === 0 && jobsNube.length === 0) {
     contDiv.innerHTML = "<p>No hay consolidados pendientes.</p>";
@@ -10058,8 +10047,9 @@ div.innerHTML = `
   ${_fantasma ? `
   <div style="background:#fff4e5; border:1px solid #ffc48a; border-radius:8px;
        padding:9px 11px; margin-bottom:9px; font-size:13px; color:#8a4b00;">
-    ⚠️ <b>Cerrado o eliminado desde otro dispositivo.</b><br>
-    Ya no existe en la nube. Esta es una copia local antigua.
+    ⚠️ <b>Ya no aparece en la nube.</b><br>
+    Si este contenedor <b>no se ha cerrado</b>, reanúdalo y ciérralo normalmente:
+    los lotes y fotos de este dispositivo siguen intactos.
   </div>` : ""}
   ${renderDatosContenedor(info, info)}
   <small>
@@ -10070,15 +10060,14 @@ div.innerHTML = `
   </small>
   <br>
 
+  <button onclick="reanudarLocalConLoading(${job.id})">
+    ▶ Reanudar
+  </button>
   ${_fantasma ? `
   <button style="background:#e65100; color:white; margin-top:6px;"
     onclick="eliminarJobLocal(${job.id}, decodeURIComponent('${encodeURIComponent(info.contenedor)}'), decodeURIComponent('${encodeURIComponent(info.cliente || '')}'), decodeURIComponent('${encodeURIComponent((job.datosCont && job.datosCont.operacion) || '')}'))">
     🧹 Quitar de este dispositivo
   </button>` : `
-  <button onclick="reanudarLocalConLoading(${job.id})">
-    ▶ Reanudar
-  </button>
-
   <button
   style="background:#c62828; color:white; margin-top:6px;"
   onclick="eliminarJobLocal(${job.id}, decodeURIComponent('${encodeURIComponent(info.contenedor)}'), decodeURIComponent('${encodeURIComponent(info.cliente || '')}'), decodeURIComponent('${encodeURIComponent((job.datosCont && job.datosCont.operacion) || '')}'))">
@@ -10753,6 +10742,162 @@ async function obtenerJobsPendientes() {
     };
     req.onerror = (e) => reject(e.target.error);
   });
+}
+
+/* =========================================================
+   PAPELERA LOCAL DE CONTENEDORES
+   Todo contenedor que se borra de ConsolidadoDB (enviado, eliminado a
+   mano, etc.) se copia antes aquí, con sus lotes y fotos, y se guarda
+   PAPELERA_DIAS días. Si un contenedor "desaparece", se recupera desde
+   Consolidados pendientes > Papelera. Es una base aparte para no tocar
+   la versión de ConsolidadoDB.
+========================================================= */
+const PAPELERA_DB    = "ConsolidadoPapelera";
+const PAPELERA_STORE = "jobs";
+const PAPELERA_DIAS  = 15;
+let   _papeleraDb    = null;
+
+function _abrirPapelera_() {
+  return new Promise((resolve, reject) => {
+    if (_papeleraDb) return resolve(_papeleraDb);
+    let listo = false;
+    const req = indexedDB.open(PAPELERA_DB, 1);
+    const tId = setTimeout(() => { if (!listo) { listo = true; reject(new Error('PAPELERA_TIMEOUT')); } }, 8000);
+    req.onupgradeneeded = (ev) => {
+      const db = ev.target.result;
+      if (!db.objectStoreNames.contains(PAPELERA_STORE)) {
+        db.createObjectStore(PAPELERA_STORE, { keyPath: "pid", autoIncrement: true });
+      }
+    };
+    req.onsuccess = (ev) => {
+      if (listo) return;
+      listo = true; clearTimeout(tId);
+      _papeleraDb = ev.target.result;
+      _papeleraDb.onversionchange = () => { try { _papeleraDb.close(); } catch (e) {} _papeleraDb = null; };
+      resolve(_papeleraDb);
+    };
+    req.onblocked = () => { if (!listo) { listo = true; clearTimeout(tId); reject(new Error('PAPELERA_BLOCKED')); } };
+    req.onerror = (ev) => { if (!listo) { listo = true; clearTimeout(tId); reject(ev.target.error); } };
+  });
+}
+
+/* Copia uno o varios jobs a la papelera (y borra los vencidos). Nunca
+   lanza: si la papelera falla, se registra en consola y el llamador
+   sigue igual que antes de que existiera. */
+async function _moverAPapelera_(jobs, motivo) {
+  const lista = (Array.isArray(jobs) ? jobs : [jobs]).filter(Boolean);
+  if (!lista.length) return;
+  try {
+    const db = await _abrirPapelera_();
+    const limite = Date.now() - PAPELERA_DIAS * 24 * 60 * 60 * 1000;
+    await new Promise((resolve, reject) => {
+      const tx = db.transaction(PAPELERA_STORE, "readwrite");
+      const st = tx.objectStore(PAPELERA_STORE);
+      const ahora = new Date().toISOString();
+      lista.forEach(j => st.add({ borrado: ahora, motivo: motivo || '', job: j }));
+      const reqTodos = st.getAll();
+      reqTodos.onsuccess = () => {
+        (reqTodos.result || []).forEach(p => {
+          if (Date.parse(p.borrado) < limite) st.delete(p.pid);
+        });
+      };
+      tx.oncomplete = () => resolve();
+      tx.onerror = (e) => reject(e.target.error);
+      tx.onabort = (e) => reject(e.target.error);
+    });
+  } catch (e) {
+    console.warn('[PAPELERA] No se pudo guardar copia de', lista.length, 'contenedor(es):', e && e.message);
+  }
+}
+
+async function _listarPapelera_() {
+  const db = await _abrirPapelera_();
+  return new Promise((resolve, reject) => {
+    const req = db.transaction(PAPELERA_STORE, "readonly").objectStore(PAPELERA_STORE).getAll();
+    req.onsuccess = () => resolve((req.result || []).sort((a, b) => Date.parse(b.borrado) - Date.parse(a.borrado)));
+    req.onerror = (e) => reject(e.target.error);
+  });
+}
+
+async function abrirPapelera() {
+  let items = [];
+  try {
+    items = await _listarPapelera_();
+  } catch (e) {
+    mostrarAlerta('❌ Papelera', 'No se pudo leer la papelera de este dispositivo: ' + (e && e.message));
+    return;
+  }
+  const MOTIVOS = { ENVIADO: 'Enviado al servidor', ELIMINADO: 'Eliminado a mano' };
+  const filas = items.map(p => {
+    const j = p.job || {};
+    const dc = j.datosCont || {};
+    const nLotes = Array.isArray(j.registros) ? j.registros.length : 0;
+    return '<div style="border:1px solid #e3e9ee; border-radius:10px; padding:10px 12px; margin-bottom:8px; background:#fff;">' +
+      '<div style="font-weight:800; color:#0b3c5d; font-size:15px;">' + (dc.contenedor || '?') + '</div>' +
+      '<div style="font-size:12px; color:#5a6b77; line-height:1.5;">' +
+        'Cliente: ' + (dc.cliente || '?') + ' &middot; OP ' + (dc.operacion || 'sin asignar') + '<br>' +
+        nLotes + ' lotes &middot; ' + (MOTIVOS[p.motivo] || p.motivo || '') + '<br>' +
+        'Borrado: ' + new Date(p.borrado).toLocaleString('es-CL') +
+      '</div>' +
+      '<button type="button" onclick="restaurarDePapelera(' + p.pid + ')" ' +
+        'style="margin-top:8px; background:#0b3c5d; color:#fff;">♻️ Restaurar como pendiente</button>' +
+    '</div>';
+  }).join('');
+  const ov = document.createElement('div');
+  ov.id = 'papeleraModal';
+  ov.setAttribute('style', 'position:fixed; inset:0; z-index:1000000; background:rgba(3,16,25,.6); display:flex; align-items:flex-end; justify-content:center;');
+  ov.innerHTML =
+    '<div style="background:#f4f7f9; width:100%; max-width:560px; max-height:85vh; overflow:auto; border-radius:18px 18px 0 0; padding:16px; box-sizing:border-box;">' +
+      '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">' +
+        '<b style="color:#0b3c5d; font-size:17px;">♻️ Papelera de contenedores</b>' +
+        '<button type="button" onclick="document.getElementById(\'papeleraModal\').remove()" ' +
+          'style="width:auto; margin:0; padding:6px 12px; background:#e3e9ee; color:#0b3c5d;">✕</button>' +
+      '</div>' +
+      '<div style="font-size:12px; color:#5a6b77; margin-bottom:12px;">Contenedores borrados de este dispositivo en los últimos ' +
+        PAPELERA_DIAS + ' días, con sus lotes y fotos.</div>' +
+      (filas || '<div style="text-align:center; color:#7a8b95; padding:24px;">La papelera está vacía.</div>') +
+    '</div>';
+  ov.addEventListener('click', (ev) => { if (ev.target === ov) ov.remove(); });
+  document.body.appendChild(ov);
+}
+
+async function restaurarDePapelera(pid) {
+  let item = null;
+  try {
+    item = (await _listarPapelera_()).find(p => p.pid === pid) || null;
+  } catch (e) {}
+  if (!item || !item.job) { mostrarAlerta('❌ Papelera', 'No se encontró ese contenedor en la papelera.'); return; }
+
+  const job = JSON.parse(JSON.stringify(item.job));
+  const dc = job.datosCont || {};
+  const yaEsta = (await obtenerJobsPendientes()).some(j =>
+    j.datosCont && j.datosCont.contenedor === dc.contenedor &&
+    String(j.datosCont.operacion || '') === String(dc.operacion || ''));
+
+  const ok = await mostrarConfirm('♻️ Restaurar contenedor',
+    'Contenedor <b>' + (dc.contenedor || '?') + '</b> (OP ' + (dc.operacion || 'sin asignar') + ') vuelve a ' +
+    '<b>Pendientes en el dispositivo</b> como parcial, con sus ' +
+    (Array.isArray(job.registros) ? job.registros.length : 0) + ' lotes y fotos.' +
+    (yaEsta ? '<br><br><span style="color:#c62828;">Ya hay un pendiente con ese contenedor y operación en este dispositivo: quedarán los dos.</span>' : '') +
+    (item.motivo === 'ENVIADO' ? '<br><br>Este contenedor ya se había enviado. Si lo vuelves a cerrar, el servidor actualiza el mismo registro (no lo duplica).' : ''),
+    'Restaurar', 'Cancelar');
+  if (!ok) return;
+
+  delete job.id;
+  job.status = 'parcial';
+  job.errorMsg = '';
+  job.intentos = 0;
+  job.envioId = nuevoEnvioId();   // envío nuevo: el viejo pudo quedar marcado como ya procesado
+  try {
+    await guardarEnIndexedDB(job, dc.contenedor);
+  } catch (e) {
+    mostrarAlerta('❌ No se pudo restaurar', String(e && e.message || e));
+    return;
+  }
+  const m = document.getElementById('papeleraModal'); if (m) m.remove();
+  mostrarAlerta('✅ Contenedor restaurado',
+    'Contenedor <b>' + (dc.contenedor || '?') + '</b> está otra vez en Pendientes. Usa ▶ Reanudar para cerrarlo.');
+  cargarPendientesIndexedDB();
 }
 
 
@@ -11952,6 +12097,8 @@ async function _eliminarParcialLocalSilencioso(contenedor, operacion) {
     return true;
   });
   if (!objetivos.length) return;
+
+  await _moverAPapelera_(objetivos, 'QUITADO_AUTOMATICO');
 
   return new Promise(function(resolve, reject) {
     var tx = db.transaction(DB_STORE, 'readwrite');
@@ -13968,6 +14115,12 @@ async function borrarJobDeCola(id) {
   console.log("🗑️ Eliminando job ID:", id);
 
   const db = await openDB();
+
+  // Copia a la papelera antes de borrar (ver _moverAPapelera_)
+  try {
+    const previo = (await obtenerJobsPendientes()).find(j => j.id === id);
+    if (previo) await _moverAPapelera_(previo, 'ENVIADO');
+  } catch (e) {}
 
   return new Promise((resolve, reject) => {
     const tx = db.transaction(DB_STORE, "readwrite");
@@ -16384,6 +16537,12 @@ async function eliminarJobLocal(id, contenedor, cliente, operacion) {
   // 🗑️ ELIMINAR DE INDEXEDDB
   const db = await openDB();
 
+  // Copia a la papelera antes de borrar (ver _moverAPapelera_)
+  try {
+    const previo = (await obtenerJobsPendientes()).find(j => j.id === id);
+    if (previo) await _moverAPapelera_(previo, 'ELIMINADO');
+  } catch (e) {}
+
   return new Promise((resolve, reject) => {
 
     const tx = db.transaction(DB_STORE, "readwrite");
@@ -16396,6 +16555,7 @@ async function eliminarJobLocal(id, contenedor, cliente, operacion) {
       // 🧾 REGISTRAR AUDITORÍA EN GAS
       await registrarEliminacionParcial({
         contenedor: contOK,
+        operacion: operacion || '',
         cliente: cliente || '',
         eliminadoPor: cred.rut,
         nombre: nombreQuienElimina,
@@ -16424,6 +16584,7 @@ async function registrarEliminacionParcial(data) {
   const payload = {
     accion: "registrarEliminacion",
     contenedor: data.contenedor,
+    operacion: data.operacion || '',
     cliente: data.cliente || '',
     rut: data.eliminadoPor,
     nombre: data.nombre || '',
