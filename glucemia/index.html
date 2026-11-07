@@ -358,14 +358,23 @@ span.chk { cursor: default; }
       <div class="card">
         <h2>Glucómetro Accu-Chek Instant (Bluetooth)</h2>
         <p class="sub">Tu medidor usa el perfil estándar de glucosa Bluetooth, así que la página puede leer sus mediciones directamente.</p>
+        <div id="bt-help" class="insight crit" hidden><b>⚠ El medidor cortó la conexión.</b><div class="note">Normalmente significa que el teléfono todavía no está emparejado con el medidor, o que el emparejamiento quedó guardado con otro teléfono o app. Haz el <b>Paso 1</b> de aquí abajo y vuelve a sincronizar.</div></div>
+        <h2 style="margin-top:12px">Paso 1 · Emparejar (una sola vez)</h2>
+        <p class="note">Chrome no siempre muestra la ventana para escribir el PIN, así que el emparejamiento se hace desde los ajustes del teléfono:</p>
         <ol class="steps">
-          <li>Abre esta página en <b>Chrome o Edge</b> (Android, Windows, Mac o ChromeOS). Safari en iPhone no permite Bluetooth web.</li>
-          <li>Activa el Bluetooth del teléfono o computador.</li>
-          <li>La primera vez, pon el medidor en modo de emparejamiento (según el manual del Accu‑Chek Instant: con el medidor apagado, mantén presionado el botón hasta que el símbolo de Bluetooth parpadee).</li>
-          <li>Toca <b>Sincronizar</b>, elige el medidor en la lista y, si te lo pide, escribe el <b>PIN de 6 dígitos</b> impreso en la parte de atrás del medidor.</li>
+          <li>En el teléfono, abre <b>Ajustes → Bluetooth</b> (o <i>Dispositivos conectados</i>).</li>
+          <li>Si el medidor ya aparece en la lista (se llama <b>meter+</b> y unos números, o <b>Accu-Chek</b>), tócalo y elige <b>Olvidar</b> o <b>Desvincular</b>.</li>
+          <li>Pon el medidor en <b>modo de emparejamiento</b>: con el medidor apagado, mantén presionado el botón hasta que el símbolo de Bluetooth <b>parpadee</b> (si no funciona así, mira la sección de emparejamiento del manual del medidor).</li>
+          <li>En el teléfono toca <b>Vincular nuevo dispositivo</b> y elige el medidor.</li>
+          <li>Ahí sí te pedirá el código: escribe el <b>PIN de 6 dígitos</b> impreso en la parte de atrás del medidor y toca <b>Vincular</b>. El medidor mostrará un ✓ o "OK".</li>
+        </ol>
+        <h2 style="margin-top:12px">Paso 2 · Sincronizar</h2>
+        <ol class="steps">
+          <li>Usa <b>Chrome</b> (Android, Windows o Mac). Safari en iPhone no permite Bluetooth web. En Android, ten también la <b>Ubicación</b> activada.</li>
+          <li>Enciende el medidor y toca <b>Sincronizar</b>; elige el medidor en la lista.</li>
           <li>Las siguientes veces basta con encender el medidor y tocar <b>Sincronizar</b>. Las mediciones repetidas no se duplican.</li>
         </ol>
-        <p class="note">Si el medidor ya está emparejado con la app mySugr u otra app, puede que tengas que cerrarla para que esta página pueda conectarse.</p>
+        <p class="note">Si usas la app mySugr en el mismo teléfono, ciérrala por completo antes de sincronizar: el medidor acepta una sola conexión a la vez. Si el medidor estaba emparejado con <b>otro</b> teléfono, tendrás que emparejarlo de nuevo con este (Paso 1).</p>
         <button class="btn primary" id="btn-sync2">Sincronizar ahora</button>
         <div class="bt-status" id="bt-status"></div>
       </div>
@@ -994,6 +1003,25 @@ function parseContext(dv) {
 }
 function btStatus(msg) { const el = $('#bt-status'); if (el) el.textContent = msg; $('#hdr-sub').textContent = msg || 'Registro y estadísticas'; }
 
+async function connectRetry(device, tries = 3) {
+  let last;
+  for (let i = 0; i < tries; i++) {
+    try {
+      const server = await device.gatt.connect();
+      return await server.getPrimaryService(GLUCOSE_SERVICE);
+    } catch (e) {
+      last = e;
+      if (i < tries - 1) { btStatus(`Reintentando la conexión (${i + 2} de ${tries})…`); await new Promise(r => setTimeout(r, 1500)); }
+    }
+  }
+  throw last;
+}
+function showBtHelp() {
+  show('ajustes');
+  const h = $('#bt-help'); h.hidden = false;
+  setTimeout(() => h.scrollIntoView({ behavior: 'smooth', block: 'center' }), 50);
+  toast('El medidor cortó la conexión. Sigue el Paso 1 para emparejarlo desde el Bluetooth del teléfono.', 7000);
+}
 let syncing = false;
 async function syncBT() {
   if (syncing) return;
@@ -1007,8 +1035,7 @@ async function syncBT() {
     btStatus('Buscando el glucómetro…');
     device = await navigator.bluetooth.requestDevice({ filters: [{ services: [GLUCOSE_SERVICE] }], optionalServices: [GLUCOSE_SERVICE] });
     btStatus(`Conectando con ${device.name || 'el glucómetro'}…`);
-    const server = await device.gatt.connect();
-    const svc = await server.getPrimaryService(GLUCOSE_SERVICE);
+    const svc = await connectRetry(device);
     const meas = await svc.getCharacteristic(GLUCOSE_MEAS);
     let ctx = null; try { ctx = await svc.getCharacteristic(GLUCOSE_CTX); } catch { /* opcional */ }
     const racp = await svc.getCharacteristic(RACP);
@@ -1054,7 +1081,8 @@ async function syncBT() {
     btStatus('');
     if (err && err.name === 'NotFoundError') toast('No se eligió ningún glucómetro. Enciéndelo cerca del teléfono e intenta de nuevo.', 5000);
     else if (err && err.name === 'SecurityError') toast('El navegador bloqueó Bluetooth. Abre la página directamente (https), no dentro de otra app.', 6000);
-    else toast('No se pudo sincronizar: ' + (err && err.message || err) + '. Revisa que el medidor esté emparejado (PIN de 6 dígitos atrás).', 7000);
+    else if (/disconnect|gatt|network|connection|conex/i.test(String(err && err.message || err))) showBtHelp();
+    else toast('No se pudo sincronizar: ' + (err && err.message || err) + '. Revisa en Ajustes los pasos para emparejar el medidor.', 7000);
   } finally {
     try { device && device.gatt.connected && device.gatt.disconnect(); } catch { }
     syncing = false; $('#btn-sync').disabled = false;
