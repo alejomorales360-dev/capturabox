@@ -70,6 +70,7 @@
   --low: #f08a8a;
 }
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
 html, body { margin: 0; }
 body {
   background: var(--bg); color: var(--text);
@@ -200,6 +201,31 @@ ul.shop { list-style: none; padding: 0; }
 ul.shop li { padding: 6px 0; border-bottom: 1px solid var(--border); font-size: 14px; }
 ul.shop input { width: 18px; height: 18px; vertical-align: -3px; margin-right: 6px; }
 ul.shop input:checked + * , ul.shop label:has(input:checked) { text-decoration: line-through; color: var(--muted); }
+.card-h { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
+.card-h h2 { margin: 0; }
+.task { display: flex; gap: 12px; align-items: center; padding: 10px 0; border-top: 1px solid var(--border); }
+.task .note { font-size: 13px; }
+.chk { width: 30px; height: 30px; flex: none; border-radius: 50%; border: 2px solid var(--border); background: var(--bg); display: inline-flex; align-items: center; justify-content: center; font-weight: 700; color: #fff; cursor: pointer; padding: 0; }
+span.chk { cursor: default; }
+.task.done .chk { background: var(--ok); border-color: var(--ok); }
+.task.done > div b { text-decoration: line-through; text-decoration-color: var(--muted); }
+.insight { padding: 10px 12px; border-radius: 10px; background: var(--surface-2); margin-bottom: 8px; border-left: 4px solid var(--accent); }
+.insight.crit { border-left-color: var(--danger); }
+.insight.warn { border-left-color: var(--high); }
+.insight.ok { border-left-color: var(--ok); }
+.bar-goal { height: 10px; background: var(--surface-2); border-radius: 5px; overflow: hidden; }
+.bar-goal div { height: 100%; background: var(--ok); border-radius: 5px; }
+.adh { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+.adh span { aspect-ratio: 1.6; border-radius: 6px; font-size: 11px; display: flex; align-items: center; justify-content: center; color: var(--text); }
+.times { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 4px; }
+.times span { display: inline-flex; gap: 2px; align-items: center; }
+.times input { padding: 8px; border-radius: 10px; border: 1px solid var(--border); background: var(--bg); min-height: 40px; }
+.times button { border: 0; background: none; cursor: pointer; color: var(--muted); padding: 4px; }
+.med { display: flex; gap: 12px; padding: 12px 0; border-top: 1px solid var(--border); flex-wrap: wrap; }
+.med-act { display: flex; gap: 6px; align-items: flex-start; flex-wrap: wrap; }
+.plan-step { border: 1px solid var(--border); border-radius: 12px; padding: 12px; }
+.plan-step.cur { border: 2px solid var(--accent); }
+.grid.two { display: grid; gap: 16px; }
 .print-only { display: none; }
 @media print {
   header.top, nav, .filters, .no-print, .toast { display: none !important; }
@@ -224,17 +250,23 @@ ul.shop input:checked + * , ul.shop label:has(input:checked) { text-decoration: 
     </button>
   </div>
   <nav class="tabs" role="tablist">
-    <button role="tab" data-v="resumen" aria-selected="true">Resumen</button>
+    <button role="tab" data-v="hoy" aria-selected="true">Hoy</button>
+    <button role="tab" data-v="resumen" aria-selected="false">Resumen</button>
     <button role="tab" data-v="registrar" aria-selected="false">Registrar</button>
     <button role="tab" data-v="historial" aria-selected="false">Historial</button>
     <button role="tab" data-v="alimentacion" aria-selected="false">Alimentación</button>
+    <button role="tab" data-v="ejercicio" aria-selected="false">Ejercicio</button>
+    <button role="tab" data-v="medicamentos" aria-selected="false">Medicamentos</button>
     <button role="tab" data-v="ajustes" aria-selected="false">Ajustes</button>
   </nav>
 </header>
 
 <main>
+  <!-- HOY -->
+  <section class="view active" id="v-hoy"><div id="hoy-body"></div></section>
+
   <!-- RESUMEN -->
-  <section class="view active" id="v-resumen">
+  <section class="view" id="v-resumen">
     <div class="print-only"><h1 style="margin:0">Informe de glucemia</h1><p id="print-meta"></p></div>
     <div class="filters">
       <div class="seg" id="period" role="group" aria-label="Periodo">
@@ -298,6 +330,9 @@ ul.shop input:checked + * , ul.shop label:has(input:checked) { text-decoration: 
   <section class="view" id="v-alimentacion">
     <div id="diet-body"></div>
   </section>
+
+  <section class="view" id="v-ejercicio"><div id="ex-body"></div></section>
+  <section class="view" id="v-medicamentos"><div id="meds-body"></div></section>
 
   <!-- AJUSTES -->
   <section class="view" id="v-ajustes">
@@ -433,6 +468,9 @@ function show(v) {
   if (v === 'historial') renderHistorial();
   if (v === 'ajustes') fillSettings();
   if (v === 'alimentacion') renderDieta();
+  if (v === 'hoy') renderHoy();
+  if (v === 'ejercicio') renderEx();
+  if (v === 'medicamentos') renderMeds();
   if (v === 'registrar' && !$('#f-id').value) resetForm();
   window.scrollTo(0, 0);
 }
@@ -849,7 +887,7 @@ $('#d-csv').addEventListener('click', () => {
   download(`glucemia-${stamp()}.csv`, '﻿' + rows.join('\r\n'), 'text/csv;charset=utf-8');
 });
 $('#d-json').addEventListener('click', () => {
-  download(`glucemia-respaldo-${stamp()}.json`, JSON.stringify({ app: 'mi-glucemia', version: 1, ajustes: S, lecturas: data }, null, 1), 'application/json');
+  download(`glucemia-respaldo-${stamp()}.json`, JSON.stringify({ app: 'mi-glucemia', version: 2, ajustes: S, lecturas: data, control: C, alimentacion: D }, null, 1), 'application/json');
 });
 $('#d-import').addEventListener('click', () => $('#d-file').click());
 $('#d-file').addEventListener('change', async e => {
@@ -860,6 +898,8 @@ $('#d-file').addEventListener('change', async e => {
     if (/^\s*[{[]/.test(text)) {
       const j = JSON.parse(text);
       incoming = (Array.isArray(j) ? j : j.lecturas || []).filter(r => isFinite(r.t) && isFinite(r.v));
+      if (j.control && (j.control.meds?.length || j.control.ex?.length || j.control.weight?.length) && confirm('La copia incluye medicamentos, ejercicio y peso. ¿Reemplazar los de este dispositivo?')) { C = Object.assign(C, j.control); saveCtrl(); }
+      if (j.alimentacion && j.alimentacion.peso && !D.peso) { D = Object.assign(D, j.alimentacion); saveDiet(); }
     } else {
       const lines = text.replace(/^﻿/, '').split(/\r?\n/).filter(Boolean);
       const sep = lines[0].includes(';') ? ';' : ',';
@@ -1009,7 +1049,7 @@ async function syncBT() {
     const added = merge(list);
     btStatus('');
     toast(list.length ? `Sincronización lista: ${added} mediciones nuevas de ${list.length} en el glucómetro` : 'El glucómetro no tiene mediciones guardadas', 5000);
-    renderResumen(); if ($('#v-historial').classList.contains('active')) renderHistorial();
+    renderResumen(); if ($('#v-historial').classList.contains('active')) renderHistorial(); if ($('#v-hoy').classList.contains('active')) renderHoy();
   } catch (err) {
     btStatus('');
     if (err && err.name === 'NotFoundError') toast('No se eligió ningún glucómetro. Enciéndelo cerca del teléfono e intenta de nuevo.', 5000);
@@ -1311,11 +1351,280 @@ function renderDieta() {
 }
 window.addEventListener('afterprint', () => document.body.classList.remove('pd'));
 
+/* ---------- Control: medicamentos, ejercicio, peso y plan de hoy ---------- */
+const KEY_CTRL = 'glucemia.control.v1';
+let C = Object.assign({ meds: [], taken: {}, ex: [], weight: [], meals: {}, exStart: null, exGoal: 150 }, store.get(KEY_CTRL, {}));
+const saveCtrl = () => store.set(KEY_CTRL, C);
+const dkey = (d = new Date()) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+const daysBack = n => { const d = new Date(); d.setHours(12, 0, 0, 0); d.setDate(d.getDate() - n); return d; };
+const hm2min = s => { const [h, m] = String(s).split(':').map(Number); return h * 60 + (m || 0); };
+
+function goRegister(meal, note) {
+  show('registrar'); formMeal = meal; renderMealChips();
+  if (note != null) $('#f-note').value = note;
+  $('#f-v').focus();
+}
+
+// Información breve de medicamentos frecuentes para la diabetes (orientativa)
+const MED_INFO = [
+  [/metformina/i, 'Tómala con las comidas o justo después, para evitar molestias de estómago. Sola no suele causar hipoglucemia.'],
+  [/glibenclamida|glimepirida|gliclazida|glipizida/i, 'Puede bajar demasiado la glucosa (hipoglucemia). No te saltes comidas después de tomarla y lleva siempre azúcar contigo.'],
+  [/sitagliptina|linagliptina|vildagliptina|saxagliptina|alogliptina/i, 'Se puede tomar con o sin comida. Sola no suele causar hipoglucemia.'],
+  [/empagliflozina|dapagliflozina|canagliflozina/i, 'Toma suficiente agua y cuida la higiene íntima. Avisa a tu médico si tienes vómitos, deshidratación o vas a ayunar o operarte.'],
+  [/semaglutida|liraglutida|dulaglutida|tirzepatida/i, 'Puede causar náuseas al principio: come porciones pequeñas y evita las comidas grasosas.'],
+  [/insulina/i, 'Rota el sitio de inyección. Puede causar hipoglucemia: mide tu glucosa con más frecuencia y no te saltes comidas.'],
+  [/pioglitazona/i, 'Avisa a tu médico si notas hinchazón de piernas o aumento rápido de peso.'],
+];
+const medInfo = name => (MED_INFO.find(([re]) => re.test(name)) || [])[1] || '';
+const MED_SUGGEST = ['Metformina', 'Metformina de liberación prolongada', 'Glibenclamida', 'Glimepirida', 'Gliclazida', 'Sitagliptina', 'Sitagliptina + metformina', 'Linagliptina', 'Vildagliptina', 'Empagliflozina', 'Dapagliflozina', 'Semaglutida', 'Liraglutida', 'Dulaglutida', 'Insulina NPH', 'Insulina glargina', 'Insulina degludec', 'Insulina cristalina / rápida', 'Insulina lispro / aspart', 'Pioglitazona', 'Losartán', 'Enalapril', 'Atorvastatina', 'Rosuvastatina', 'Aspirina (ácido acetilsalicílico)'];
+
+function dosesFor(dateKey) {
+  const out = [];
+  const dayEnd = new Date(dateKey + 'T23:59:59').getTime();
+  C.meds.filter(m => m.active !== false && (m.created || 0) <= dayEnd).forEach(m => (m.times || []).forEach(t => out.push({ m, t, key: `${m.id}|${t}`, done: C.taken[dateKey]?.[`${m.id}|${t}`] })));
+  return out.sort((a, b) => hm2min(a.t) - hm2min(b.t));
+}
+function adherence(nDays) {
+  let total = 0, done = 0;
+  for (let i = 0; i < nDays; i++) {
+    const k = dkey(daysBack(i)); const ds = dosesFor(k);
+    if (i === 0) { const now = new Date().getHours() * 60 + new Date().getMinutes(); ds.forEach(d => { if (hm2min(d.t) <= now || d.done) { total++; if (d.done) done++; } }); }
+    else { total += ds.length; done += ds.filter(d => d.done).length; }
+  }
+  return total ? done / total * 100 : NaN;
+}
+function exMinutes(fromDate, toDate = new Date(8.64e15)) { return C.ex.filter(e => e.t >= fromDate.getTime() && e.t <= toDate.getTime()).reduce((a, e) => a + (+e.min || 0), 0); }
+const weekStart = () => { const d = new Date(); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return d; };
+
+/* ----- Recomendaciones personalizadas según tus datos ----- */
+function insights() {
+  const out = [];
+  const last = inPeriod(14);
+  const fast = last.filter(r => r.meal === 'ayunas');
+  const post = last.filter(r => r.meal === 'despues');
+  const lows = inPeriod(7).filter(r => r.v < S.low);
+  const avg = a => a.reduce((x, r) => x + r.v, 0) / a.length;
+  const usesHypoMed = C.meds.some(m => m.active !== false && /insulina|glibenclamida|glimepirida|gliclazida|glipizida/i.test(m.name));
+  if (lows.length) out.push(['crit', `Tuviste ${lows.length} medición${lows.length > 1 ? 'es' : ''} bajo ${fmt(S.low)} en los últimos 7 días.`, `Revisa con tu médico la dosis de tus medicamentos${usesHypoMed ? ' (la insulina y la glibenclamida pueden causar hipoglucemia)' : ''}. No te saltes comidas y lleva siempre azúcar contigo (regla 15‑15).`]);
+  if (fast.length >= 3 && avg(fast) > 130) out.push(['warn', `Tu glucosa en ayunas promedia ${fmt(avg(fast))} ${uLbl()} (meta 80–130).`, 'Cena más temprano (2–3 h antes de dormir), con menos pan, arroz o papa y más verduras. Evita comer de noche. Si sigue alta, coméntalo con tu médico: puede requerir un ajuste del tratamiento.']);
+  if (post.length >= 3 && post.filter(r => r.v > 180).length / post.length > 0.25) out.push(['warn', `${Math.round(post.filter(r => r.v > 180).length / post.length * 100)}% de tus mediciones después de comer superan ${fmt(180)}.`, 'Camina 10–15 minutos después de almuerzo y cena, come primero las verduras y reduce a la mitad la porción de pan, arroz, papa o fideos. Mira en Alimentación → "Cómo me afectan" qué comidas te suben más.']);
+  if (!post.length && last.length) out.push(['info', 'No tienes mediciones después de comer.', 'Mide 2 horas después del almuerzo al menos 2–3 veces por semana: es la mejor forma de saber qué alimentos te suben la glucosa.']);
+  const wk = exMinutes(daysBack(6));
+  if (wk < 150) out.push(['info', `Llevas ${wk} minutos de actividad en los últimos 7 días (meta 150).`, 'La actividad física es lo que más rápido baja la glucosa: empieza con caminatas de 10–15 minutos después de cada comida principal.']);
+  const ad = adherence(7);
+  if (C.meds.length && isFinite(ad) && ad < 90) out.push(['warn', `Tomaste el ${Math.round(ad)}% de tus dosis en los últimos 7 días.`, 'Agrega los recordatorios a tu calendario (en Medicamentos) y deja los remedios junto a algo que uses a diario, como el cepillo de dientes o la cafetera.']);
+  if (!C.meds.length) out.push(['info', 'Aún no registras tus medicamentos.', 'Agrégalos en la pestaña Medicamentos para llevar el control de cada dosis y recibir recordatorios.']);
+  if (last.length && last.length / 14 < 1) out.push(['info', 'Te mides menos de una vez al día.', 'Para tener un buen control, intenta medirte en ayunas todos los días y 2 horas después de una comida distinta cada día.']);
+  const st = stats(last);
+  if (st && st.pct.ok >= 70 && !lows.length) out.push(['ok', `¡Buen trabajo! ${fPct(st.pct.ok)} de tus mediciones están en rango.`, 'Mantén tus hábitos. La meta es superar el 70% en rango, con menos del 4% bajo 70.']);
+  return out;
+}
+
+/* ----- HOY ----- */
+function renderHoy() {
+  const el = $('#hoy-body'); const today = dkey(); const now = new Date(); const nowMin = now.getHours() * 60 + now.getMinutes();
+  const doses = dosesFor(today);
+  const todayReadings = data.filter(r => dkey(new Date(r.t)) === today);
+  const has = m => todayReadings.some(r => r.meal === m);
+  const meas = [['ayunas', 'En ayunas', 'Al despertar, antes de desayunar', '06:00'], ['despues', '2 h después de comer', 'Elige una comida distinta cada día', '15:00'], ['dormir', 'Antes de dormir', 'Opcional, sobre todo si usas insulina', '22:00']];
+  const dayIdx = (now.getDay() + 6) % 7; const menu = weekMenu()[dayIdx];
+  const mealsDone = C.meals[today] || {};
+  const exToday = exMinutes(new Date(new Date().setHours(0, 0, 0, 0)));
+  const tasks = doses.length + 2 + MEALS_DIET.length + 1;
+  const done = doses.filter(d => d.done).length + (has('ayunas') ? 1 : 0) + (has('despues') ? 1 : 0) + MEALS_DIET.filter(m => mealsDone[m.k]).length + (exToday >= 30 ? 1 : 0);
+  const pct = Math.round(done / tasks * 100);
+  const lastW = C.weight[C.weight.length - 1];
+
+  let h = `<div class="card"><div class="hero" style="gap:20px">
+    <svg viewBox="0 0 80 80" width="84" height="84" role="img" aria-label="${pct}% del plan de hoy"><circle cx="40" cy="40" r="34" fill="none" stroke="var(--surface-2)" stroke-width="9"/>
+      <circle cx="40" cy="40" r="34" fill="none" stroke="var(--ok)" stroke-width="9" stroke-linecap="round" stroke-dasharray="${2 * Math.PI * 34}" stroke-dashoffset="${2 * Math.PI * 34 * (1 - pct / 100)}" transform="rotate(-90 40 40)"/>
+      <text x="40" y="45" text-anchor="middle" font-size="17" font-weight="700" fill="var(--text)">${pct}%</text></svg>
+    <div style="flex:1;min-width:200px"><h2 style="font-size:18px">${(s => s.charAt(0).toUpperCase() + s.slice(1))(fDateLong(Date.now()))}</h2>
+    <p class="sub" style="margin:0">Cumpliste <b>${done} de ${tasks}</b> tareas de tu plan de hoy: medicamentos, mediciones, comidas y actividad física.</p></div></div></div>`;
+
+  const ins = insights();
+  if (ins.length) h += `<div class="card"><h2>Recomendaciones para ti</h2><p class="sub">Basadas en tus mediciones, medicamentos y actividad.</p>${ins.map(([k, t, d]) => `<div class="insight ${k}"><b>${{ crit: '⚠', warn: '▲', info: 'ℹ', ok: '✓' }[k]} ${esc(t)}</b><div class="note">${esc(d)}</div></div>`).join('')}</div>`;
+
+  h += `<div class="grid two">`;
+  // Medicamentos
+  h += `<div class="card"><div class="card-h"><h2>💊 Medicamentos de hoy</h2><button class="btn sm" data-go="medicamentos">Administrar</button></div>`;
+  if (!doses.length) h += `<p class="empty">Agrega tus medicamentos y sus horarios para controlar cada dosis.</p><button class="btn primary" data-go="medicamentos">+ Agregar medicamento</button>`;
+  else h += doses.map(d => {
+    const late = !d.done && hm2min(d.t) + 60 < nowMin;
+    return `<div class="task ${d.done ? 'done' : ''}"><button class="chk" data-dose="${esc(d.key)}" aria-pressed="${!!d.done}" aria-label="Marcar ${esc(d.m.name)} de las ${d.t} como tomado">${d.done ? '✓' : ''}</button>
+      <div style="flex:1"><b>${d.t}</b> · ${esc(d.m.name)} ${esc(d.m.dose || '')}<div class="note">${d.done ? 'Tomado a las ' + fTime(d.done) : late ? '<span style="color:var(--danger)">Atrasado</span>' : d.m.food ? esc(d.m.food) : 'Pendiente'}</div></div></div>`;
+  }).join('');
+  h += `</div>`;
+  // Mediciones
+  h += `<div class="card"><div class="card-h"><h2>🩸 Mediciones de hoy</h2><button class="btn sm" data-sync>Sincronizar</button></div>${meas.map(([k, l, d]) => {
+    const r = todayReadings.filter(x => x.meal === k).pop();
+    return `<div class="task ${r ? 'done' : ''}"><span class="chk" aria-hidden="true">${r ? '✓' : ''}</span><div style="flex:1"><b>${l}</b><div class="note">${r ? `${fmt(r.v)} ${uLbl()} · ${RANGE[cat(r.v)].label} · ${fTime(r.t)}` : d}</div></div>${r ? '' : `<button class="btn sm" data-reg="${k}">Registrar</button>`}</div>`;
+  }).join('')}</div>`;
+  // Comidas
+  h += `<div class="card"><div class="card-h"><h2>🥗 Comidas de hoy</h2><button class="btn sm" data-go="alimentacion">Ver menú</button></div>${MEALS_DIET.map(m => {
+    const o = m.opts[menu[m.k]];
+    return `<div class="task ${mealsDone[m.k] ? 'done' : ''}"><button class="chk" data-meal="${m.k}" aria-pressed="${!!mealsDone[m.k]}" aria-label="Marcar ${esc(m.l)} como cumplido">${mealsDone[m.k] ? '✓' : ''}</button><div style="flex:1"><b>${m.l}</b> <span class="note">${m.h}</span><div class="note">${esc(o.n)} · ${o.ch} g CH</div></div></div>`;
+  }).join('')}</div>`;
+  // Actividad y peso
+  h += `<div class="card"><div class="card-h"><h2>🚶 Actividad de hoy</h2><button class="btn sm" data-go="ejercicio">Plan de ejercicio</button></div>
+    <div class="bar-goal"><div style="width:${Math.min(100, exToday / 30 * 100)}%"></div></div><p class="note" style="margin:6px 0 12px"><b style="color:var(--text)">${exToday} de 30 min</b> recomendados al día</p>
+    <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn sm" data-quickex="Caminata después de comer|15">+ Caminata 15 min después de comer</button><button class="btn sm" data-quickex="Caminata|30">+ Caminata 30 min</button><button class="btn sm" data-quickex="Fuerza|20">+ Fuerza 20 min</button></div>
+    <hr style="border:0;border-top:1px solid var(--border);margin:16px 0"><h2>⚖️ Peso</h2>
+    <p class="note" style="margin:4px 0 8px">${lastW ? `Último: <b style="color:var(--text)">${String(lastW.kg).replace('.', ',')} kg</b> (${fDate(lastW.t)})${C.weight.length > 1 ? ` · ${(lastW.kg - C.weight[0].kg >= 0 ? '+' : '−') + Math.abs(lastW.kg - C.weight[0].kg).toFixed(1).replace('.', ',')} kg desde ${fDate(C.weight[0].t)}` : ''}` : 'Pésate una vez por semana, en ayunas.'}</p>
+    <form id="w-form" style="display:flex;gap:8px"><input id="w-kg" type="number" step="0.1" min="30" max="300" inputmode="decimal" placeholder="kg" class="btn" style="width:110px;text-align:left"><button class="btn" type="submit">Guardar peso</button></form></div>`;
+  h += `</div>`;
+
+  el.innerHTML = h;
+  bindInline(el);
+  el.querySelectorAll('[data-dose]').forEach(b => b.addEventListener('click', () => {
+    const t = C.taken[today] = C.taken[today] || {};
+    if (t[b.dataset.dose]) delete t[b.dataset.dose]; else t[b.dataset.dose] = Date.now();
+    saveCtrl(); renderHoy();
+  }));
+  el.querySelectorAll('[data-meal]').forEach(b => b.addEventListener('click', () => {
+    const t = C.meals[today] = C.meals[today] || {}; t[b.dataset.meal] = !t[b.dataset.meal]; saveCtrl(); renderHoy();
+  }));
+  el.querySelectorAll('[data-reg]').forEach(b => b.addEventListener('click', () => goRegister(b.dataset.reg)));
+  el.querySelectorAll('[data-quickex]').forEach(b => b.addEventListener('click', () => {
+    const [type, min] = b.dataset.quickex.split('|'); C.ex.push({ id: uid(), t: Date.now(), type, min: +min, int: 'moderada' }); saveCtrl(); renderHoy(); toast(`Registrado: ${type} ${min} min`);
+  }));
+  $('#w-form').addEventListener('submit', e => {
+    e.preventDefault(); const kg = parseNum($('#w-kg').value);
+    if (!(kg > 30 && kg < 300)) return toast('Escribe tu peso en kilos');
+    C.weight.push({ t: Date.now(), kg: Math.round(kg * 10) / 10 }); saveCtrl();
+    if (D) { D.peso = String(kg); saveDiet(); }
+    renderHoy(); toast('Peso guardado');
+  });
+}
+
+/* ----- MEDICAMENTOS ----- */
+function renderMeds() {
+  const el = $('#meds-body');
+  const ad7 = adherence(7), ad30 = adherence(30);
+  let h = `<div class="grid two"><div class="card"><h2 id="m-title">Agregar medicamento</h2><p class="sub">Anota exactamente lo que te indicó tu médico.</p>
+    <form id="m-form" autocomplete="off"><input type="hidden" id="m-id">
+      <label class="f">Medicamento<input id="m-name" list="m-list" required placeholder="Ej.: Metformina"></label>
+      <datalist id="m-list">${MED_SUGGEST.map(n => `<option value="${n}">`).join('')}</datalist>
+      <div class="row"><label class="f">Dosis<input id="m-dose" placeholder="Ej.: 850 mg, 1 comprimido, 10 U"></label>
+      <label class="f">Cómo tomarlo<select id="m-food"><option value="">—</option><option>Con la comida</option><option>En ayunas</option><option>Antes de la comida</option><option>Después de la comida</option><option>Antes de dormir</option></select></label></div>
+      <div class="f" style="font-size:13px;color:var(--text-2);margin-bottom:12px">Horarios<div id="m-times" class="times"></div><button class="btn sm" type="button" id="m-addtime" style="margin-top:6px">+ Otro horario</button></div>
+      <label class="f">Notas<input id="m-note" placeholder="Ej.: indicado por Dr. … el …"></label>
+      <p class="note" id="m-info"></p>
+      <div style="display:flex;gap:8px"><button class="btn primary" type="submit">Guardar</button><button class="btn" type="button" id="m-cancel" hidden>Cancelar</button></div></form></div>
+    <div class="card"><h2>Cumplimiento</h2><p class="sub">Porcentaje de dosis que marcaste como tomadas.</p>
+      <div class="tiles" style="grid-template-columns:1fr 1fr;margin-bottom:12px"><div class="tile"><div class="k">Últimos 7 días</div><div class="v">${isFinite(ad7) ? Math.round(ad7) + '%' : '—'}</div></div><div class="tile"><div class="k">Últimos 30 días</div><div class="v">${isFinite(ad30) ? Math.round(ad30) + '%' : '—'}</div></div></div>
+      <div class="adh">${Array.from({ length: 28 }, (_, i) => { const d = daysBack(27 - i); const ds = dosesFor(dkey(d)); const n = ds.filter(x => x.done).length; const c = !ds.length ? 'var(--surface-2)' : n === ds.length ? 'var(--ok)' : n ? 'var(--high)' : 'var(--low)'; return `<span title="${fDate(d)}: ${n}/${ds.length} dosis" style="background:${i === 27 && n < ds.length ? 'var(--surface-2)' : c}">${d.getDate()}</span>`; }).join('')}</div>
+      <div class="legend" style="margin-top:8px"><span><span class="dot" style="background:var(--ok)"></span>Todas</span><span><span class="dot" style="background:var(--high)"></span>Algunas</span><span><span class="dot" style="background:var(--low)"></span>Ninguna</span></div>
+      <hr style="border:0;border-top:1px solid var(--border);margin:16px 0"><h2>🔔 Recordatorios</h2>
+      <p class="note">Descarga un archivo con una alarma diaria para cada dosis y ábrelo con el calendario de tu celular (Google Calendar, Calendario de iPhone u Outlook). Vuelve a descargarlo si cambias un horario.</p>
+      <button class="btn primary" id="m-ics" ${C.meds.length ? '' : 'disabled'}>Agregar recordatorios al calendario</button></div></div>`;
+  h += `<div class="card"><h2>Mis medicamentos</h2>${C.meds.length ? C.meds.map(m => `<div class="med" style="${m.active === false ? 'opacity:.55' : ''}"><div style="flex:1 1 260px;min-width:0"><b>${esc(m.name)}</b> ${esc(m.dose || '')}${m.active === false ? ' <span class="pill">Suspendido</span>' : ''}
+      <div class="note"><b style="color:var(--text)">${(m.times || []).join(' · ')}</b>${m.food ? ' · ' + esc(m.food) : ''}${m.note ? ' · ' + esc(m.note) : ''}</div>${medInfo(m.name) ? `<div class="note">ℹ ${esc(medInfo(m.name))}</div>` : ''}</div>
+      <div class="med-act"><button class="btn sm" data-medpause="${m.id}">${m.active === false ? 'Reanudar' : 'Suspender'}</button><button class="btn sm" data-mededit="${m.id}">Editar</button><button class="btn sm danger" data-meddel="${m.id}">Eliminar</button></div></div>`).join('') : '<p class="empty">Todavía no agregas medicamentos.</p>'}
+    <p class="note" style="margin-bottom:0">La información ℹ es solo orientativa. Nunca cambies, suspendas ni dupliques una dosis sin hablar con tu médico. Si olvidaste una dosis, sigue las indicaciones del prospecto o pregunta a tu farmacéutico.</p></div>`;
+  el.innerHTML = h;
+
+  const times = $('#m-times');
+  const addTime = v => { const w = document.createElement('span'); w.innerHTML = `<input type="time" value="${v || '08:00'}" required><button type="button" aria-label="Quitar horario">✕</button>`; w.querySelector('button').onclick = () => { if (times.children.length > 1) w.remove(); }; times.appendChild(w); };
+  const resetM = () => { $('#m-form').reset(); $('#m-id').value = ''; times.innerHTML = ''; addTime('08:00'); $('#m-title').textContent = 'Agregar medicamento'; $('#m-cancel').hidden = true; $('#m-info').textContent = ''; };
+  resetM();
+  $('#m-addtime').onclick = () => addTime('20:00');
+  $('#m-cancel').onclick = resetM;
+  $('#m-name').addEventListener('input', () => { const i = medInfo($('#m-name').value); $('#m-info').textContent = i ? 'ℹ ' + i : ''; });
+  $('#m-form').addEventListener('submit', e => {
+    e.preventDefault();
+    const ts = [...times.querySelectorAll('input')].map(i => i.value).filter(Boolean).sort();
+    const m = { id: $('#m-id').value || uid(), name: $('#m-name').value.trim(), dose: $('#m-dose').value.trim(), food: $('#m-food').value, times: [...new Set(ts)], note: $('#m-note').value.trim(), active: true };
+    if (!m.name || !m.times.length) return toast('Escribe el medicamento y al menos un horario');
+    const i = C.meds.findIndex(x => x.id === m.id);
+    if (i >= 0) { m.active = C.meds[i].active; m.created = C.meds[i].created; C.meds[i] = m; } else { m.created = new Date(new Date().setHours(0, 0, 0, 0)).getTime(); C.meds.push(m); }
+    saveCtrl(); renderMeds(); toast('Medicamento guardado');
+  });
+  el.querySelectorAll('[data-mededit]').forEach(b => b.onclick = () => {
+    const m = C.meds.find(x => x.id === b.dataset.mededit); if (!m) return;
+    $('#m-id').value = m.id; $('#m-name').value = m.name; $('#m-dose').value = m.dose || ''; $('#m-food').value = m.food || ''; $('#m-note').value = m.note || '';
+    times.innerHTML = ''; (m.times || ['08:00']).forEach(addTime); $('#m-title').textContent = 'Editar medicamento'; $('#m-cancel').hidden = false;
+    $('#m-info').textContent = medInfo(m.name) ? 'ℹ ' + medInfo(m.name) : ''; window.scrollTo(0, 0);
+  });
+  el.querySelectorAll('[data-medpause]').forEach(b => b.onclick = () => { const m = C.meds.find(x => x.id === b.dataset.medpause); m.active = m.active === false; saveCtrl(); renderMeds(); });
+  el.querySelectorAll('[data-meddel]').forEach(b => b.onclick = () => { const m = C.meds.find(x => x.id === b.dataset.meddel); if (m && confirm(`¿Eliminar ${m.name}? Si solo lo dejaste por un tiempo, usa ⏸ para suspenderlo.`)) { C.meds = C.meds.filter(x => x !== m); saveCtrl(); renderMeds(); } });
+  $('#m-ics').onclick = downloadIcs;
+}
+function downloadIcs() {
+  const d = new Date(); const ds = `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}`;
+  const icsEsc = s => String(s).replace(/[\\;,]/g, c => '\\' + c).replace(/\n/g, '\\n');
+  const ev = [];
+  C.meds.filter(m => m.active !== false).forEach(m => (m.times || []).forEach(t => {
+    const hhmm = t.replace(':', '');
+    ev.push(['BEGIN:VEVENT', `UID:${m.id}-${hhmm}@mi-glucemia`, `DTSTAMP:${new Date().toISOString().replace(/[-:]/g, '').slice(0, 15)}Z`, `DTSTART:${ds}T${hhmm}00`, `DURATION:PT10M`, 'RRULE:FREQ=DAILY',
+      `SUMMARY:${icsEsc(`💊 ${m.name} ${m.dose || ''}`.trim())}`, `DESCRIPTION:${icsEsc([m.food, m.note, 'Marca la dosis como tomada en Mi Glucemia.'].filter(Boolean).join('\n'))}`,
+      'BEGIN:VALARM', 'ACTION:DISPLAY', `DESCRIPTION:${icsEsc('Hora de tomar ' + m.name)}`, 'TRIGGER:PT0M', 'END:VALARM', 'END:VEVENT'].join('\r\n'));
+  }));
+  download('recordatorios-medicamentos.ics', ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Mi Glucemia//ES', 'CALSCALE:GREGORIAN', ...ev, 'END:VCALENDAR'].join('\r\n'), 'text/calendar;charset=utf-8');
+  toast('Abre el archivo descargado para agregar las alarmas a tu calendario', 5000);
+}
+
+/* ----- EJERCICIO ----- */
+const EX_PLAN = [
+  { w: '1–2', t: 'Empezar a moverse', d: ['Camina 10 minutos después del almuerzo y de la cena, todos los días.', 'Fuerza en casa 2 días por semana: 1 vuelta de la rutina.', 'Levántate y muévete 3 minutos cada 30 minutos sentado.'], min: 100 },
+  { w: '3–4', t: 'Crear el hábito', d: ['Camina 15 minutos después de almuerzo y cena.', 'Suma 1 caminata de 20 minutos a paso rápido, 3 días por semana.', 'Fuerza 2 días por semana: 2 vueltas de la rutina.'], min: 150 },
+  { w: '5–6', t: 'Subir la intensidad', d: ['Camina 30 minutos a paso rápido 5 días por semana (puedes hablar, pero no cantar).', 'Mantén la caminata de 10–15 minutos después de cenar.', 'Fuerza 2–3 días por semana: 2–3 vueltas.'], min: 180 },
+  { w: '7–8', t: 'Consolidar', d: ['Camina 40 minutos 5 días por semana. Un día haz intervalos: 2 min rápido y 2 min suave.', 'Fuerza 3 días por semana: 3 vueltas, agregando peso (botellas de agua o mochila).', 'Prueba bicicleta, baile o natación para variar.'], min: 200 },
+];
+const STRENGTH = [
+  ['Sentadilla a la silla', 'Siéntate y párate de una silla sin usar las manos', '10–12 repeticiones'],
+  ['Flexiones en la pared', 'Manos en la pared a la altura de los hombros', '10–12 repeticiones'],
+  ['Puente de glúteos', 'Acostado boca arriba, sube la cadera', '12–15 repeticiones'],
+  ['Remo con botellas', 'Inclinado, lleva botellas de agua hacia la cintura', '12 por brazo'],
+  ['Subir un escalón', 'Alterna las piernas, apoyándote en la baranda', '10 por pierna'],
+  ['Plancha en la pared o el suelo', 'Cuerpo recto, abdomen apretado', '20–30 segundos'],
+  ['Pararse en puntillas', 'Sube y baja lento, sujetándote de una silla', '15 repeticiones'],
+];
+const EX_TYPES = ['Caminata', 'Caminata después de comer', 'Fuerza', 'Bicicleta', 'Baile', 'Natación', 'Trote', 'Trabajo de casa o jardín', 'Otro'];
+function renderEx() {
+  const el = $('#ex-body');
+  const ws = weekStart(); const wkMin = exMinutes(ws); const wkStr = C.ex.filter(e => e.t >= ws.getTime() && e.type === 'Fuerza').length;
+  const week = C.exStart ? Math.floor((Date.now() - C.exStart) / (7 * 864e5)) : -1;
+  const stage = week < 0 ? -1 : Math.min(3, Math.floor(week / 2));
+  const goal = stage >= 0 ? EX_PLAN[stage].min : 150;
+  let h = `<div class="tiles" style="margin-bottom:16px">
+    <div class="tile"><div class="k">Esta semana</div><div class="v">${wkMin} <small>min</small></div><div class="bar-goal" style="margin-top:6px"><div style="width:${Math.min(100, wkMin / goal * 100)}%"></div></div><div class="h">Meta: ${goal} min</div></div>
+    <div class="tile"><div class="k">Fuerza</div><div class="v">${wkStr} <small>de 2</small></div><div class="h">sesiones esta semana</div></div>
+    <div class="tile"><div class="k">Después de comer</div><div class="v">${C.ex.filter(e => e.t >= ws.getTime() && /después de comer/.test(e.type)).length}</div><div class="h">caminatas esta semana</div></div>
+    <div class="tile"><div class="k">Plan</div><div class="v" style="font-size:20px">${stage >= 0 ? `Semana ${week + 1}` : 'Sin iniciar'}</div><div class="h">${stage >= 0 ? EX_PLAN[stage].t : 'Comienza el plan de 8 semanas'}</div></div></div>`;
+  h += `<div class="grid two"><div class="card"><h2>Registrar actividad</h2><form id="ex-form" autocomplete="off">
+    <div class="row"><label class="f">Tipo<select id="ex-type">${EX_TYPES.map(t => `<option>${t}</option>`).join('')}</select></label><label class="f">Minutos<input id="ex-min" type="number" min="1" max="600" inputmode="numeric" required value="30"></label></div>
+    <div class="row"><label class="f">Intensidad<select id="ex-int"><option value="suave">Suave</option><option value="moderada" selected>Moderada (puedes hablar, no cantar)</option><option value="intensa">Intensa (cuesta hablar)</option></select></label><label class="f">Fecha y hora<input id="ex-t" type="datetime-local" required></label></div>
+    <button class="btn primary" type="submit">Guardar actividad</button></form>
+    <h2 style="margin-top:18px">Últimas actividades</h2>${C.ex.length ? `<table><tbody>${C.ex.slice().sort((a, b) => b.t - a.t).slice(0, 10).map(e => `<tr><td>${fDate(e.t)} <span class="note">${fTime(e.t)}</span></td><td>${esc(e.type)}</td><td class="num">${e.min} min</td><td class="act"><button data-exdel="${e.id}" title="Eliminar">✕</button></td></tr>`).join('')}</tbody></table>` : '<p class="empty">Sin actividades registradas.</p>'}</div>
+    <div class="card"><h2>Por qué el ejercicio baja la glucosa</h2><p class="note">Al mover los músculos, estos usan la glucosa de la sangre como energía, incluso sin insulina. Una caminata de 10–15 minutos después de comer puede bajar notoriamente la glucosa de esa comida, y el ejercicio regular mejora la sensibilidad a la insulina durante 24–48 horas.</p>
+    <h2 style="margin-top:14px">Antes de empezar, por seguridad</h2><ul class="food">
+      <li>Si usas <b>insulina o glibenclamida</b>, mide tu glucosa antes. Si está bajo ${fmt(100)} ${uLbl()}, come una colación (15 g de carbohidratos) antes de empezar.</li>
+      <li>Si está sobre ${fmt(250)} ${uLbl()} y te sientes mal, no hagas ejercicio intenso y consulta.</li>
+      <li>Lleva agua y algo de azúcar. Usa zapatillas cómodas y revisa tus pies después.</li>
+      <li>Detente si sientes dolor en el pecho, falta de aire intensa, mareo o palpitaciones.</li>
+      <li>Si llevas tiempo sin hacer ejercicio o tienes enfermedad del corazón, consulta a tu médico antes de subir la intensidad.</li></ul></div></div>`;
+  h += `<div class="card"><div class="card-h"><div><h2>Plan de 8 semanas</h2><p class="sub" style="margin:0">Progresivo, para caminar y fortalecer los músculos en casa, sin equipos.</p></div>
+    <button class="btn ${stage < 0 ? 'primary' : ''}" id="ex-start">${stage < 0 ? 'Comenzar plan hoy' : 'Reiniciar plan'}</button></div>
+    <div class="grid two" style="margin-top:12px">${EX_PLAN.map((p, i) => `<div class="plan-step ${i === stage ? 'cur' : ''}"><div class="note">Semanas ${p.w}${i === stage ? ' · <b style="color:var(--accent)">Estás aquí</b>' : ''}</div><b>${p.t}</b> <span class="note">· ${p.min} min/semana</span><ul class="food">${p.d.map(x => `<li>${x}</li>`).join('')}</ul></div>`).join('')}</div></div>`;
+  h += `<div class="card"><h2>Rutina de fuerza en casa (15–20 min)</h2><p class="sub">Haz los ejercicios uno tras otro (1 vuelta) y descansa 1–2 minutos entre vueltas. Calienta antes caminando 5 minutos en el lugar.</p>
+    <div class="eq-grid">${STRENGTH.map(([n, d, r], i) => `<div class="eq"><b>${i + 1}. ${n}</b><span class="note">${d}</span><span style="font-size:13px;font-weight:600">${r}</span></div>`).join('')}</div></div>`;
+  el.innerHTML = h;
+  $('#ex-t').value = dtLocal(new Date());
+  $('#ex-form').addEventListener('submit', e => {
+    e.preventDefault(); const min = +$('#ex-min').value; const t = new Date($('#ex-t').value).getTime();
+    if (!(min > 0) || !isFinite(t)) return toast('Revisa los minutos y la fecha');
+    C.ex.push({ id: uid(), t, type: $('#ex-type').value, min, int: $('#ex-int').value }); saveCtrl(); renderEx(); toast('Actividad guardada');
+  });
+  el.querySelectorAll('[data-exdel]').forEach(b => b.onclick = () => { C.ex = C.ex.filter(x => x.id !== b.dataset.exdel); saveCtrl(); renderEx(); });
+  $('#ex-start').onclick = () => { if (stage >= 0 && !confirm('¿Reiniciar el plan desde la semana 1?')) return; C.exStart = new Date(new Date().setHours(0, 0, 0, 0)).getTime(); saveCtrl(); renderEx(); toast('¡Plan iniciado! Semana 1'); };
+}
+
 /* ---------- Inicio ---------- */
 applyTheme();
 fillSettings();
 resetForm();
-renderResumen();
+renderHoy();
 })();
 </script>
 </body>
