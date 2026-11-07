@@ -13,6 +13,12 @@ Página para registrar la glucosa en sangre y ver estadísticas. Lee las medicio
 - **Sincronizar por Bluetooth:** usa el perfil estándar de glucosa (servicio 0x1808, RACP) para traer todas las mediciones guardadas en el medidor. Funciona en Chrome o Edge (Android, Windows, Mac, ChromeOS); Safari en iPhone no lo permite. La primera vez pide el PIN de 6 dígitos que está en la parte de atrás del medidor. Las mediciones repetidas no se duplican y las de solución de control se ignoran.
 - **Resumen** de 7, 14, 30 o 90 días: última medición, promedio, HbA1c estimada (GMI), porcentaje en rango, variabilidad (CV), desviación estándar, mínimo y máximo, cada uno comparado con el periodo anterior.
 - **Gráficos:** distribución por rangos, tendencia, patrón por hora del día (mediana y mitad central), promedio por momento y promedio diario con mínimo y máximo.
+- **Alimentación:** plan basado en las recomendaciones de la ADA y las guías alimentarias chilenas.
+  - *Menú semanal* variado con comidas chilenas (desayuno, 2 colaciones, almuerzo y once o cena). Indica los gramos de carbohidratos de cada comida, permite cambiar cada plato y generar otro menú, y tiene un botón "Medir después" que deja lista la medición posprandial con el nombre de la comida.
+  - *Mi plan:* meta de calorías, carbohidratos y proteínas (Mifflin‑St Jeor) repartida por comida, y una tabla de porciones de intercambio.
+  - *Cómo me afectan:* compara cada medición antes de comer con la de después y muestra las comidas que más subieron la glucosa.
+  - *Guía de alimentos:* método del plato, semáforo de alimentos (preferir, moderar, evitar), hábitos y la regla 15‑15 para la hipoglucemia.
+  - *Lista de compras* generada desde el menú, imprimible.
 - **Informe para el médico:** imprime el resumen o lo guarda como PDF, con la tabla de mediciones.
 - **Ajustes:** mg/dL o mmol/L, límites de los rangos (por defecto 54 / 70 / 180 / 250 mg/dL) y tema claro u oscuro.
 - **Datos:** se guardan solo en el navegador (`localStorage`). Se pueden exportar a CSV (Excel) y respaldar o importar en JSON, por ejemplo para pasarlos a otro dispositivo.
