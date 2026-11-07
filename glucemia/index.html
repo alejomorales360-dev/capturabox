@@ -1,0 +1,1002 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Mi Glucemia</title>
+<meta name="description" content="Registro y estadísticas de glucosa en sangre, con lectura del glucómetro Accu-Chek Instant por Bluetooth.">
+<meta name="theme-color" content="#0d2b4a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Glucemia">
+<style>
+:root {
+  color-scheme: light;
+  --bg: #f3f4f6;
+  --surface: #fcfcfb;
+  --surface-2: #f0efec;
+  --border: #e2e1dc;
+  --text: #0b0b0b;
+  --text-2: #52514e;
+  --muted: #7a7973;
+  --accent: #2a78d6;
+  --accent-ink: #ffffff;
+  --header: #0d2b4a;
+  --header-ink: #ffffff;
+  --grid: #e7e6e1;
+  --band: rgba(12,163,12,.10);
+  --line: #9a998f;
+  /* rangos (paleta de estado, siempre con etiqueta) */
+  --vlow: #8f1f1f;
+  --low: #d03b3b;
+  --ok: #0ca30c;
+  --high: #fab219;
+  --vhigh: #ec835a;
+  --danger: #d03b3b;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg: #111110;
+    --surface: #1a1a19;
+    --surface-2: #262624;
+    --border: #383835;
+    --text: #f0efec;
+    --text-2: #c3c2b7;
+    --muted: #96958c;
+    --accent: #3987e5;
+    --header: #0b1f35;
+    --grid: #2e2e2b;
+    --band: rgba(12,163,12,.16);
+    --line: #6b6a63;
+    --vlow: #e66767;
+    --low: #f08a8a;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #111110;
+  --surface: #1a1a19;
+  --surface-2: #262624;
+  --border: #383835;
+  --text: #f0efec;
+  --text-2: #c3c2b7;
+  --muted: #96958c;
+  --accent: #3987e5;
+  --header: #0b1f35;
+  --grid: #2e2e2b;
+  --band: rgba(12,163,12,.16);
+  --line: #6b6a63;
+  --vlow: #e66767;
+  --low: #f08a8a;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  background: var(--bg); color: var(--text);
+  font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+button, input, select, textarea { font: inherit; color: inherit; }
+header.top {
+  background: var(--header); color: var(--header-ink);
+  padding: calc(12px + env(safe-area-inset-top)) 16px 0;
+  position: sticky; top: 0; z-index: 10;
+}
+.top-row { display: flex; align-items: center; gap: 12px; max-width: 1100px; margin: 0 auto; }
+.top-row h1 { font-size: 18px; margin: 0; flex: 1; letter-spacing: .2px; }
+.top-row h1 small { display: block; font-size: 12px; font-weight: 400; opacity: .7; }
+nav.tabs { display: flex; gap: 4px; max-width: 1100px; margin: 10px auto 0; overflow-x: auto; }
+nav.tabs button {
+  background: none; border: 0; color: var(--header-ink); opacity: .7;
+  padding: 10px 14px; border-bottom: 3px solid transparent; cursor: pointer; white-space: nowrap;
+}
+nav.tabs button[aria-selected="true"] { opacity: 1; border-bottom-color: #fff; font-weight: 600; }
+main { max-width: 1100px; margin: 0 auto; padding: 16px; }
+section.view { display: none; }
+section.view.active { display: block; }
+.btn {
+  display: inline-flex; align-items: center; gap: 6px; justify-content: center;
+  border: 1px solid var(--border); background: var(--surface); color: var(--text);
+  padding: 9px 14px; border-radius: 10px; cursor: pointer; min-height: 40px;
+}
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
+.btn.ghost-light { background: rgba(255,255,255,.12); border-color: rgba(255,255,255,.25); color: #fff; }
+.btn.danger { color: var(--danger); }
+.btn:disabled { opacity: .5; cursor: default; }
+.card {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+  padding: 16px; margin-bottom: 16px;
+}
+.card h2 { font-size: 15px; margin: 0 0 4px; }
+.card .sub { color: var(--text-2); font-size: 13px; margin: 0 0 12px; }
+.grid { display: grid; gap: 16px; }
+@media (min-width: 820px) { .grid.two { grid-template-columns: 1fr 1fr; } }
+.filters { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 16px; }
+.seg { display: inline-flex; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 3px; }
+.seg button { border: 0; background: none; padding: 6px 12px; border-radius: 8px; cursor: pointer; color: var(--text-2); }
+.seg button[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); font-weight: 600; }
+.hero { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
+.hero .big { font-size: 46px; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; }
+.hero .unit { font-size: 15px; color: var(--text-2); font-weight: 400; margin-left: 4px; }
+.pill { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 999px; font-size: 13px; font-weight: 600; background: var(--surface-2); color: var(--text); }
+.dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; flex: none; }
+.tiles { display: grid; gap: 12px; grid-template-columns: repeat(2, 1fr); }
+@media (min-width: 700px) { .tiles { grid-template-columns: repeat(4, 1fr); } }
+.tile { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 14px; }
+.tile .k { font-size: 12px; color: var(--text-2); text-transform: uppercase; letter-spacing: .4px; }
+.tile .v { font-size: 26px; font-weight: 700; font-variant-numeric: tabular-nums; margin-top: 2px; }
+.tile .v small { font-size: 13px; font-weight: 400; color: var(--text-2); }
+.tile .h { font-size: 12px; color: var(--muted); margin-top: 2px; }
+.tir-bar { display: flex; gap: 2px; height: 28px; border-radius: 6px; overflow: hidden; margin: 6px 0 12px; }
+.tir-bar div { height: 100%; }
+.legend { display: flex; flex-wrap: wrap; gap: 8px 16px; font-size: 13px; color: var(--text-2); }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.legend b { color: var(--text); font-variant-numeric: tabular-nums; }
+.chart { position: relative; width: 100%; }
+.chart svg { display: block; width: 100%; height: auto; overflow: visible; }
+.chart text { fill: var(--muted); font-size: 11px; }
+.tip {
+  position: absolute; pointer-events: none; background: var(--text); color: var(--surface);
+  font-size: 12px; padding: 6px 9px; border-radius: 8px; white-space: nowrap; transform: translate(-50%, calc(-100% - 10px));
+  opacity: 0; transition: opacity .1s; z-index: 2;
+}
+.tip.on { opacity: 1; }
+.empty { color: var(--text-2); text-align: center; padding: 28px 8px; }
+form .row { display: grid; gap: 12px; grid-template-columns: 1fr 1fr; }
+@media (max-width: 520px) { form .row { grid-template-columns: 1fr; } }
+label.f { display: block; font-size: 13px; color: var(--text-2); margin-bottom: 12px; }
+label.f > input, label.f > select, label.f > textarea {
+  display: block; width: 100%; margin-top: 4px; padding: 10px 12px; border-radius: 10px;
+  border: 1px solid var(--border); background: var(--bg); min-height: 42px;
+}
+.bigin { font-size: 30px !important; font-weight: 700; font-variant-numeric: tabular-nums; }
+.chips { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px; }
+.chips button { border: 1px solid var(--border); background: var(--bg); border-radius: 999px; padding: 6px 12px; cursor: pointer; }
+.chips button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+table { width: 100%; border-collapse: collapse; font-size: 14px; }
+th, td { text-align: left; padding: 9px 8px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+th { font-size: 12px; color: var(--text-2); font-weight: 600; text-transform: uppercase; letter-spacing: .3px; }
+td.num { font-variant-numeric: tabular-nums; font-weight: 600; white-space: nowrap; }
+td.act { text-align: right; white-space: nowrap; }
+td.act button { border: 0; background: none; cursor: pointer; color: var(--text-2); padding: 4px 6px; }
+.daysep td { background: var(--surface-2); font-weight: 600; font-size: 13px; color: var(--text-2); }
+.tablewrap { overflow-x: auto; }
+@media (max-width: 600px) { .col-note { display: none; } th, td { padding: 8px 6px; } td.act button { font-size: 17px; } }
+.toast {
+  position: fixed; left: 50%; bottom: calc(20px + env(safe-area-inset-bottom)); transform: translateX(-50%);
+  background: var(--text); color: var(--surface); padding: 10px 16px; border-radius: 10px; max-width: calc(100% - 32px);
+  font-size: 14px; opacity: 0; transition: opacity .2s; pointer-events: none; z-index: 50;
+}
+.toast.on { opacity: 1; }
+.note { font-size: 13px; color: var(--text-2); }
+.warn { border-left: 4px solid var(--high); }
+.bt-status { font-size: 13px; color: var(--text-2); margin-top: 8px; min-height: 1.4em; }
+details summary { cursor: pointer; font-weight: 600; }
+ol.steps { padding-left: 20px; margin: 8px 0; }
+ol.steps li { margin: 4px 0; }
+.print-only { display: none; }
+@media print {
+  header.top, nav, .filters, .no-print, .toast { display: none !important; }
+  body { background: #fff; color: #000; }
+  main { padding: 0; }
+  section.view { display: none !important; }
+  section#v-resumen { display: block !important; }
+  .card, .tile { break-inside: avoid; border-color: #ccc; }
+  .print-only { display: block; }
+}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="top-row">
+    <h1>Mi Glucemia<small id="hdr-sub">Registro y estadísticas</small></h1>
+    <button class="btn ghost-light" id="btn-sync" title="Leer mediciones del glucómetro por Bluetooth">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m7 7 10 10-5 5V2l5 5L7 17"/></svg>
+      <span>Sincronizar</span>
+    </button>
+  </div>
+  <nav class="tabs" role="tablist">
+    <button role="tab" data-v="resumen" aria-selected="true">Resumen</button>
+    <button role="tab" data-v="registrar" aria-selected="false">Registrar</button>
+    <button role="tab" data-v="historial" aria-selected="false">Historial</button>
+    <button role="tab" data-v="ajustes" aria-selected="false">Ajustes</button>
+  </nav>
+</header>
+
+<main>
+  <!-- RESUMEN -->
+  <section class="view active" id="v-resumen">
+    <div class="print-only"><h1 style="margin:0">Informe de glucemia</h1><p id="print-meta"></p></div>
+    <div class="filters">
+      <div class="seg" id="period" role="group" aria-label="Periodo">
+        <button data-d="7">7 días</button>
+        <button data-d="14" aria-pressed="true">14 días</button>
+        <button data-d="30">30 días</button>
+        <button data-d="90">90 días</button>
+      </div>
+      <button class="btn no-print" id="btn-print">Informe para el médico</button>
+    </div>
+
+    <div id="resumen-body"></div>
+  </section>
+
+  <!-- REGISTRAR -->
+  <section class="view" id="v-registrar">
+    <div class="card">
+      <h2 id="form-title">Nueva medición</h2>
+      <p class="sub">Escribe el valor que muestra el glucómetro, o usa <b>Sincronizar</b> para traer todas las mediciones por Bluetooth.</p>
+      <form id="form" autocomplete="off">
+        <input type="hidden" id="f-id">
+        <div class="row">
+          <label class="f">Glucosa (<span class="u-lbl">mg/dL</span>)
+            <input class="bigin" id="f-v" type="number" inputmode="decimal" step="any" min="10" max="700" required>
+          </label>
+          <label class="f">Fecha y hora
+            <input id="f-t" type="datetime-local" required>
+          </label>
+        </div>
+        <div class="f" style="font-size:13px;color:var(--text-2);margin-bottom:12px">Momento
+          <div class="chips" id="f-meal"></div>
+        </div>
+        <label class="f">Nota (opcional)
+          <textarea id="f-note" rows="2" placeholder="Ej.: después de almuerzo, ejercicio, insulina 6 U…"></textarea>
+        </label>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn primary" type="submit" id="f-save">Guardar</button>
+          <button class="btn" type="button" id="f-cancel" hidden>Cancelar edición</button>
+        </div>
+      </form>
+    </div>
+  </section>
+
+  <!-- HISTORIAL -->
+  <section class="view" id="v-historial">
+    <div class="filters">
+      <select id="h-meal" class="btn" aria-label="Filtrar por momento"></select>
+      <select id="h-range" class="btn" aria-label="Filtrar por rango">
+        <option value="">Todos los rangos</option>
+        <option value="vlow">Muy bajo</option><option value="low">Bajo</option>
+        <option value="ok">En rango</option><option value="high">Alto</option><option value="vhigh">Muy alto</option>
+      </select>
+      <span class="note" id="h-count"></span>
+    </div>
+    <div class="card" style="padding:0">
+      <div class="tablewrap"><table id="h-table"></table></div>
+    </div>
+  </section>
+
+  <!-- AJUSTES -->
+  <section class="view" id="v-ajustes">
+    <div class="grid two">
+      <div class="card">
+        <h2>Unidades y rangos</h2>
+        <p class="sub">Los valores por defecto son los del consenso internacional de tiempo en rango. Ajústalos según lo que te indique tu médico.</p>
+        <label class="f">Unidad
+          <select id="s-unit"><option value="mgdl">mg/dL</option><option value="mmol">mmol/L</option></select>
+        </label>
+        <div class="row" style="display:grid;gap:12px;grid-template-columns:1fr 1fr">
+          <label class="f">Muy bajo bajo de (<span class="u-lbl">mg/dL</span>)<input id="s-vlow" type="number" step="any"></label>
+          <label class="f">Objetivo desde (<span class="u-lbl">mg/dL</span>)<input id="s-low" type="number" step="any"></label>
+          <label class="f">Objetivo hasta (<span class="u-lbl">mg/dL</span>)<input id="s-high" type="number" step="any"></label>
+          <label class="f">Muy alto sobre (<span class="u-lbl">mg/dL</span>)<input id="s-vhigh" type="number" step="any"></label>
+        </div>
+        <label class="f">Tema
+          <select id="s-theme"><option value="">Automático</option><option value="light">Claro</option><option value="dark">Oscuro</option></select>
+        </label>
+        <button class="btn primary" id="s-save">Guardar ajustes</button>
+      </div>
+
+      <div class="card">
+        <h2>Glucómetro Accu-Chek Instant (Bluetooth)</h2>
+        <p class="sub">Tu medidor usa el perfil estándar de glucosa Bluetooth, así que la página puede leer sus mediciones directamente.</p>
+        <ol class="steps">
+          <li>Abre esta página en <b>Chrome o Edge</b> (Android, Windows, Mac o ChromeOS). Safari en iPhone no permite Bluetooth web.</li>
+          <li>Activa el Bluetooth del teléfono o computador.</li>
+          <li>La primera vez, pon el medidor en modo de emparejamiento (según el manual del Accu‑Chek Instant: con el medidor apagado, mantén presionado el botón hasta que el símbolo de Bluetooth parpadee).</li>
+          <li>Toca <b>Sincronizar</b>, elige el medidor en la lista y, si te lo pide, escribe el <b>PIN de 6 dígitos</b> impreso en la parte de atrás del medidor.</li>
+          <li>Las siguientes veces basta con encender el medidor y tocar <b>Sincronizar</b>. Las mediciones repetidas no se duplican.</li>
+        </ol>
+        <p class="note">Si el medidor ya está emparejado con la app mySugr u otra app, puede que tengas que cerrarla para que esta página pueda conectarse.</p>
+        <button class="btn primary" id="btn-sync2">Sincronizar ahora</button>
+        <div class="bt-status" id="bt-status"></div>
+      </div>
+
+      <div class="card">
+        <h2>Tus datos</h2>
+        <p class="sub">Los datos se guardan solo en este navegador (no se envían a ningún servidor). Haz una copia de seguridad de vez en cuando, y úsala para pasar tus datos a otro dispositivo.</p>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn" id="d-csv">Exportar CSV (Excel)</button>
+          <button class="btn" id="d-json">Copia de seguridad</button>
+          <button class="btn" id="d-import">Importar copia o CSV</button>
+          <input type="file" id="d-file" accept=".json,.csv,application/json,text/csv" hidden>
+        </div>
+        <hr style="border:0;border-top:1px solid var(--border);margin:16px 0">
+        <button class="btn" id="d-demo">Cargar datos de ejemplo</button>
+        <button class="btn danger" id="d-clear">Borrar todo</button>
+      </div>
+
+      <div class="card warn">
+        <h2>Importante</h2>
+        <p class="note" style="margin:0">Esta herramienta sirve para llevar tu registro y conversarlo con tu equipo de salud. No reemplaza las indicaciones médicas. La HbA1c que se muestra es una <b>estimación</b> a partir de tus mediciones (fórmula GMI) y puede diferir del examen de laboratorio. Ante valores muy bajos o muy altos con síntomas, sigue tu plan de acción o busca atención médica.</p>
+      </div>
+    </div>
+  </section>
+</main>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+(() => {
+'use strict';
+
+/* ---------- Estado ---------- */
+const KEY_DATA = 'glucemia.lecturas.v1';
+const KEY_SET = 'glucemia.ajustes.v1';
+const MGDL_PER_MMOL = 18.0182;
+const MEALS = [
+  ['ayunas', 'En ayunas'],
+  ['antes', 'Antes de comer'],
+  ['despues', 'Después de comer'],
+  ['dormir', 'Antes de dormir'],
+  ['otro', 'Otro'],
+];
+const MEAL_LBL = Object.fromEntries(MEALS);
+const RANGES = [
+  ['vlow', 'Muy bajo', 'var(--vlow)', '▼▼'],
+  ['low', 'Bajo', 'var(--low)', '▼'],
+  ['ok', 'En rango', 'var(--ok)', '✓'],
+  ['high', 'Alto', 'var(--high)', '▲'],
+  ['vhigh', 'Muy alto', 'var(--vhigh)', '▲▲'],
+];
+const RANGE = Object.fromEntries(RANGES.map(r => [r[0], { label: r[1], color: r[2], icon: r[3] }]));
+
+const store = {
+  get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch { toast('No se pudo guardar en este navegador'); return false; } },
+};
+let data = store.get(KEY_DATA, []);
+let S = Object.assign({ unit: 'mgdl', vlow: 54, low: 70, high: 180, vhigh: 250, theme: '' }, store.get(KEY_SET, {}));
+let period = 14;
+
+const save = () => { data.sort((a, b) => a.t - b.t); store.set(KEY_DATA, data); };
+const saveSettings = () => store.set(KEY_SET, S);
+
+/* ---------- Utilidades ---------- */
+const $ = s => document.querySelector(s);
+const $$ = s => [...document.querySelectorAll(s)];
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+const toUnit = mg => S.unit === 'mmol' ? mg / MGDL_PER_MMOL : mg;
+const fromUnit = v => S.unit === 'mmol' ? v * MGDL_PER_MMOL : v;
+const fmt = mg => S.unit === 'mmol' ? (mg / MGDL_PER_MMOL).toFixed(1).replace('.', ',') : String(Math.round(mg));
+const uLbl = () => S.unit === 'mmol' ? 'mmol/L' : 'mg/dL';
+const parseNum = s => parseFloat(String(s).replace(',', '.'));
+const cat = v => v < S.vlow ? 'vlow' : v < S.low ? 'low' : v <= S.high ? 'ok' : v <= S.vhigh ? 'high' : 'vhigh';
+const pad = n => String(n).padStart(2, '0');
+const dtLocal = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+const fDate = t => new Date(t).toLocaleDateString('es', { weekday: 'short', day: 'numeric', month: 'short' });
+const fDateLong = t => new Date(t).toLocaleDateString('es', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+const fTime = t => new Date(t).toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' });
+const fPct = x => (Math.round(x * 10) / 10).toString().replace('.', ',') + '%';
+const quant = (arr, q) => { if (!arr.length) return NaN; const s = [...arr].sort((a, b) => a - b); const p = (s.length - 1) * q; const lo = Math.floor(p), hi = Math.ceil(p); return s[lo] + (s[hi] - s[lo]) * (p - lo); };
+
+let toastT;
+function toast(msg, ms = 3200) {
+  const el = $('#toast'); el.textContent = msg; el.classList.add('on');
+  clearTimeout(toastT); toastT = setTimeout(() => el.classList.remove('on'), ms);
+}
+
+function applyTheme() {
+  if (S.theme) document.documentElement.setAttribute('data-theme', S.theme);
+  else document.documentElement.removeAttribute('data-theme');
+}
+
+/* ---------- Navegación ---------- */
+function show(v) {
+  $$('nav.tabs button').forEach(b => b.setAttribute('aria-selected', String(b.dataset.v === v)));
+  $$('section.view').forEach(s => s.classList.toggle('active', s.id === 'v-' + v));
+  if (v === 'resumen') renderResumen();
+  if (v === 'historial') renderHistorial();
+  if (v === 'ajustes') fillSettings();
+  if (v === 'registrar' && !$('#f-id').value) resetForm();
+  window.scrollTo(0, 0);
+}
+$$('nav.tabs button').forEach(b => b.addEventListener('click', () => show(b.dataset.v)));
+
+/* ---------- Estadísticas ---------- */
+function stats(list) {
+  const vals = list.map(r => r.v);
+  const n = vals.length;
+  if (!n) return null;
+  const mean = vals.reduce((a, b) => a + b, 0) / n;
+  const sd = n > 1 ? Math.sqrt(vals.reduce((a, v) => a + (v - mean) ** 2, 0) / (n - 1)) : 0;
+  const counts = { vlow: 0, low: 0, ok: 0, high: 0, vhigh: 0 };
+  vals.forEach(v => counts[cat(v)]++);
+  const days = new Set(list.map(r => new Date(r.t).toDateString())).size;
+  return {
+    n, mean, sd, cv: mean ? sd / mean * 100 : 0,
+    gmi: 3.31 + 0.02392 * mean, // HbA1c estimada (GMI, Bergenstal 2018)
+    min: Math.min(...vals), max: Math.max(...vals),
+    counts, pct: Object.fromEntries(Object.entries(counts).map(([k, c]) => [k, c / n * 100])),
+    days, perDay: n / Math.max(days, 1),
+  };
+}
+const inPeriod = (days, endOffsetDays = 0) => {
+  const end = Date.now() - endOffsetDays * 864e5;
+  const start = end - days * 864e5;
+  return data.filter(r => r.t > start && r.t <= end);
+};
+
+/* ---------- Resumen ---------- */
+$$('#period button').forEach(b => b.addEventListener('click', () => {
+  period = +b.dataset.d;
+  $$('#period button').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+  renderResumen();
+}));
+$('#btn-print').addEventListener('click', () => {
+  $('#print-meta').textContent = `Últimos ${period} días · generado el ${fDateLong(Date.now())} · unidad ${uLbl()} · objetivo ${fmt(S.low)}–${fmt(S.high)}`;
+  window.print();
+});
+
+function rangePill(v) {
+  const r = RANGE[cat(v)];
+  return `<span class="pill"><span class="dot" style="background:${r.color}"></span>${r.label}</span>`;
+}
+
+function deltaTxt(cur, prev, unitFn, betterLower = true, suffix = '') {
+  if (prev == null || !isFinite(prev)) return 'sin periodo anterior para comparar';
+  const d = cur - prev;
+  if (Math.abs(d) < 1e-9) return 'igual que el periodo anterior';
+  const arrow = d > 0 ? '▲' : '▼';
+  const good = betterLower ? d < 0 : d > 0;
+  return `${arrow} ${unitFn(Math.abs(d))}${suffix} vs. periodo anterior${good ? ' (mejor)' : ''}`;
+}
+
+function renderResumen() {
+  const body = $('#resumen-body');
+  if (!data.length) {
+    body.innerHTML = `<div class="card empty">
+      <p style="font-size:17px;color:var(--text);margin-top:0"><b>Aún no hay mediciones</b></p>
+      <p>Registra tu primera medición a mano, o sincroniza tu Accu‑Chek Instant por Bluetooth.</p>
+      <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
+        <button class="btn primary" data-go="registrar">Registrar medición</button>
+        <button class="btn" data-sync>Sincronizar glucómetro</button>
+        <button class="btn" data-demo>Ver con datos de ejemplo</button>
+      </div></div>`;
+    bindInline(body);
+    return;
+  }
+  const last = data[data.length - 1];
+  const list = inPeriod(period);
+  const st = stats(list);
+  const prev = stats(inPeriod(period, period));
+  const lastCat = RANGE[cat(last.v)];
+  const ago = Date.now() - last.t;
+  const agoTxt = ago < 36e5 ? `hace ${Math.max(1, Math.round(ago / 6e4))} min` : ago < 864e5 ? `hace ${Math.round(ago / 36e5)} h` : fDate(last.t);
+
+  let html = `<div class="card">
+    <div class="hero">
+      <div>
+        <div class="note">Última medición · ${esc(agoTxt)} · ${fTime(last.t)}</div>
+        <div class="big" style="margin-top:4px">${fmt(last.v)}<span class="unit">${uLbl()}</span></div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:6px">
+        ${rangePill(last.v)}
+        <span class="note">${esc(MEAL_LBL[last.meal] || 'Otro')}${last.note ? ' · ' + esc(last.note) : ''}</span>
+      </div>
+      <div style="flex:1"></div>
+      <button class="btn primary no-print" data-go="registrar">+ Nueva medición</button>
+    </div></div>`;
+
+  if (!st) {
+    html += `<div class="card empty">No hay mediciones en los últimos ${period} días. Prueba con un periodo más largo.</div>`;
+    body.innerHTML = html; bindInline(body); return;
+  }
+
+  const mmolDelta = x => S.unit === 'mmol' ? (x / MGDL_PER_MMOL).toFixed(1).replace('.', ',') : Math.round(x);
+  html += `<div class="tiles" style="margin-bottom:16px">
+    <div class="tile"><div class="k">Promedio</div><div class="v">${fmt(st.mean)} <small>${uLbl()}</small></div><div class="h">${deltaTxt(st.mean, prev?.mean, mmolDelta)}</div></div>
+    <div class="tile"><div class="k">HbA1c estimada</div><div class="v">${st.gmi.toFixed(1).replace('.', ',')} <small>%</small></div><div class="h">GMI · referencia, no reemplaza el examen</div></div>
+    <div class="tile"><div class="k">En rango</div><div class="v">${fPct(st.pct.ok)}</div><div class="h">${deltaTxt(st.pct.ok, prev?.pct.ok, x => (Math.round(x * 10) / 10).toString().replace('.', ','), false, ' pts')}</div></div>
+    <div class="tile"><div class="k">Variabilidad (CV)</div><div class="v">${fPct(st.cv)}</div><div class="h">${st.cv <= 36 ? 'Estable (meta ≤ 36%)' : 'Alta (meta ≤ 36%)'}</div></div>
+    <div class="tile"><div class="k">Mediciones</div><div class="v">${st.n}</div><div class="h">${st.perDay.toFixed(1).replace('.', ',')} por día con registro</div></div>
+    <div class="tile"><div class="k">Desv. estándar</div><div class="v">${fmt(st.sd)} <small>${uLbl()}</small></div><div class="h">Dispersión de tus valores</div></div>
+    <div class="tile"><div class="k">Mínimo</div><div class="v">${fmt(st.min)} <small>${uLbl()}</small></div><div class="h">${RANGE[cat(st.min)].label}</div></div>
+    <div class="tile"><div class="k">Máximo</div><div class="v">${fmt(st.max)} <small>${uLbl()}</small></div><div class="h">${RANGE[cat(st.max)].label}</div></div>
+  </div>`;
+
+  // Tiempo en rango
+  const segs = RANGES.slice().reverse().filter(([k]) => st.counts[k] > 0)
+    .map(([k, l, c]) => `<div style="flex:${st.counts[k]};background:${c}" title="${l}: ${fPct(st.pct[k])}"></div>`).join('');
+  const limits = { vlow: `< ${fmt(S.vlow)}`, low: `${fmt(S.vlow)}–${fmt(S.low - 1)}`, ok: `${fmt(S.low)}–${fmt(S.high)}`, high: `${fmt(S.high + 1)}–${fmt(S.vhigh)}`, vhigh: `> ${fmt(S.vhigh)}` };
+  html += `<div class="card">
+    <h2>Distribución por rangos</h2>
+    <p class="sub">Porcentaje de tus mediciones en cada rango. Meta habitual: más de 70% en rango y menos de 4% bajo ${fmt(S.low)}.</p>
+    <div class="tir-bar" role="img" aria-label="Distribución por rangos">${segs}</div>
+    <div class="legend">${RANGES.slice().reverse().map(([k, l, c, ic]) =>
+      `<span><span class="dot" style="background:${c}"></span>${ic} ${l} <span class="note">(${limits[k]})</span> <b>${fPct(st.pct[k])}</b> <span class="note">· ${st.counts[k]}</span></span>`).join('')}</div>
+  </div>`;
+
+  html += `<div class="card"><h2>Tendencia</h2><p class="sub">Cada punto es una medición; la franja verde es tu rango objetivo (${fmt(S.low)}–${fmt(S.high)} ${uLbl()}).</p><div class="chart" id="c-trend"></div></div>`;
+  html += `<div class="grid two">
+    <div class="card"><h2>Patrón por hora del día</h2><p class="sub">Todas las mediciones del periodo según la hora. La línea es la mediana cada 2 horas y la sombra el rango donde cae la mitad de tus valores.</p><div class="chart" id="c-hour"></div></div>
+    <div class="card"><h2>Promedio por momento</h2><p class="sub">Promedio según cuándo te mediste.</p><div id="c-meal"></div></div>
+  </div>`;
+  html += `<div class="card"><h2>Promedio por día</h2><p class="sub">Promedio diario con el valor mínimo y máximo del día.</p><div class="chart" id="c-daily"></div></div>`;
+
+  // Tabla imprimible
+  html += `<div class="card print-only"><h2>Mediciones del periodo</h2><table><thead><tr><th>Fecha</th><th>Hora</th><th>${uLbl()}</th><th>Momento</th><th>Nota</th></tr></thead><tbody>${
+    list.slice().reverse().map(r => `<tr><td>${fDate(r.t)}</td><td>${fTime(r.t)}</td><td>${fmt(r.v)} ${RANGE[cat(r.v)].icon}</td><td>${esc(MEAL_LBL[r.meal] || '')}</td><td>${esc(r.note || '')}</td></tr>`).join('')
+  }</tbody></table></div>`;
+
+  body.innerHTML = html;
+  bindInline(body);
+  drawTrend($('#c-trend'), list);
+  drawHour($('#c-hour'), list);
+  drawMeal($('#c-meal'), list);
+  drawDaily($('#c-daily'), list);
+}
+
+function bindInline(root) {
+  root.querySelectorAll('[data-go]').forEach(b => b.addEventListener('click', () => show(b.dataset.go)));
+  root.querySelectorAll('[data-sync]').forEach(b => b.addEventListener('click', syncBT));
+  root.querySelectorAll('[data-demo]').forEach(b => b.addEventListener('click', loadDemo));
+}
+
+/* ---------- Gráficos (SVG) ---------- */
+const NS = 'http://www.w3.org/2000/svg';
+function svgEl(tag, attrs = {}, parent) {
+  const e = document.createElementNS(NS, tag);
+  for (const k in attrs) e.setAttribute(k, attrs[k]);
+  if (parent) parent.appendChild(e);
+  return e;
+}
+function yDomain(vals) {
+  const hi = Math.max(S.vhigh + 30, ...vals) ;
+  return [Math.min(40, ...vals) , Math.ceil(hi / 50) * 50];
+}
+function yTicks(lo, hi) {
+  if (S.unit === 'mmol') {
+    const t = []; for (let m = Math.ceil(lo / MGDL_PER_MMOL / 2) * 2; m * MGDL_PER_MMOL <= hi; m += 2) t.push(m * MGDL_PER_MMOL); return t;
+  }
+  const t = []; for (let v = Math.ceil(lo / 50) * 50; v <= hi; v += 50) t.push(v); return t;
+}
+function frame(container, W, H, M, ylo, yhi) {
+  container.innerHTML = '';
+  const svg = svgEl('svg', { viewBox: `0 0 ${W} ${H}`, role: 'img' }, container);
+  const y = v => M.t + (H - M.t - M.b) * (1 - (v - ylo) / (yhi - ylo));
+  // banda objetivo
+  svgEl('rect', { x: M.l, y: y(S.high), width: W - M.l - M.r, height: y(S.low) - y(S.high), fill: 'var(--band)' }, svg);
+  yTicks(ylo, yhi).forEach(v => {
+    svgEl('line', { x1: M.l, x2: W - M.r, y1: y(v), y2: y(v), stroke: 'var(--grid)', 'stroke-width': 1 }, svg);
+    const tx = svgEl('text', { x: M.l - 6, y: y(v) + 4, 'text-anchor': 'end' }, svg); tx.textContent = fmt(v);
+  });
+  [S.low, S.high].forEach(v => svgEl('line', { x1: M.l, x2: W - M.r, y1: y(v), y2: y(v), stroke: 'var(--ok)', 'stroke-width': 1, 'stroke-dasharray': '3 3', opacity: .7 }, svg));
+  const tip = document.createElement('div'); tip.className = 'tip'; container.appendChild(tip);
+  return { svg, y, tip };
+}
+function showTip(container, tip, svg, x, y, W, html) {
+  const r = svg.getBoundingClientRect(); const k = r.width / W;
+  tip.innerHTML = html; tip.style.left = Math.min(Math.max(x * k, 70), r.width - 70) + 'px'; tip.style.top = y * k + 'px'; tip.classList.add('on');
+}
+
+function drawTrend(el, list) {
+  const W = Math.max(300, el.clientWidth || 900), H = W < 600 ? 240 : 300, M = { t: 14, r: 12, b: 28, l: 40 };
+  const [ylo, yhi] = yDomain(list.map(r => r.v));
+  const { svg, y, tip } = frame(el, W, H, M, ylo, yhi);
+  const end = Date.now(), start = end - period * 864e5;
+  const x = t => M.l + (W - M.l - M.r) * (t - start) / (end - start);
+  // marcas de días
+  const step = Math.max(1, Math.ceil(period / Math.floor((W - 60) / 56)));
+  const d0 = new Date(start); d0.setHours(0, 0, 0, 0);
+  for (let d = new Date(d0), i = 0; d.getTime() <= end; d.setDate(d.getDate() + 1), i++) {
+    if (d.getTime() < start || i % step) continue;
+    const tx = svgEl('text', { x: x(d.getTime()), y: H - 8, 'text-anchor': 'middle' }, svg);
+    tx.textContent = d.toLocaleDateString('es', { day: 'numeric', month: 'short' });
+  }
+  if (list.length > 1) {
+    svgEl('polyline', { points: list.map(r => `${x(r.t)},${y(r.v)}`).join(' '), fill: 'none', stroke: 'var(--line)', 'stroke-width': 1.5, 'stroke-linejoin': 'round', opacity: .6 }, svg);
+  }
+  const pts = list.map(r => {
+    svgEl('circle', { cx: x(r.t), cy: y(r.v), r: 4.5, fill: RANGE[cat(r.v)].color, stroke: 'var(--surface)', 'stroke-width': 2 }, svg);
+    return { x: x(r.t), y: y(r.v), r };
+  });
+  const cross = svgEl('line', { y1: M.t, y2: H - M.b, stroke: 'var(--text-2)', 'stroke-width': 1, opacity: 0 }, svg);
+  const hit = svgEl('rect', { x: M.l, y: 0, width: W - M.l - M.r, height: H, fill: 'transparent' }, svg);
+  const move = ev => {
+    if (!pts.length) return;
+    const r = svg.getBoundingClientRect(); const px = (ev.clientX - r.left) * W / r.width;
+    let best = pts[0]; for (const p of pts) if (Math.abs(p.x - px) < Math.abs(best.x - px)) best = p;
+    cross.setAttribute('x1', best.x); cross.setAttribute('x2', best.x); cross.setAttribute('opacity', .4);
+    showTip(el, tip, svg, best.x, best.y, W, `<b>${fmt(best.r.v)} ${uLbl()}</b> · ${RANGE[cat(best.r.v)].label}<br>${fDate(best.r.t)} ${fTime(best.r.t)} · ${esc(MEAL_LBL[best.r.meal] || '')}`);
+  };
+  hit.addEventListener('pointermove', move); hit.addEventListener('pointerdown', move);
+  hit.addEventListener('pointerleave', () => { tip.classList.remove('on'); cross.setAttribute('opacity', 0); });
+}
+
+function drawHour(el, list) {
+  const W = Math.max(300, el.clientWidth || 520), H = 260, M = { t: 14, r: 10, b: 28, l: 40 };
+  const [ylo, yhi] = yDomain(list.map(r => r.v));
+  const { svg, y, tip } = frame(el, W, H, M, ylo, yhi);
+  const hourOf = t => { const d = new Date(t); return d.getHours() + d.getMinutes() / 60; };
+  const x = h => M.l + (W - M.l - M.r) * h / 24;
+  [0, 6, 12, 18, 24].forEach(h => { const tx = svgEl('text', { x: x(h), y: H - 8, 'text-anchor': 'middle' }, svg); tx.textContent = pad(h % 24 === 0 && h ? 24 : h) + ':00'; });
+  // bandas por bloque de 2 horas
+  const bins = [];
+  for (let b = 0; b < 12; b++) {
+    const vs = list.filter(r => Math.floor(hourOf(r.t) / 2) === b).map(r => r.v);
+    if (vs.length) bins.push({ h: b * 2 + 1, q1: quant(vs, .25), med: quant(vs, .5), q3: quant(vs, .75), n: vs.length });
+  }
+  if (bins.length > 1) {
+    const area = bins.map(b => `${x(b.h)},${y(b.q3)}`).concat(bins.slice().reverse().map(b => `${x(b.h)},${y(b.q1)}`)).join(' ');
+    svgEl('polygon', { points: area, fill: 'var(--accent)', opacity: .14 }, svg);
+  }
+  list.forEach(r => svgEl('circle', { cx: x(hourOf(r.t)), cy: y(r.v), r: 3.5, fill: RANGE[cat(r.v)].color, opacity: .75 }, svg));
+  if (bins.length > 1) svgEl('polyline', { points: bins.map(b => `${x(b.h)},${y(b.med)}`).join(' '), fill: 'none', stroke: 'var(--accent)', 'stroke-width': 2, 'stroke-linejoin': 'round' }, svg);
+  bins.forEach(b => svgEl('circle', { cx: x(b.h), cy: y(b.med), r: 4, fill: 'var(--accent)', stroke: 'var(--surface)', 'stroke-width': 2 }, svg));
+  const hit = svgEl('rect', { x: M.l, y: 0, width: W - M.l - M.r, height: H, fill: 'transparent' }, svg);
+  const move = ev => {
+    if (!bins.length) return;
+    const r = svg.getBoundingClientRect(); const px = (ev.clientX - r.left) * W / r.width;
+    let best = bins[0]; for (const b of bins) if (Math.abs(x(b.h) - px) < Math.abs(x(best.h) - px)) best = b;
+    showTip(el, tip, svg, x(best.h), y(best.med), W, `<b>${pad(best.h - 1)}:00–${pad(best.h + 1)}:00</b><br>Mediana ${fmt(best.med)} ${uLbl()} · ${best.n} medic.<br>Mitad central ${fmt(best.q1)}–${fmt(best.q3)}`);
+  };
+  hit.addEventListener('pointermove', move); hit.addEventListener('pointerdown', move);
+  hit.addEventListener('pointerleave', () => tip.classList.remove('on'));
+}
+
+function drawMeal(el, list) {
+  const rows = MEALS.map(([k, l]) => {
+    const vs = list.filter(r => (r.meal || 'otro') === k).map(r => r.v);
+    return { k, l, n: vs.length, avg: vs.length ? vs.reduce((a, b) => a + b, 0) / vs.length : 0 };
+  }).filter(r => r.n);
+  if (!rows.length) { el.innerHTML = '<p class="empty">Sin datos</p>'; return; }
+  const max = Math.max(S.vhigh, ...rows.map(r => r.avg));
+  el.innerHTML = rows.map(r => {
+    const c = RANGE[cat(r.avg)];
+    return `<div style="margin:0 0 14px">
+      <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px">
+        <span>${esc(r.l)} <span class="note">· ${r.n}</span></span>
+        <span><b style="font-variant-numeric:tabular-nums">${fmt(r.avg)}</b> <span class="note">${uLbl()} · ${c.label}</span></span>
+      </div>
+      <div style="position:relative;height:12px;background:var(--surface-2);border-radius:4px">
+        <div style="position:absolute;inset:0 auto 0 0;width:${r.avg / max * 100}%;background:${c.color};border-radius:0 4px 4px 0"></div>
+        <div title="Objetivo" style="position:absolute;top:-3px;bottom:-3px;left:${S.low / max * 100}%;width:${(S.high - S.low) / max * 100}%;border-left:2px dashed var(--ok);border-right:2px dashed var(--ok)"></div>
+      </div></div>`;
+  }).join('') + `<p class="note" style="margin:0">Las líneas punteadas verdes marcan tu rango objetivo.</p>`;
+}
+
+function drawDaily(el, list) {
+  const byDay = new Map();
+  list.forEach(r => { const d = new Date(r.t); d.setHours(12, 0, 0, 0); const k = d.getTime(); (byDay.get(k) || byDay.set(k, []).get(k)).push(r.v); });
+  const days = [...byDay.entries()].sort((a, b) => a[0] - b[0]).map(([t, vs]) => ({ t, avg: vs.reduce((a, b) => a + b, 0) / vs.length, min: Math.min(...vs), max: Math.max(...vs), n: vs.length }));
+  const W = Math.max(300, el.clientWidth || 900), H = 220, M = { t: 14, r: 12, b: 28, l: 40 };
+  const [ylo, yhi] = yDomain(list.map(r => r.v));
+  const { svg, y, tip } = frame(el, W, H, M, ylo, yhi);
+  const end = new Date(); end.setHours(12, 0, 0, 0);
+  const n = period + 1;
+  const slot = (W - M.l - M.r) / n;
+  const x = t => M.l + slot * (n - 1 - Math.round((end.getTime() - t) / 864e5)) + slot / 2;
+  const step = Math.max(1, Math.ceil(n / Math.floor((W - 60) / 56)));
+  for (let i = 0; i < n; i += step) {
+    const t = end.getTime() - (n - 1 - i) * 864e5;
+    const tx = svgEl('text', { x: x(t), y: H - 8, 'text-anchor': 'middle' }, svg);
+    tx.textContent = new Date(t).toLocaleDateString('es', { day: 'numeric', month: 'short' });
+  }
+  const bw = Math.max(3, Math.min(14, slot * .45));
+  days.forEach(d => {
+    svgEl('line', { x1: x(d.t), x2: x(d.t), y1: y(d.max), y2: y(d.min), stroke: 'var(--line)', 'stroke-width': 2, 'stroke-linecap': 'round' }, svg);
+    svgEl('rect', { x: x(d.t) - bw / 2, y: y(d.avg) - 3, width: bw, height: 6, rx: 3, fill: RANGE[cat(d.avg)].color, stroke: 'var(--surface)', 'stroke-width': 1.5 }, svg);
+  });
+  const hit = svgEl('rect', { x: M.l, y: 0, width: W - M.l - M.r, height: H, fill: 'transparent' }, svg);
+  const move = ev => {
+    if (!days.length) return;
+    const r = svg.getBoundingClientRect(); const px = (ev.clientX - r.left) * W / r.width;
+    let best = days[0]; for (const d of days) if (Math.abs(x(d.t) - px) < Math.abs(x(best.t) - px)) best = d;
+    showTip(el, tip, svg, x(best.t), y(best.max), W, `<b>${fDate(best.t)}</b><br>Promedio ${fmt(best.avg)} ${uLbl()} · ${best.n} medic.<br>Mín ${fmt(best.min)} · Máx ${fmt(best.max)}`);
+  };
+  hit.addEventListener('pointermove', move); hit.addEventListener('pointerdown', move);
+  hit.addEventListener('pointerleave', () => tip.classList.remove('on'));
+}
+
+/* ---------- Registrar ---------- */
+let formMeal = 'otro';
+function renderMealChips() {
+  $('#f-meal').innerHTML = MEALS.map(([k, l]) => `<button type="button" data-k="${k}" aria-pressed="${k === formMeal}">${l}</button>`).join('');
+  $$('#f-meal button').forEach(b => b.addEventListener('click', () => { formMeal = b.dataset.k; renderMealChips(); }));
+}
+function guessMeal(d) {
+  const h = d.getHours();
+  if (h >= 5 && h < 9) return 'ayunas';
+  if (h >= 21 || h < 2) return 'dormir';
+  return 'otro';
+}
+function resetForm() {
+  $('#f-id').value = ''; $('#f-v').value = ''; $('#f-note').value = '';
+  const now = new Date(); $('#f-t').value = dtLocal(now);
+  formMeal = guessMeal(now); renderMealChips();
+  $('#form-title').textContent = 'Nueva medición'; $('#f-cancel').hidden = true;
+}
+function editReading(id) {
+  const r = data.find(x => x.id === id); if (!r) return;
+  show('registrar');
+  $('#f-id').value = r.id; $('#f-v').value = S.unit === 'mmol' ? toUnit(r.v).toFixed(1) : Math.round(r.v);
+  $('#f-t').value = dtLocal(new Date(r.t)); $('#f-note').value = r.note || '';
+  formMeal = r.meal || 'otro'; renderMealChips();
+  $('#form-title').textContent = 'Editar medición'; $('#f-cancel').hidden = false;
+}
+$('#f-cancel').addEventListener('click', () => { resetForm(); show('historial'); });
+$('#form').addEventListener('submit', e => {
+  e.preventDefault();
+  const v = fromUnit(parseNum($('#f-v').value));
+  const t = new Date($('#f-t').value).getTime();
+  if (!isFinite(v) || v < 10 || v > 700) { toast('Revisa el valor: debe estar entre ' + fmt(10) + ' y ' + fmt(700) + ' ' + uLbl()); return; }
+  if (!isFinite(t)) { toast('Revisa la fecha y hora'); return; }
+  const id = $('#f-id').value;
+  if (id) {
+    const r = data.find(x => x.id === id);
+    Object.assign(r, { v, t, meal: formMeal, note: $('#f-note').value.trim() });
+  } else {
+    data.push({ id: uid(), t, v, meal: formMeal, note: $('#f-note').value.trim(), src: 'manual' });
+  }
+  save();
+  const wasEdit = !!id;
+  resetForm();
+  toast(wasEdit ? 'Medición actualizada' : `Guardado: ${fmt(v)} ${uLbl()} · ${RANGE[cat(v)].label}`);
+  show(wasEdit ? 'historial' : 'resumen');
+});
+
+/* ---------- Historial ---------- */
+$('#h-meal').innerHTML = '<option value="">Todos los momentos</option>' + MEALS.map(([k, l]) => `<option value="${k}">${l}</option>`).join('');
+$('#h-meal').addEventListener('change', renderHistorial);
+$('#h-range').addEventListener('change', renderHistorial);
+function renderHistorial() {
+  const fm = $('#h-meal').value, fr = $('#h-range').value;
+  const list = data.filter(r => (!fm || (r.meal || 'otro') === fm) && (!fr || cat(r.v) === fr)).slice().reverse();
+  $('#h-count').textContent = `${list.length} medición${list.length === 1 ? '' : 'es'}`;
+  if (!list.length) { $('#h-table').innerHTML = `<tr><td class="empty">No hay mediciones${data.length ? ' con estos filtros' : ''}.</td></tr>`; return; }
+  let html = `<thead><tr><th>Hora</th><th>${uLbl()}</th><th>Rango</th><th>Momento</th><th class="col-note">Nota</th><th></th></tr></thead><tbody>`;
+  let lastDay = '';
+  for (const r of list.slice(0, 1000)) {
+    const day = new Date(r.t).toDateString();
+    if (day !== lastDay) { html += `<tr class="daysep"><td colspan="6">${fDateLong(r.t)}</td></tr>`; lastDay = day; }
+    const c = RANGE[cat(r.v)];
+    html += `<tr><td>${fTime(r.t)}${r.src === 'bt' ? ' <span title="Leído del glucómetro" class="note">ᛒ</span>' : ''}</td>
+      <td class="num">${fmt(r.v)}</td>
+      <td><span style="display:inline-flex;align-items:center;gap:6px"><span class="dot" style="background:${c.color}"></span>${c.label}</span></td>
+      <td>${esc(MEAL_LBL[r.meal] || 'Otro')}</td><td class="note col-note">${esc(r.note || '')}</td>
+      <td class="act"><button data-edit="${r.id}" aria-label="Editar" title="Editar">✎</button><button data-del="${r.id}" aria-label="Eliminar" title="Eliminar">✕</button></td></tr>`;
+  }
+  $('#h-table').innerHTML = html + '</tbody>';
+  $$('#h-table [data-edit]').forEach(b => b.addEventListener('click', () => editReading(b.dataset.edit)));
+  $$('#h-table [data-del]').forEach(b => b.addEventListener('click', () => {
+    const r = data.find(x => x.id === b.dataset.del);
+    if (r && confirm(`¿Eliminar la medición de ${fmt(r.v)} ${uLbl()} del ${fDate(r.t)} ${fTime(r.t)}?`)) {
+      data = data.filter(x => x !== r); save(); renderHistorial(); toast('Medición eliminada');
+    }
+  }));
+}
+
+/* ---------- Ajustes ---------- */
+function fillSettings() {
+  $('#s-unit').value = S.unit; $('#s-theme').value = S.theme || '';
+  ['vlow', 'low', 'high', 'vhigh'].forEach(k => $('#s-' + k).value = fmt(S[k]).replace(',', '.'));
+  $$('.u-lbl').forEach(e => e.textContent = uLbl());
+  $('#f-v').step = S.unit === 'mmol' ? '0.1' : '1';
+}
+$('#s-unit').addEventListener('change', () => { S.unit = $('#s-unit').value; saveSettings(); fillSettings(); });
+$('#s-save').addEventListener('click', () => {
+  const n = {}; for (const k of ['vlow', 'low', 'high', 'vhigh']) n[k] = fromUnit(parseNum($('#s-' + k).value));
+  if (![n.vlow, n.low, n.high, n.vhigh].every(isFinite) || !(n.vlow < n.low && n.low < n.high && n.high < n.vhigh)) {
+    toast('Los límites deben ir de menor a mayor: muy bajo < objetivo desde < objetivo hasta < muy alto'); return;
+  }
+  Object.assign(S, n, { theme: $('#s-theme').value });
+  saveSettings(); applyTheme(); fillSettings(); toast('Ajustes guardados');
+});
+
+/* ---------- Exportar / importar ---------- */
+function download(name, text, type) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([text], { type }));
+  a.download = name; document.body.appendChild(a); a.click();
+  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500);
+}
+const stamp = () => new Date().toISOString().slice(0, 10);
+$('#d-csv').addEventListener('click', () => {
+  if (!data.length) return toast('No hay datos para exportar');
+  const q = s => `"${String(s ?? '').replace(/"/g, '""')}"`;
+  const rows = [['fecha', 'hora', 'glucosa_mg_dl', 'glucosa_mmol_l', 'rango', 'momento', 'nota', 'origen'].join(';')];
+  data.forEach(r => {
+    const d = new Date(r.t);
+    rows.push([`${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`, `${pad(d.getHours())}:${pad(d.getMinutes())}`,
+      Math.round(r.v), (r.v / MGDL_PER_MMOL).toFixed(1).replace('.', ','), q(RANGE[cat(r.v)].label), q(MEAL_LBL[r.meal] || 'Otro'), q(r.note), r.src === 'bt' ? 'glucometro' : 'manual'].join(';'));
+  });
+  download(`glucemia-${stamp()}.csv`, '﻿' + rows.join('\r\n'), 'text/csv;charset=utf-8');
+});
+$('#d-json').addEventListener('click', () => {
+  download(`glucemia-respaldo-${stamp()}.json`, JSON.stringify({ app: 'mi-glucemia', version: 1, ajustes: S, lecturas: data }, null, 1), 'application/json');
+});
+$('#d-import').addEventListener('click', () => $('#d-file').click());
+$('#d-file').addEventListener('change', async e => {
+  const f = e.target.files[0]; e.target.value = ''; if (!f) return;
+  try {
+    const text = await f.text();
+    let incoming = [];
+    if (/^\s*[{[]/.test(text)) {
+      const j = JSON.parse(text);
+      incoming = (Array.isArray(j) ? j : j.lecturas || []).filter(r => isFinite(r.t) && isFinite(r.v));
+    } else {
+      const lines = text.replace(/^﻿/, '').split(/\r?\n/).filter(Boolean);
+      const sep = lines[0].includes(';') ? ';' : ',';
+      const head = lines[0].split(sep).map(s => s.trim().toLowerCase());
+      const iF = head.indexOf('fecha'), iH = head.indexOf('hora'), iV = head.findIndex(h => h.includes('mg'));
+      const iM = head.indexOf('momento'), iN = head.indexOf('nota');
+      if (iF < 0 || iV < 0) throw new Error('El CSV debe tener columnas "fecha" y "glucosa_mg_dl"');
+      const unq = s => (s || '').replace(/^"|"$/g, '').replace(/""/g, '"');
+      const mealKey = Object.fromEntries(MEALS.map(([k, l]) => [l.toLowerCase(), k]));
+      for (const ln of lines.slice(1)) {
+        const c = ln.match(new RegExp(`("([^"]|"")*"|[^${sep}]*)(${sep}|$)`, 'g')).map(s => s.replace(new RegExp(`${sep}$`), ''));
+        const t = new Date(`${c[iF]}T${iH >= 0 ? (c[iH] || '12:00') : '12:00'}`).getTime();
+        const v = parseNum(c[iV]);
+        if (isFinite(t) && isFinite(v)) incoming.push({ t, v, meal: mealKey[unq(c[iM]).toLowerCase()] || 'otro', note: unq(c[iN]), src: 'manual' });
+      }
+    }
+    const added = merge(incoming.map(r => ({ id: r.id || uid(), t: +r.t, v: +r.v, meal: r.meal || 'otro', note: r.note || '', src: r.src || 'manual', key: r.key })));
+    toast(`Importadas ${added} mediciones nuevas (${incoming.length - added} ya existían)`);
+    renderResumen();
+  } catch (err) { toast('No se pudo importar: ' + err.message, 5000); }
+});
+function merge(list) {
+  const seen = new Set(data.map(r => r.key || `${Math.round(r.t / 6e4)}|${Math.round(r.v)}`));
+  let added = 0;
+  for (const r of list) {
+    const k = r.key || `${Math.round(r.t / 6e4)}|${Math.round(r.v)}`;
+    const k2 = `${Math.round(r.t / 6e4)}|${Math.round(r.v)}`;
+    if (seen.has(k) || seen.has(k2)) continue;
+    seen.add(k); seen.add(k2); data.push(r); added++;
+  }
+  if (added) save();
+  return added;
+}
+$('#d-clear').addEventListener('click', () => {
+  if (!data.length) return toast('No hay datos');
+  if (confirm(`¿Borrar las ${data.length} mediciones de este navegador? Esto no se puede deshacer. (Te recomendamos descargar una copia de seguridad antes.)`)) {
+    data = []; save(); toast('Datos borrados'); show('resumen');
+  }
+});
+function loadDemo() {
+  if (data.length && !confirm('Se agregarán mediciones de ejemplo a tus datos actuales. ¿Continuar?')) return;
+  const out = []; const now = new Date();
+  for (let d = 45; d >= 0; d--) {
+    const plan = [[7, 'ayunas', 105, 18], [10, 'despues', 165, 35], [13, 'antes', 110, 20], [15, 'despues', 175, 40], [20, 'antes', 115, 22], [22.5, 'dormir', 135, 30]];
+    for (const [h, meal, mu, sd] of plan) {
+      if (Math.random() < .3) continue;
+      const t = new Date(now); t.setDate(t.getDate() - d); t.setHours(Math.floor(h), Math.round((h % 1) * 60 + Math.random() * 40 - 20), 0, 0);
+      if (t > now) continue;
+      const g = (Math.random() + Math.random() + Math.random() - 1.5) * 2;
+      out.push({ id: uid(), t: t.getTime(), v: Math.max(45, Math.round(mu + g * sd - d * 0.4)), meal, note: '', src: 'manual', key: 'demo' + t.getTime() });
+    }
+  }
+  const n = merge(out); toast(`Se agregaron ${n} mediciones de ejemplo`); show('resumen');
+}
+$('#d-demo').addEventListener('click', loadDemo);
+
+/* ---------- Bluetooth: perfil de glucosa (Accu-Chek Instant) ---------- */
+const GLUCOSE_SERVICE = 0x1808, GLUCOSE_MEAS = 0x2a18, GLUCOSE_CTX = 0x2a34, RACP = 0x2a52;
+const CTX_MEAL = { 1: 'antes', 2: 'despues', 3: 'ayunas', 4: 'otro', 5: 'dormir' };
+function sfloat(raw) {
+  let m = raw & 0x0fff, e = raw >> 12;
+  if (m >= 0x07fe && m <= 0x0802) return NaN; // NaN, NRes, ±INF, reservado
+  if (m >= 0x0800) m -= 0x1000;
+  if (e >= 8) e -= 16;
+  return m * Math.pow(10, e);
+}
+function parseMeasurement(dv) {
+  let o = 0;
+  const flags = dv.getUint8(o++);
+  const seq = dv.getUint16(o, true); o += 2;
+  const yr = dv.getUint16(o, true), mo = dv.getUint8(o + 2), dd = dv.getUint8(o + 3), hh = dv.getUint8(o + 4), mi = dv.getUint8(o + 5), ss = dv.getUint8(o + 6); o += 7;
+  let offset = 0;
+  if (flags & 0x01) { offset = dv.getInt16(o, true); o += 2; }
+  if (!(flags & 0x02)) return { seq };
+  const val = sfloat(dv.getUint16(o, true)); o += 2;
+  const typeLoc = dv.getUint8(o++);
+  const type = typeLoc & 0x0f;
+  let status = 0;
+  if (flags & 0x08 && o + 2 <= dv.byteLength) status = dv.getUint16(o, true);
+  const mgdl = (flags & 0x04) ? val * 1000 * MGDL_PER_MMOL : val * 100000; // mol/L o kg/L
+  const t = new Date(yr, mo - 1, dd, hh, mi + offset, ss).getTime();
+  return { seq, t, v: mgdl, control: type === 10, status };
+}
+function parseContext(dv) {
+  let o = 0;
+  const flags = dv.getUint8(o++);
+  const seq = dv.getUint16(o, true); o += 2;
+  if (flags & 0x80) o++;
+  if (flags & 0x01) o += 3;
+  const meal = (flags & 0x02) ? CTX_MEAL[dv.getUint8(o)] : undefined;
+  return { seq, meal };
+}
+function btStatus(msg) { const el = $('#bt-status'); if (el) el.textContent = msg; $('#hdr-sub').textContent = msg || 'Registro y estadísticas'; }
+
+let syncing = false;
+async function syncBT() {
+  if (syncing) return;
+  if (!navigator.bluetooth) {
+    toast('Este navegador no permite Bluetooth web. Abre la página en Chrome o Edge (Android, Windows, Mac). En iPhone usa el registro manual.', 6500);
+    return;
+  }
+  syncing = true; $('#btn-sync').disabled = true;
+  let device;
+  try {
+    btStatus('Buscando el glucómetro…');
+    device = await navigator.bluetooth.requestDevice({ filters: [{ services: [GLUCOSE_SERVICE] }], optionalServices: [GLUCOSE_SERVICE] });
+    btStatus(`Conectando con ${device.name || 'el glucómetro'}…`);
+    const server = await device.gatt.connect();
+    const svc = await server.getPrimaryService(GLUCOSE_SERVICE);
+    const meas = await svc.getCharacteristic(GLUCOSE_MEAS);
+    let ctx = null; try { ctx = await svc.getCharacteristic(GLUCOSE_CTX); } catch { /* opcional */ }
+    const racp = await svc.getCharacteristic(RACP);
+
+    const recs = new Map();
+    meas.addEventListener('characteristicvaluechanged', ev => {
+      const r = parseMeasurement(ev.target.value);
+      recs.set(r.seq, Object.assign(recs.get(r.seq) || {}, r));
+      btStatus(`Leyendo mediciones… ${recs.size}`);
+    });
+    if (ctx) ctx.addEventListener('characteristicvaluechanged', ev => {
+      const c = parseContext(ev.target.value);
+      if (c.meal) recs.set(c.seq, Object.assign(recs.get(c.seq) || {}, { meal: c.meal }));
+    });
+
+    let resolveDone, rejectDone;
+    const done = new Promise((res, rej) => { resolveDone = res; rejectDone = rej; });
+    racp.addEventListener('characteristicvaluechanged', ev => {
+      const d = ev.target.value;
+      if (d.getUint8(0) === 0x06) { // respuesta
+        const code = d.getUint8(3);
+        if (code === 0x01 || code === 0x06) resolveDone(code); // éxito / sin registros
+        else rejectDone(new Error('el glucómetro respondió con el código ' + code));
+      }
+    });
+    await meas.startNotifications();
+    if (ctx) await ctx.startNotifications().catch(() => {});
+    await racp.startNotifications();
+    btStatus('Pidiendo las mediciones guardadas…');
+    const cmd = new Uint8Array([0x01, 0x01]); // reportar todos los registros
+    if (racp.writeValueWithResponse) await racp.writeValueWithResponse(cmd); else await racp.writeValue(cmd);
+    await Promise.race([done, new Promise((_, rej) => setTimeout(() => rej(new Error('el glucómetro no respondió a tiempo')), 90000))]);
+
+    const devKey = (device.id || device.name || 'bt').slice(0, 24);
+    const list = [...recs.values()]
+      .filter(r => isFinite(r.v) && isFinite(r.t) && !r.control && r.v >= 10 && r.v <= 700)
+      .map(r => ({ id: uid(), t: r.t, v: Math.round(r.v * 10) / 10, meal: r.meal || 'otro', note: '', src: 'bt', key: `bt|${devKey}|${r.seq}|${Math.round(r.t / 6e4)}` }));
+    const added = merge(list);
+    btStatus('');
+    toast(list.length ? `Sincronización lista: ${added} mediciones nuevas de ${list.length} en el glucómetro` : 'El glucómetro no tiene mediciones guardadas', 5000);
+    renderResumen(); if ($('#v-historial').classList.contains('active')) renderHistorial();
+  } catch (err) {
+    btStatus('');
+    if (err && err.name === 'NotFoundError') toast('No se eligió ningún glucómetro. Enciéndelo cerca del teléfono e intenta de nuevo.', 5000);
+    else if (err && err.name === 'SecurityError') toast('El navegador bloqueó Bluetooth. Abre la página directamente (https), no dentro de otra app.', 6000);
+    else toast('No se pudo sincronizar: ' + (err && err.message || err) + '. Revisa que el medidor esté emparejado (PIN de 6 dígitos atrás).', 7000);
+  } finally {
+    try { device && device.gatt.connected && device.gatt.disconnect(); } catch { }
+    syncing = false; $('#btn-sync').disabled = false;
+  }
+}
+$('#btn-sync').addEventListener('click', syncBT);
+$('#btn-sync2').addEventListener('click', syncBT);
+
+let rsT, lastW = window.innerWidth;
+window.addEventListener('resize', () => { if (window.innerWidth === lastW) return; lastW = window.innerWidth; clearTimeout(rsT); rsT = setTimeout(() => { if ($('#v-resumen').classList.contains('active')) renderResumen(); }, 200); });
+
+/* ---------- Inicio ---------- */
+applyTheme();
+fillSettings();
+resetForm();
+renderResumen();
+})();
+</script>
+</body>
+</html>
