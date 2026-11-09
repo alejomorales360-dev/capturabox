@@ -1,0 +1,914 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<base target="_top">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Despensa de emergencia</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Barlow+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@500&display=swap">
+<style>
+/* Layout: a family emergency ledger. Sticky section tabs, then one shelf at a time: what you need vs. what you have, with expiry dates. */
+:root{
+  --bg:#eef1ef; --surface:#fbfcfb; --sunk:#e3e8e5; --ink:#17211e; --muted:#5a6863; --line:#d2dad6;
+  --accent:#1f6f5c; --accent-ink:#ffffff; --accent-soft:#dcece5;
+  --warn:#9a520a; --warn-soft:#f6e7d4; --danger:#b42318; --danger-soft:#fbe4e1;
+  --f-display:"Barlow Condensed","Arial Narrow",system-ui,sans-serif;
+  --f-body:"Atkinson Hyperlegible",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-num:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#101715; --surface:#17201d; --sunk:#1e2925; --ink:#e5ece9; --muted:#9aa9a3; --line:#2a3632;
+  --accent:#5fc3a2; --accent-ink:#0a1411; --accent-soft:#1b3129;
+  --warn:#f0a95e; --warn-soft:#33261a; --danger:#ff8f80; --danger-soft:#3a1d1a; color-scheme:dark }}
+:root[data-theme="dark"]{
+  --bg:#101715; --surface:#17201d; --sunk:#1e2925; --ink:#e5ece9; --muted:#9aa9a3; --line:#2a3632;
+  --accent:#5fc3a2; --accent-ink:#0a1411; --accent-soft:#1b3129;
+  --warn:#f0a95e; --warn-soft:#33261a; --danger:#ff8f80; --danger-soft:#3a1d1a; color-scheme:dark }
+
+*,*::before,*::after{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+[hidden]{display:none!important}
+img{max-width:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:16px;line-height:1.45}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--bg)}
+.gutter{padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.inner{max-width:800px;margin:0 auto}
+header.top{padding-block:24px 8px}
+.eyebrow{font-family:var(--f-display);font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);font-size:15px}
+h1{font-family:var(--f-display);font-weight:700;font-size:clamp(34px,7vw,52px);line-height:1;margin:4px 0 8px;text-wrap:balance}
+.status{font-size:13px;color:var(--muted);display:flex;align-items:center;gap:6px}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--muted);flex:none}
+.status.ok .dot{background:var(--accent)} .status.warn .dot{background:var(--warn)}
+button{font:inherit;color:inherit;cursor:pointer}
+button:focus-visible,input:focus-visible,select:focus-visible,a:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+
+.tabs{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);border-bottom:1px solid var(--line)}
+.tabs-in{display:flex;gap:6px;overflow-x:auto;padding-block:10px;scrollbar-width:thin}
+.tab{flex:none;border:1px solid var(--line);background:var(--surface);border-radius:99px;padding:7px 14px;font-size:15px;display:flex;gap:8px;align-items:center;white-space:nowrap}
+.tab[aria-current="page"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.badge{font-family:var(--f-num);font-size:12px;background:var(--warn-soft);color:var(--warn);border-radius:99px;padding:0 7px}
+.tab[aria-current="page"] .badge{background:var(--bg);color:var(--ink)}
+.badge.ok{background:var(--accent-soft);color:var(--accent)}
+
+main{padding-block:20px 64px;display:flex;flex-direction:column;gap:20px}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px}
+h2.sec{font-family:var(--f-display);font-weight:700;font-size:32px;line-height:1.05;margin:0}
+.intro{color:var(--muted);margin:4px 0 0;max-width:62ch}
+.label{font-family:var(--f-display);font-weight:600;text-transform:uppercase;letter-spacing:.06em;font-size:14px;color:var(--muted)}
+
+.config{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
+.field{display:flex;flex-direction:column;gap:8px;min-width:0}
+.stepper{display:inline-flex;align-items:center;border:1px solid var(--line);border-radius:8px;background:var(--bg);width:max-content}
+.stepper button{width:38px;height:38px;border:0;background:transparent;font-size:20px;line-height:1}
+.stepper button:hover{background:var(--sunk)}
+.stepper button:disabled{opacity:.35;cursor:default;background:transparent}
+.stepper output{min-width:34px;text-align:center;font-family:var(--f-num);font-variant-numeric:tabular-nums}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;width:max-content}
+.seg button{border:0;background:var(--bg);padding:0 14px;height:38px;font-family:var(--f-num)}
+.seg button+button{border-left:1px solid var(--line)}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink)}
+.hint{font-size:13px;color:var(--muted);margin:12px 0 0}
+
+.tools{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.btn{border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:8px 12px;font-size:14px}
+.btn:hover{background:var(--sunk)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.btn.small{padding:4px 10px;font-size:13px}
+.btn.danger{color:var(--danger);border-color:var(--danger)}
+textarea.copy{width:100%;min-height:160px;font-family:var(--f-num);font-size:13px;background:var(--bg);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:8px;box-sizing:border-box}
+
+.prog{display:flex;flex-direction:column;gap:10px}
+.big{font-family:var(--f-display);font-weight:700;font-size:44px;line-height:1}
+.big small{font-size:20px;color:var(--muted);font-weight:600}
+.bar{height:10px;border-radius:99px;background:var(--sunk);overflow:hidden}
+.bar span{display:block;height:100%;background:var(--accent);border-radius:99px;transition:width .3s}
+.bar.thin{height:6px}
+
+.seclist{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
+.secrow{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 16px;align-items:center;width:100%;text-align:left;border:0;border-bottom:1px solid var(--line);background:transparent;padding:12px 4px}
+.secrow:hover{background:var(--sunk)}
+.secrow .nm{font-weight:700}
+.secrow .ct{font-family:var(--f-num);font-size:14px;color:var(--muted);text-align:right}
+.secrow .bar{grid-column:1 / -1}
+
+.group{display:flex;flex-direction:column}
+.group h3{font-family:var(--f-display);font-weight:700;text-transform:uppercase;letter-spacing:.05em;font-size:20px;margin:10px 0 0;display:flex;justify-content:space-between;gap:12px;align-items:baseline;border-bottom:2px solid var(--ink);padding-bottom:4px}
+.group h3 small{font-family:var(--f-body);text-transform:none;letter-spacing:0;font-size:14px;font-weight:400;color:var(--muted);margin-left:8px}
+.group h3 .n{font-family:var(--f-num);font-size:13px;font-weight:500;letter-spacing:0;color:var(--muted)}
+ul.items{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
+.item{display:grid;grid-template-columns:40px minmax(0,1fr) auto;gap:12px;align-items:center;padding:12px 4px;border-bottom:1px solid var(--line)}
+.check{width:32px;height:32px;border-radius:50%;border:2px solid var(--muted);background:transparent;display:grid;place-items:center;padding:0}
+.check svg{width:16px;height:16px;opacity:0}
+.item.done .check{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.item.done .check svg{opacity:1}
+.item.part .check{border-color:var(--warn);background:var(--warn-soft)}
+.info{min-width:0}
+.name{font-weight:700}
+.item.done .name{color:var(--muted)}
+.note{font-size:14px;color:var(--muted);margin-top:2px}
+.tags{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
+.tag{font-size:12px;padding:2px 8px;border-radius:99px;background:var(--sunk);color:var(--ink);white-space:nowrap}
+.tag.alergeno{background:var(--warn-soft);color:var(--warn)}
+.tag.mine{background:var(--accent-soft);color:var(--accent)}
+.exp{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:8px;font-size:13px;color:var(--muted)}
+.exp input{font:inherit;font-family:var(--f-num);font-size:13px;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:3px 6px}
+.chip{font-size:12px;font-weight:700;padding:2px 8px;border-radius:99px}
+.chip.vencido{background:var(--danger-soft);color:var(--danger)}
+.chip.pronto{background:var(--warn-soft);color:var(--warn)}
+.qty{display:flex;flex-direction:column;align-items:flex-end;gap:6px}
+.need{font-size:14px;color:var(--muted);text-align:right}
+.need b{font-family:var(--f-num);font-weight:500;color:var(--ink);font-size:16px}
+.missing{color:var(--warn);font-weight:700}
+.del{display:flex;gap:6px;align-items:center;font-size:13px;flex-wrap:wrap;justify-content:flex-end}
+.empty{color:var(--muted);padding:12px 4px}
+
+.alerts{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
+.alerts li{display:flex;justify-content:space-between;gap:12px;align-items:center;padding:10px 0;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.alerts .where{font-size:13px;color:var(--muted)}
+
+form.add{display:grid;grid-template-columns:minmax(0,2fr) 90px minmax(0,1fr) minmax(0,1fr) auto;gap:10px;align-items:end}
+form.add label{display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--muted);min-width:0}
+form.add input,form.add select{font:inherit;font-size:15px;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px;min-width:0;width:100%;box-sizing:border-box}
+.formmsg{font-size:13px;color:var(--danger);margin:8px 0 0}
+footer{font-size:13px;color:var(--muted);max-width:65ch}
+
+/* ---- panel de autonomía ---- */
+.hero{display:grid;grid-template-columns:auto minmax(0,1fr);gap:20px;align-items:center}
+.hero .num{font-family:var(--f-display);font-weight:700;font-size:clamp(72px,16vw,112px);line-height:.85;font-variant-numeric:tabular-nums}
+.hero .num small{display:block;font-size:22px;font-weight:600;color:var(--muted);line-height:1.1;margin-top:6px}
+.hero .txt{display:flex;flex-direction:column;gap:6px;min-width:0}
+.hero .lead{font-size:18px;font-weight:700}
+.st{display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:700;padding:3px 10px;border-radius:99px;width:max-content}
+.st::before{content:"";width:8px;height:8px;border-radius:50%;background:currentColor}
+.st.crit{background:var(--danger-soft);color:var(--danger)}
+.st.warn{background:var(--warn-soft);color:var(--warn)}
+.st.ok{background:var(--accent-soft);color:var(--accent)}
+.ph{display:flex;justify-content:space-between;gap:12px;align-items:baseline;flex-wrap:wrap;margin:0 0 12px}
+.ph h2{font-family:var(--f-display);font-weight:700;font-size:24px;margin:0;line-height:1.1}
+.ph p{margin:2px 0 0;color:var(--muted);font-size:14px;max-width:60ch}
+.legend{display:flex;gap:12px;flex-wrap:wrap;font-size:13px;color:var(--muted)}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.legend i{width:10px;height:10px;border-radius:3px;display:inline-block}
+.legend i.crit{background:var(--danger)} .legend i.warn{background:var(--warn)} .legend i.ok{background:var(--accent)}
+.legend i.goal{width:2px;height:12px;border-radius:0;background:var(--ink)}
+
+.hchart{display:flex;flex-direction:column;gap:2px}
+.hrow{display:grid;grid-template-columns:minmax(0,170px) minmax(0,1fr) 92px;gap:12px;align-items:center;padding:6px 0}
+.hlab{font-size:14px;font-weight:700;min-width:0}
+.hlab small{display:block;font-weight:400;color:var(--muted);font-size:12px}
+.htrack{position:relative;height:18px}
+.htrack .tick{position:absolute;top:-4px;bottom:-4px;width:1px;background:var(--line)}
+.htrack .goal{position:absolute;top:-6px;bottom:-6px;width:2px;background:var(--ink);z-index:2}
+.hbar{position:absolute;left:0;top:2px;height:14px;border-radius:0 4px 4px 0;min-width:2px;z-index:1;cursor:default}
+.hbar.crit{background:var(--danger)} .hbar.warn{background:var(--warn)} .hbar.ok{background:var(--accent)} .hbar.plain{background:var(--accent)}
+.hbar.zero{background:transparent;border-left:2px solid var(--danger);border-radius:0}
+.hval{font-family:var(--f-num);font-size:14px;text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.hrow.axis{padding:0}
+.hrow.axis .htrack{height:16px}
+.hrow.axis .tl{position:absolute;top:0;transform:translateX(-50%);font-family:var(--f-num);font-size:11px;color:var(--muted)}
+.hrow.axis .tl.goal-l{color:var(--ink);font-weight:700;top:0}
+.hbar:focus-visible,.vcol:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+
+.vchart{display:grid;grid-template-columns:repeat(13,minmax(0,1fr));gap:4px;align-items:end;height:170px;padding-top:8px;border-bottom:1px solid var(--line)}
+.vcol{display:flex;flex-direction:column;justify-content:flex-end;align-items:center;height:100%;gap:4px;min-width:0}
+.vbar{width:min(26px,80%);border-radius:4px 4px 0 0;background:var(--muted);opacity:.55}
+.vbar.crit{background:var(--danger);opacity:1} .vbar.warn{background:var(--warn);opacity:1}
+.vval{font-family:var(--f-num);font-size:12px;color:var(--ink)}
+.vlabs{display:grid;grid-template-columns:repeat(13,minmax(0,1fr));gap:4px;margin-top:6px}
+.vlabs span{font-family:var(--f-num);font-size:11px;color:var(--muted);text-align:center;overflow:hidden;white-space:nowrap}
+
+.two{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:20px}
+.mini{display:flex;flex-direction:column;gap:10px}
+.mrow{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 12px;align-items:baseline}
+.mrow .bar{grid-column:1 / -1}
+.mrow .pc{font-family:var(--f-num);font-size:13px;color:var(--muted)}
+#tip{position:fixed;z-index:20;pointer-events:none;background:var(--ink);color:var(--bg);font-size:13px;padding:6px 10px;border-radius:6px;max-width:260px;line-height:1.35}
+details.tbl summary{cursor:pointer;font-size:13px;color:var(--muted);margin-top:10px}
+details.tbl table{border-collapse:collapse;font-size:13px;margin-top:8px;width:100%}
+details.tbl td,details.tbl th{border-bottom:1px solid var(--line);padding:4px 6px;text-align:left}
+details.tbl td.n{text-align:right;font-family:var(--f-num)}
+.tblwrap{overflow-x:auto}
+@media (max-width:640px){
+  .two{grid-template-columns:1fr}
+  .hero{grid-template-columns:1fr;gap:10px}
+}
+@media (max-width:560px){
+  .hrow{grid-template-columns:minmax(0,1fr) 84px}
+  .hlab{grid-column:1 / -1}
+  .hrow.axis .hlab{display:none}
+  .vchart{height:140px}
+  .vval{font-size:11px}
+}
+
+@media (max-width:640px){
+  form.add{grid-template-columns:1fr 1fr}
+  form.add .wide{grid-column:1 / -1}
+}
+@media (max-width:560px){
+  .config{grid-template-columns:1fr 1fr}
+  .config .field:last-child{grid-column:1 / -1}
+  .item{grid-template-columns:40px minmax(0,1fr)}
+  .qty{grid-column:2;flex-direction:row;align-items:center;justify-content:space-between;flex-wrap:wrap}
+  .need{text-align:left}
+}
+@media (prefers-reduced-motion:reduce){.bar span{transition:none}}
+</style>
+</head>
+<body>
+
+<header class="top gutter"><div class="inner">
+  <div class="eyebrow">Plan familiar de emergencia</div>
+  <h1>Despensa de emergencia</h1>
+  <div class="tools"><div class="status" id="status" role="status"><span class="dot"></span><span id="status-t">Cargando…</span></div>
+    <button type="button" class="btn small" id="conn-btn">Conexión</button></div>
+  <section class="panel" id="conn" hidden style="margin-top:12px">
+    <form id="conn-form" autocomplete="off" style="display:flex;flex-direction:column;gap:8px">
+      <label for="api-url" class="label">URL de la app de Apps Script</label>
+      <input id="api-url" type="url" inputmode="url" placeholder="https://script.google.com/macros/s/…/exec" style="font:inherit;font-size:15px;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px;width:100%">
+      <p class="hint" style="margin:0">Se guarda solo en este dispositivo. Es la URL que termina en /exec, de una implementación con acceso "Cualquier usuario".</p>
+      <p class="formmsg" id="conn-msg" hidden></p>
+      <div class="tools"><button type="submit" class="btn primary">Conectar</button><button type="button" class="btn" id="conn-cancel">Cancelar</button></div>
+    </form>
+  </section>
+</div></header>
+
+<nav class="tabs gutter" aria-label="Secciones"><div class="inner tabs-in" id="tabs"></div></nav>
+
+<main class="gutter"><div class="inner" style="display:flex;flex-direction:column;gap:20px" id="view"></div></main>
+
+<script>
+/*CATALOG*/
+const PEOPLE=[
+ {id:"papa",name:"Papá",sub:"41 años · diabetes e hipertensión"},
+ {id:"mama",name:"Mamá",sub:"37 años"},
+ {id:"mayor",name:"Hija mayor",sub:"14 años · alergia"},
+ {id:"menor",name:"Hija menor",sub:"8 años · asma"}];
+const TAGS={sodio:"Bajo en sodio",azucar:"Sin azúcar añadida",alergeno:"Revisa alérgenos"};
+const R30=["reserva para 30 días","reservas para 30 días"], PZ=["pieza","piezas"], CJ=["caja","cajas"], CP=["copia","copias"], OK1=["listo","listos"];
+// basis: eq = por adulto equivalente al día · head = por persona al día · person = una persona al día · week = por semana
+function bag(who,list){return list.map(b=>Object.assign({},b,{id:"b-"+who+"-"+b.k,who}))}
+const BAGBASE=w=>[
+ {k:"mochila",name:"Mochila resistente",n:1,pk:PZ,note:w==="menor"?"Ligera: que no pase de 2–3 kg con todo dentro.":""},
+ {k:"agua",name:"Agua en botellas de 1 L",n:{papa:3,mama:3,mayor:2,menor:1}[w],pk:["botella","botellas"],exp:true},
+ {k:"comida",name:"Comida para 3 días que no se cocina",n:1,pk:["kit","kits"],exp:true,note:w==="papa"?"Bajo en azúcar y sal: nueces, atún abre fácil, galletas integrales.":w==="mayor"?"Solo alimentos sin su alérgeno.":"Barras, atún abre fácil, frutos secos, galletas."},
+ {k:"ropa",name:"Muda de ropa y 2 pares de calcetines",n:1,pk:["muda","mudas"],note:w==="papa"?"Calcetines buenos: cuidar los pies es clave con diabetes.":(w==="menor"?"Revisar la talla cada 6 meses.":"")},
+ {k:"abrigo",name:"Chaqueta ligera o poncho de lluvia",n:1,pk:PZ},
+ {k:"manta",name:"Manta térmica de aluminio",n:1,pk:PZ},
+ {k:"linterna",name:"Linterna frontal con pilas",n:1,pk:PZ},
+ {k:"silbato",name:"Silbato colgado de la mochila",n:1,pk:PZ},
+ {k:"n95",name:w==="menor"?"Mascarillas N95 talla infantil":"Mascarillas N95",n:w==="menor"?5:3,pk:["mascarilla","mascarillas"]},
+ {k:"higiene",name:"Kit de higiene: cepillo, pasta, toallitas, gel",n:1,pk:["kit","kits"]},
+ {k:"tarjeta",name:"Tarjeta con nombre, enfermedades, alergias y teléfonos",n:1,pk:["tarjeta","tarjetas"],note:"Incluye el punto de encuentro y el contacto fuera de la ciudad."},
+ ...(w==="papa"||w==="mama"?[{k:"efectivo",name:"Efectivo en billetes pequeños",n:1,pk:OK1}]:[]),
+ {k:"meds",name:"Bolsa con sus medicinas para 7 días",n:1,pk:["bolsa","bolsas"],exp:true}];
+const SECTIONS=[
+ {id:"comida",name:"Comida y agua",short:"Comida",calc:true,intro:"Cantidades para toda la familia según personas y días. Marquen lo que ya tienen en casa.",groups:[
+  {title:"Agua",items:[
+   {id:"agua",name:"Agua potable",basis:"head",per:4,unit:"L",pkg:20,pk:["garrafón de 20 L","garrafones de 20 L"],exp:true,note:"4 L por persona al día: beber, cocinar y aseo básico."},
+   {id:"cloro",name:"Cloro sin aroma",n:1,pk:["botella de 1 L","botellas de 1 L"],exp:true,note:"Para purificar: 2 gotas por litro y esperar 30 minutos."}]},
+  {title:"Proteínas",items:[
+   {id:"atun",name:"Atún en agua",basis:"eq",per:0.5,pkg:1,pk:["lata de 140 g","latas de 140 g"],tags:["sodio"],exp:true},
+   {id:"pollo",name:"Pollo o sardinas en lata",basis:"eq",per:0.3,pkg:1,pk:["lata","latas"],tags:["sodio"],exp:true},
+   {id:"frijol",name:"Frijoles, lentejas o garbanzos en lata",basis:"eq",per:0.5,pkg:1,pk:["lata de 400 g","latas de 400 g"],tags:["sodio"],exp:true,note:"Enjuágalos antes de comer: les quitas buena parte de la sal."},
+   {id:"mani",name:"Mantequilla de maní natural",basis:"eq",per:30,unit:"g",pkg:450,pk:["frasco de 450 g","frascos de 450 g"],tags:["azucar","alergeno"],exp:true,note:"Si la alergia de su hija es al maní, cámbienla por crema de semillas de girasol."},
+   {id:"nueces",name:"Nueces o almendras sin sal",basis:"eq",per:25,unit:"g",pkg:200,pk:["bolsa de 200 g","bolsas de 200 g"],tags:["sodio","alergeno"],exp:true}]},
+  {title:"Cereales",items:[
+   {id:"avena",name:"Avena integral",basis:"eq",per:50,unit:"g",pkg:500,pk:["bolsa de 500 g","bolsas de 500 g"],tags:["azucar"],exp:true,note:"Libera la glucosa despacio. Se come sin cocinar con leche UHT."},
+   {id:"arroz",name:"Arroz integral",basis:"eq",per:70,unit:"g",pkg:1000,pk:["bolsa de 1 kg","bolsas de 1 kg"],exp:true},
+   {id:"pasta",name:"Pasta integral",basis:"eq",per:40,unit:"g",pkg:500,pk:["paquete de 500 g","paquetes de 500 g"],exp:true},
+   {id:"galletas",name:"Galletas integrales",basis:"eq",per:30,unit:"g",pkg:200,pk:["paquete de 200 g","paquetes de 200 g"],tags:["sodio","azucar","alergeno"],exp:true},
+   {id:"barras",name:"Barras de proteína bajas en azúcar",basis:"eq",per:1,pkg:6,pk:["caja de 6","cajas de 6"],tags:["azucar","alergeno"],exp:true}]},
+  {title:"Frutas y verduras",items:[
+   {id:"verduras",name:"Verduras en lata",basis:"eq",per:0.4,pkg:1,pk:["lata de 400 g","latas de 400 g"],tags:["sodio"],exp:true,note:"Maíz, chícharos, ejotes, zanahoria."},
+   {id:"frutalata",name:"Fruta en lata en su jugo",basis:"eq",per:0.3,pkg:1,pk:["lata","latas"],tags:["azucar"],exp:true,note:"En jugo natural, nunca en almíbar."},
+   {id:"frutafresca",name:"Manzanas o naranjas",basis:"eq",per:1,pkg:1,pk:PZ,note:"Aguantan 1–2 semanas sin refrigerar."}]},
+  {title:"Lácteos y cocina",items:[
+   {id:"leche",name:"Leche UHT de caja",basis:"eq",per:0.25,unit:"L",pkg:1,pk:["caja de 1 L","cajas de 1 L"],exp:true,note:"No necesita refrigeración hasta abrirla."},
+   {id:"aceite",name:"Aceite vegetal",basis:"eq",per:15,unit:"ml",pkg:1000,pk:["botella de 1 L","botellas de 1 L"],exp:true},
+   {id:"especias",name:"Condimentos sin sal",n:2,pk:["frasco","frascos"],tags:["sodio"],note:"Ajo en polvo, orégano, comino: dan sabor sin sodio."},
+   {id:"seguros",name:"Snacks seguros para la alergia",basis:"person",per:2,pkg:1,pk:["porción","porciones"],tags:["alergeno"],exp:true,note:"Para la hija mayor. Guárdenlos aparte y etiquetados."}]}]},
+ {id:"medicinas",name:"Medicamentos",short:"Medicinas",byPerson:true,intro:"Reserva de 30 días de lo que cada uno toma, con su fecha de vencimiento. Pidan recetas extra al médico para tenerla.",groups:[
+  {who:"papa",items:[
+   {id:"m-dm",name:"Medicamento para la diabetes",n:1,pk:R30,exp:true},
+   {id:"m-hta",name:"Medicamento para la presión",n:1,pk:R30,exp:true},
+   {id:"m-insulina",name:"Insulina y agujas o plumas (si usa)",n:1,pk:R30,exp:true,note:"Pregunten en la farmacia cuántos días aguanta sin refrigerar."},
+   {id:"m-frio",name:"Estuche refrigerante para insulina",n:1,pk:PZ},
+   {id:"m-tiras",name:"Tiras reactivas",n:2,pk:["frasco de 50","frascos de 50"],exp:true},
+   {id:"m-lancetas",name:"Lancetas",n:1,pk:["caja de 100","cajas de 100"]},
+   {id:"m-glucometro",name:"Glucómetro de repuesto con pilas",n:1,pk:PZ},
+   {id:"m-glucosa",name:"Tabletas de glucosa",n:3,pk:["tubo de 10","tubos de 10"],exp:true,note:"Para bajadas de azúcar: un tubo en casa y uno en cada mochila de adulto."},
+   {id:"m-tensio",name:"Tensiómetro digital de brazo",n:1,pk:PZ},
+   {id:"m-agujas",name:"Contenedor para agujas usadas",n:1,pk:PZ},
+   {id:"m-pulsera-papa",name:"Pulsera médica: diabético e hipertenso",n:1,pk:PZ}]},
+  {who:"mama",items:[
+   {id:"m-mama",name:"Sus medicamentos de uso diario (si toma)",n:1,pk:R30,exp:true,note:"Si toma algo, agréguenlo abajo con su nombre y dosis."}]},
+  {who:"mayor",items:[
+   {id:"m-epi",name:"Autoinyector de adrenalina (si se lo recetaron)",n:2,pk:["autoinyector","autoinyectores"],exp:true,note:"Uno en su mochila y otro con un adulto. Todos deben saber usarlo."},
+   {id:"m-antihist",name:"Antihistamínico recetado",n:1,pk:CJ,exp:true},
+   {id:"m-plan-alergia",name:"Plan de acción para la alergia, plastificado",n:2,pk:CP,note:"Uno en casa y otro en su mochila."},
+   {id:"m-pulsera-mayor",name:"Pulsera médica con su alergia",n:1,pk:PZ}]},
+  {who:"menor",items:[
+   {id:"m-salbutamol",name:"Inhalador de rescate (salbutamol)",n:2,pk:["inhalador","inhaladores"],exp:true,note:"Uno en su mochila y otro con un adulto."},
+   {id:"m-espaciador",name:"Espaciador o cámara para el inhalador",n:2,pk:PZ},
+   {id:"m-controlador",name:"Medicamento controlador del asma (si usa)",n:1,pk:R30,exp:true},
+   {id:"m-plan-asma",name:"Plan de acción para el asma, plastificado",n:2,pk:CP},
+   {id:"m-n95-menor",name:"Mascarillas N95 talla infantil para casa",n:10,pk:["mascarilla","mascarillas"],note:"Para humo, polvo o ceniza."}]}]},
+ {id:"botiquin",name:"Botiquín",short:"Botiquín",intro:"Botiquín grande para la casa. Una versión pequeña va en la mochila de papá.",groups:[
+  {title:"Curación",items:[
+   {id:"k-gasas",name:"Gasas estériles",n:2,pk:["paquete de 10","paquetes de 10"]},
+   {id:"k-vendas",name:"Vendas elásticas",n:3,pk:["venda","vendas"]},
+   {id:"k-curitas",name:"Curitas surtidas",n:1,pk:CJ},
+   {id:"k-cinta",name:"Cinta microporosa",n:1,pk:["rollo","rollos"]},
+   {id:"k-antiseptico",name:"Antiséptico (yodo o clorhexidina)",n:1,pk:["frasco","frascos"],exp:true},
+   {id:"k-salina",name:"Solución salina",n:2,pk:["frasco","frascos"],exp:true,note:"Para lavar heridas y ojos."},
+   {id:"k-quemaduras",name:"Crema para quemaduras",n:1,pk:["tubo","tubos"],exp:true}]},
+  {title:"Medicinas generales",items:[
+   {id:"k-paracetamol",name:"Paracetamol para adulto",n:2,pk:CJ,exp:true},
+   {id:"k-ibuprofeno",name:"Ibuprofeno",n:1,pk:CJ,exp:true,note:"Papá: consulta al médico, puede subir la presión."},
+   {id:"k-infantil",name:"Paracetamol infantil en jarabe",n:1,pk:["frasco","frascos"],exp:true},
+   {id:"k-suero",name:"Suero oral o electrolitos",n:10,pk:["sobre","sobres"],exp:true,note:"Útil con calor fuerte, vómito o diarrea."},
+   {id:"k-antidiarreico",name:"Antidiarreico",n:1,pk:CJ,exp:true},
+   {id:"k-antiacido",name:"Antiácido",n:1,pk:CJ,exp:true},
+   {id:"k-hidrocortisona",name:"Crema de hidrocortisona para picaduras",n:1,pk:["tubo","tubos"],exp:true},
+   {id:"k-repelente",name:"Repelente de insectos",n:1,pk:["frasco","frascos"],exp:true},
+   {id:"k-bloqueador",name:"Bloqueador solar",n:1,pk:["frasco","frascos"],exp:true}]},
+  {title:"Instrumentos",items:[
+   {id:"k-termometro",name:"Termómetro digital",n:1,pk:PZ},
+   {id:"k-guantes",name:"Guantes desechables",n:1,pk:["caja de 50","cajas de 50"]},
+   {id:"k-tijeras",name:"Tijeras y pinzas",n:1,pk:["juego","juegos"]},
+   {id:"k-cubrebocas",name:"Cubrebocas desechables",n:1,pk:["caja de 50","cajas de 50"]},
+   {id:"k-manual",name:"Guía impresa de primeros auxilios",n:1,pk:PZ}]}]},
+ {id:"mochilas",name:"Mochilas",short:"Mochilas",byPerson:true,intro:"Una mochila por persona, lista para salir en 5 minutos. Revísenlas cada 6 meses.",groups:[
+  {who:"papa",items:bag("papa",[...BAGBASE("papa"),
+   {k:"glucometro",name:"Glucómetro, tiras y lancetas",n:1,pk:["kit","kits"],exp:true},
+   {k:"glucosa",name:"Tabletas de glucosa",n:1,pk:["tubo","tubos"],exp:true},
+   {k:"radio",name:"Radio de manivela o a pilas",n:1,pk:PZ},
+   {k:"botiquin",name:"Botiquín pequeño",n:1,pk:PZ}])},
+  {who:"mama",items:bag("mama",[...BAGBASE("mama"),
+   {k:"glucosa",name:"Tabletas de glucosa (para papá)",n:1,pk:["tubo","tubos"],exp:true},
+   {k:"docs",name:"Copias de documentos de la familia y USB",n:1,pk:["sobre","sobres"],note:"En bolsa impermeable."},
+   {k:"femenina",name:"Toallas femeninas",n:1,pk:["paquete","paquetes"]},
+   {k:"powerbank",name:"Batería externa y cables",n:1,pk:PZ}])},
+  {who:"mayor",items:bag("mayor",[...BAGBASE("mayor"),
+   {k:"epi",name:"Autoinyector de adrenalina",n:1,pk:PZ,exp:true},
+   {k:"antihist",name:"Antihistamínico",n:1,pk:CJ,exp:true},
+   {k:"plan",name:"Plan de acción para la alergia",n:1,pk:CP},
+   {k:"femenina",name:"Toallas femeninas",n:1,pk:["paquete","paquetes"]},
+   {k:"cargador",name:"Cargador de celular",n:1,pk:PZ}])},
+  {who:"menor",items:bag("menor",[...BAGBASE("menor"),
+   {k:"inhalador",name:"Inhalador de rescate con espaciador",n:1,pk:["juego","juegos"],exp:true},
+   {k:"plan",name:"Plan de acción para el asma",n:1,pk:CP},
+   {k:"peluche",name:"Peluche o juguete pequeño",n:1,pk:PZ},
+   {k:"foto",name:"Foto familiar con teléfonos al reverso",n:1,pk:PZ}])}]},
+ {id:"equipo",name:"Equipo y artefactos",short:"Equipo",calc:true,intro:"Lo necesario para luz, energía, cocinar y protegerse en casa.",groups:[
+  {title:"Luz y energía",items:[
+   {id:"e-radio",name:"Radio de manivela o a pilas",n:1,pk:PZ},
+   {id:"e-frontal",name:"Linternas frontales",basis:"heads",pkg:1,pk:["linterna","linternas"],note:"Una por persona."},
+   {id:"e-lampara",name:"Lámparas LED para la casa",n:2,pk:["lámpara","lámparas"]},
+   {id:"e-aa",name:"Pilas AA",n:24,pk:["pila","pilas"],exp:true},
+   {id:"e-aaa",name:"Pilas AAA",n:12,pk:["pila","pilas"],exp:true},
+   {id:"e-powerbank",name:"Baterías externas (power bank)",n:2,pk:PZ,note:"Cárguenlas cada 3 meses."},
+   {id:"e-cables",name:"Cables de carga",n:3,pk:["cable","cables"]},
+   {id:"e-solar",name:"Panel solar portátil (opcional)",n:1,pk:PZ}]},
+  {title:"Cocina",items:[
+   {id:"e-estufa",name:"Estufa de camping",n:1,pk:PZ},
+   {id:"gas",name:"Cartuchos de gas para la estufa",basis:"week",per:3.5,pkg:1,pk:["cartucho","cartuchos"],note:"Más o menos uno cada dos días."},
+   {id:"e-olla",name:"Olla y sartén pequeños",n:1,pk:["juego","juegos"]},
+   {id:"abrelatas",name:"Abrelatas manual",n:1,pk:PZ},
+   {id:"fuego",name:"Encendedor o cerillos",n:2,pk:PZ},
+   {id:"platos",name:"Platos desechables",basis:"head",per:3,pkg:50,pk:["paquete de 50","paquetes de 50"]},
+   {id:"e-cubiertos",name:"Vasos y cubiertos desechables",n:1,pk:["paquete","paquetes"]},
+   {id:"e-hielera",name:"Hielera",n:1,pk:PZ,note:"También sirve para la insulina si se va la luz."},
+   {id:"e-filtro",name:"Filtro de agua portátil",n:1,pk:PZ}]},
+  {title:"Casa y seguridad",items:[
+   {id:"e-extintor",name:"Extintor",n:1,pk:PZ,exp:true,note:"La fecha es la de su próxima revisión."},
+   {id:"e-humo",name:"Detector de humo con pilas",n:1,pk:PZ},
+   {id:"e-llaves",name:"Llave para cerrar gas y agua",n:1,pk:PZ,note:"Todos los adultos deben saber dónde se cierran."},
+   {id:"e-purificador",name:"Purificador de aire con filtro HEPA",n:1,pk:PZ,note:"Por el asma de la hija menor si hay humo."},
+   {id:"e-cobijas",name:"Cobijas o sacos de dormir",basis:"heads",pkg:1,pk:PZ,note:"Uno por persona."}]},
+  {title:"Herramientas y refugio",items:[
+   {id:"e-navaja",name:"Navaja multiusos",n:1,pk:PZ},
+   {id:"e-cinta",name:"Cinta americana",n:1,pk:["rollo","rollos"]},
+   {id:"e-cuerda",name:"Cuerda de 15 m",n:1,pk:PZ},
+   {id:"e-lona",name:"Lona o plástico grueso",n:1,pk:PZ},
+   {id:"e-cubeta",name:"Cubeta con tapa para baño de emergencia",n:1,pk:PZ},
+   {id:"e-mapa",name:"Mapa de papel con rutas de salida",n:1,pk:PZ}]}]},
+ {id:"higiene",name:"Higiene",short:"Higiene",calc:true,intro:"Para mantenerse limpios sin agua corriente.",groups:[
+  {title:"Higiene",items:[
+   {id:"h-papel",name:"Papel higiénico",basis:"head",per:0.35,pkg:4,pk:["paquete de 4 rollos","paquetes de 4 rollos"]},
+   {id:"h-jabon",name:"Jabón en barra",basis:"week",per:2,pkg:1,pk:["barra","barras"]},
+   {id:"h-gel",name:"Gel antibacterial",basis:"week",per:1,pkg:1,pk:["botella","botellas"]},
+   {id:"h-toallitas",name:"Toallitas húmedas",basis:"week",per:2,pkg:1,pk:["paquete","paquetes"]},
+   {id:"h-femenina",name:"Toallas femeninas",n:2,pk:["paquete","paquetes"],note:"Para mamá y la hija mayor."},
+   {id:"h-cepillos",name:"Cepillos de dientes de repuesto",basis:"heads",pkg:1,pk:PZ},
+   {id:"h-pasta",name:"Pasta de dientes",n:2,pk:["tubo","tubos"]},
+   {id:"h-desodorante",name:"Desodorante",n:2,pk:PZ},
+   {id:"basura",name:"Bolsas de basura grandes",basis:"week",per:1,pkg:1,pk:["rollo","rollos"]},
+   {id:"h-cloro",name:"Cloro para limpiar",n:1,pk:["botella","botellas"]}]}]},
+ {id:"documentos",name:"Documentos y plan",short:"Plan",intro:"Copias de lo importante y los acuerdos que toda la familia debe conocer.",groups:[
+  {title:"Documentos en bolsa impermeable",items:[
+   {id:"d-ids",name:"Copias de identificaciones y pasaportes",n:1,pk:OK1,exp:true,note:"La fecha es la del documento que vence primero."},
+   {id:"d-actas",name:"Copias de actas de nacimiento y matrimonio",n:1,pk:OK1},
+   {id:"d-seguros",name:"Pólizas de seguro médico y de la casa",n:1,pk:OK1,exp:true},
+   {id:"d-recetas",name:"Recetas y lista de medicinas con dosis",n:1,pk:OK1,note:"De los cuatro, con nombre del médico y teléfono."},
+   {id:"d-usb",name:"USB con todo escaneado",n:1,pk:OK1},
+   {id:"d-telefonos",name:"Lista de teléfonos en papel",n:1,pk:OK1},
+   {id:"d-efectivo",name:"Efectivo de reserva en casa",n:1,pk:OK1}]},
+  {title:"Plan familiar",items:[
+   {id:"p-encuentro1",name:"Punto de encuentro cerca de casa acordado",n:1,pk:OK1},
+   {id:"p-encuentro2",name:"Punto de encuentro fuera del barrio acordado",n:1,pk:OK1},
+   {id:"p-contacto",name:"Contacto fuera de la ciudad elegido",n:1,pk:OK1},
+   {id:"p-memoria",name:"Las niñas se saben los teléfonos y el punto de encuentro",n:1,pk:OK1},
+   {id:"p-glucosa",name:"Todos reconocen una bajada de azúcar de papá",n:1,pk:OK1,note:"Sudor, temblor, confusión: darle glucosa de inmediato."},
+   {id:"p-epi",name:"Los adultos saben usar el autoinyector y el inhalador",n:1,pk:OK1},
+   {id:"p-escuela",name:"La escuela tiene los planes de alergia y asma",n:1,pk:OK1},
+   {id:"p-simulacro",name:"Simulacro de salida en 5 minutos hecho",n:1,pk:OK1,exp:true,note:"Anoten la fecha del próximo simulacro."},
+   {id:"p-revision",name:"Revisión semestral (enero y julio)",n:1,pk:OK1,exp:true,note:"Anoten la fecha de la próxima revisión."}]}]}
+];
+/*END*/
+// kcal y gramos de proteína por paquete (aprox.). Aceite y condimentos no cuentan como comida.
+const NUTR={atun:[130,28],pollo:[200,25],frijol:[320,20],mani:[2650,110],nueces:[1250,35],avena:[1900,65],arroz:[3600,75],pasta:[1750,65],galletas:[900,18],barras:[1200,90],verduras:[150,8],frutalata:[150,1],frutafresca:[80,0],leche:[600,32],seguros:[150,3]};
+const KCAL_ADULT=2000, PROT_ADULT=55;
+const KID=0.7, LSKEY="despensa-emergencia-v2", SOON_DAYS=60;
+const SEC=Object.fromEntries(SECTIONS.map(s=>[s.id,s]));
+const PERSON=Object.fromEntries(PEOPLE.map(p=>[p.id,p]));
+
+let cfg={adults:3,kids:1,days:7};
+let docs={};           // id -> {have, exp, ...custom fields}
+let onlyMissing=false, tab="resumen", confirmDel=null, needsRender=false, copyText=null;
+let db=null, colRef=null, cfgRef=null, pend=new Map(), cfgPending=false, writing=false, timer=null, live=false;
+
+try{const s=JSON.parse(localStorage.getItem(LSKEY)||"null"); if(s){cfg=Object.assign(cfg,s.cfg||{}); docs=s.docs||{};}}catch(e){}
+try{onlyMissing=localStorage.getItem(LSKEY+"-filter")==="1";}catch(e){}
+function saveLocal(){try{localStorage.setItem(LSKEY,JSON.stringify({cfg,docs}))}catch(e){}}
+
+/* ---------- cálculo ---------- */
+function amount(it){
+  const {adults,kids,days}=cfg, eq=adults+kids*KID, heads=adults+kids;
+  switch(it.basis){
+    case"eq":return it.per*eq*days;
+    case"head":return it.per*heads*days;
+    case"heads":return heads;
+    case"person":return it.per*days;
+    case"week":return it.per*days/7;
+  }
+  return 0;
+}
+function need(it){
+  if(it.custom) return Math.max(1,Number(it.n)||1);
+  if(it.n!=null) return it.n;
+  return Math.max(1,Math.ceil(amount(it)/it.pkg-1e-9));
+}
+function have(it){return Math.max(0,Number((docs[it.id]||{}).have)||0)}
+function expOf(it){const v=(docs[it.id]||{}).exp; return typeof v==="string"&&/^\d{4}-\d{2}$/.test(v)?v:""}
+function pkOf(it,n){if(it.custom) return n===1?"unidad":"unidades"; return n===1?it.pk[0]:it.pk[1]}
+function fmtAmount(it){
+  if(!it.unit) return "";
+  let a=amount(it), u=it.unit;
+  if(u==="g"&&a>=1000){a/=1000;u="kg"}
+  if(u==="ml"&&a>=1000){a/=1000;u="L"}
+  const r=a>=10?Math.round(a):Math.round(a*10)/10;
+  return "≈ "+r.toLocaleString("es")+" "+u+" en total";
+}
+function expStatus(ym){
+  if(!ym) return "";
+  const [y,m]=ym.split("-").map(Number);
+  const end=new Date(y,m,0,23,59,59); // último día del mes
+  const now=new Date();
+  if(end<now) return "vencido";
+  if((end-now)/864e5<=SOON_DAYS) return "pronto";
+  return "ok";
+}
+const MESES=["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"];
+function fmtYM(ym){const [y,m]=ym.split("-");return MESES[+m-1]+" "+y}
+
+function customItems(secId){
+  return Object.entries(docs).filter(([id,d])=>d&&d.custom&&d.sec===secId)
+    .map(([id,d])=>({id,custom:true,name:String(d.name||"Sin nombre"),n:d.n,who:d.who||"",note:d.note||"",exp:true,created:d.created||0}))
+    .sort((a,b)=>a.created-b.created);
+}
+function groupsOf(sec){
+  const cust=customItems(sec.id);
+  if(sec.byPerson){
+    const gs=sec.groups.map(g=>({who:g.who,title:PERSON[g.who].name,sub:PERSON[g.who].sub,items:[...g.items,...cust.filter(c=>c.who===g.who)]}));
+    const fam=cust.filter(c=>!PERSON[c.who]);
+    if(fam.length) gs.push({title:"Toda la familia",items:fam});
+    return gs;
+  }
+  const gs=sec.groups.map(g=>({title:g.title,items:g.items}));
+  if(cust.length) gs.push({title:"Agregados por ustedes",items:cust});
+  return gs;
+}
+function itemsOf(sec){return groupsOf(sec).flatMap(g=>g.items)}
+function stats(sec){const its=itemsOf(sec);const done=its.filter(it=>have(it)>=need(it)).length;return{total:its.length,done,miss:its.length-done}}
+
+/* ---------- render ---------- */
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const CHECK='<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.5l3.2 3L13 4.5"/></svg>';
+
+function renderTabs(){
+  const all=SECTIONS.reduce((a,s)=>{const t=stats(s);a.miss+=t.miss;return a},{miss:0});
+  const t=[{id:"resumen",short:"Panel",miss:null},...SECTIONS.map(s=>({id:s.id,short:s.short,miss:stats(s).miss}))];
+  document.getElementById("tabs").innerHTML=t.map(x=>`<button type="button" class="tab" id="tab-${x.id}" data-tab="${x.id}" ${x.id===tab?'aria-current="page"':""}>${esc(x.short)}${x.miss==null?"":` <span class="badge ${x.miss===0?"ok":""}">${x.miss===0?"✓":x.miss}</span>`}</button>`).join("");
+}
+
+function configPanel(){
+  return `<section class="panel" aria-label="Familia y duración"><div class="config">
+    <div class="field"><span class="label" id="l-adults">Adultos y adolescentes</span>
+      <div class="stepper" role="group" aria-labelledby="l-adults"><button type="button" id="adults-dec" data-cfg="adults" data-d="-1" aria-label="Quitar adulto">−</button><output id="adults-val"></output><button type="button" id="adults-inc" data-cfg="adults" data-d="1" aria-label="Agregar adulto">+</button></div></div>
+    <div class="field"><span class="label" id="l-kids">Niños menores de 12</span>
+      <div class="stepper" role="group" aria-labelledby="l-kids"><button type="button" id="kids-dec" data-cfg="kids" data-d="-1" aria-label="Quitar niño">−</button><output id="kids-val"></output><button type="button" id="kids-inc" data-cfg="kids" data-d="1" aria-label="Agregar niño">+</button></div></div>
+    <div class="field"><span class="label" id="l-days">Días de reserva</span>
+      <div class="seg" role="group" aria-labelledby="l-days" id="days">${[3,7,14].map(d=>`<button type="button" id="d${d}" data-days="${d}">${d}</button>`).join("")}</div></div>
+  </div><p class="hint">La hija de 14 cuenta como adulta. Un niño come cerca del 70 % de un adulto. Este ajuste es el mismo para comida, equipo e higiene.</p></section>`;
+}
+function syncConfig(){
+  const a=document.getElementById("adults-val"); if(!a) return;
+  a.textContent=cfg.adults; document.getElementById("kids-val").textContent=cfg.kids;
+  document.getElementById("adults-dec").disabled=cfg.adults<=1;
+  document.getElementById("kids-dec").disabled=cfg.kids<=0;
+  document.querySelectorAll("#days button").forEach(b=>b.setAttribute("aria-pressed",String(+b.dataset.days===cfg.days)));
+}
+
+function addForm(sec){
+  const who=sec.byPerson?`<label>Para quién<select id="add-who">${PEOPLE.map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join("")}<option value="">Toda la familia</option></select></label>`:`<span></span>`;
+  const ph={medicinas:"Ej. Metformina 850 mg",comida:"Ej. Atún extra",botiquin:"Ej. Vendas triangulares",mochilas:"Ej. Lentes de repuesto",equipo:"Ej. Generador",higiene:"Ej. Shampoo",documentos:"Ej. Escrituras de la casa"}[sec.id]||"Nombre";
+  return `<section class="panel"><h3 class="label" style="margin:0 0 10px">Agregar algo que no está en la lista</h3>
+    <form class="add" id="add-form" autocomplete="off">
+      <label class="wide">Nombre<input id="add-name" maxlength="80" placeholder="${ph}"></label>
+      <label>Cantidad<input id="add-n" type="number" min="1" max="999" value="1" inputmode="numeric"></label>
+      ${who}
+      <label>Vence (opcional)<input id="add-exp" type="month"></label>
+      <button type="submit" class="btn primary">Agregar</button>
+    </form><p class="formmsg" id="add-msg" hidden></p></section>`;
+}
+
+function rowHTML(it){
+  const n=need(it), h=have(it), ok=h>=n;
+  const cls=ok?"done":(h>0?"part":"");
+  const amt=fmtAmount(it);
+  const note=[amt,it.note].filter(Boolean).map(esc).join(" · ");
+  const tags=[...(it.tags||[]).map(t=>`<span class="tag ${t}">${TAGS[t]}</span>`),...(it.custom?['<span class="tag mine">Agregado por ustedes</span>']:[])].join("");
+  let exp="";
+  if(it.exp){
+    const v=expOf(it), st=expStatus(v);
+    const chip=st==="vencido"?'<span class="chip vencido">Vencido</span>':st==="pronto"?'<span class="chip pronto">Vence pronto</span>':"";
+    exp=`<div class="exp"><label for="e-${it.id}">Vence</label><input type="month" id="e-${it.id}" data-exp="${it.id}" value="${v}">${chip}</div>`;
+  }
+  const needTxt=n===1&&!it.custom&&it.pk===OK1?(ok?"Listo":`<span class="missing">Pendiente</span>`)
+    :ok?`Necesitan <b>${n}</b> ${esc(pkOf(it,n))} · listo`
+    :`Necesitan <b>${n}</b> ${esc(pkOf(it,n))} · <span class="missing">faltan ${n-h}</span>`;
+  const stepper=n>1?`<div class="stepper" role="group" aria-label="Cuántos tienen de ${esc(it.name)}">
+      <button type="button" id="m-${it.id}" data-act="dec" data-id="${it.id}" aria-label="Uno menos" ${h<=0?"disabled":""}>−</button>
+      <output>${h}</output>
+      <button type="button" id="p-${it.id}" data-act="inc" data-id="${it.id}" aria-label="Uno más">+</button></div>`:"";
+  const del=it.custom?(confirmDel===it.id
+      ?`<div class="del">¿Quitar de la lista? <button type="button" class="btn small danger" id="xy-${it.id}" data-act="delyes" data-id="${it.id}">Sí, quitar</button><button type="button" class="btn small" id="xn-${it.id}" data-act="delno" data-id="${it.id}">No</button></div>`
+      :`<button type="button" class="btn small" id="x-${it.id}" data-act="del" data-id="${it.id}">Quitar</button>`):"";
+  return `<li class="item ${cls}">
+    <button type="button" class="check" id="c-${it.id}" data-act="toggle" data-id="${it.id}" aria-pressed="${ok}" aria-label="${ok?"Desmarcar":"Marcar que ya tienen"} ${esc(it.name)}">${CHECK}</button>
+    <div class="info"><div class="name">${esc(it.name)}</div>${note?`<div class="note">${note}</div>`:""}${tags?`<div class="tags">${tags}</div>`:""}${exp}</div>
+    <div class="qty"><div class="need">${needTxt}</div>${stepper}${del}</div></li>`;
+}
+
+function listHTML(sec){
+  return groupsOf(sec).map(g=>{
+    const done=g.items.filter(it=>have(it)>=need(it)).length;
+    const rows=g.items.filter(it=>!(onlyMissing&&have(it)>=need(it))).map(rowHTML).join("");
+    const body=rows||`<li class="empty">${g.items.length?"Todo listo aquí.":"Nada todavía."}</li>`;
+    return `<section class="group"><h3><span>${esc(g.title)}${g.sub?`<small>${esc(g.sub)}</small>`:""}</span><span class="n">${done}/${g.items.length}</span></h3><ul class="items">${body}</ul></section>`;
+  }).join("");
+}
+
+function expiring(){
+  const out=[];
+  SECTIONS.forEach(s=>groupsOf(s).forEach(g=>g.items.forEach(it=>{
+    if(!it.exp) return; const v=expOf(it), st=expStatus(v);
+    if(st==="vencido"||st==="pronto") out.push({it,v,st,sec:s,g});
+  })));
+  return out.sort((a,b)=>a.v.localeCompare(b.v));
+}
+
+function renderView(){
+  const v=document.getElementById("view");
+  if(tab==="resumen"){
+    v.innerHTML=`<section class="panel" id="hero" aria-label="Autonomía"></section>
+      <section class="panel"><div class="ph"><div><h2>Días de autonomía por recurso</h2><p>Con lo que ya tienen marcado. La línea negra es su meta.</p></div>
+        <div class="legend"><span><i class="crit"></i>Menos de 3 días</span><span><i class="warn"></i>Debajo de la meta</span><span><i class="ok"></i>Cumple la meta</span><span><i class="goal"></i>Meta</span></div></div>
+        <div id="reschart"></div></section>
+      <section class="panel"><div class="ph"><div><h2>¿De dónde salen los días de comida?</h2><p>Cuántos días de calorías aporta cada alimento para toda la familia.</p></div></div><div id="foodchart"></div></section>
+      ${configPanel()}
+      <div class="two">
+        <section class="panel"><div class="ph"><div><h2>Mochilas listas</h2><p>Avance de la mochila de cada uno.</p></div></div><div class="mini" id="bags"></div></section>
+        <section class="panel prog" id="sum"></section>
+      </div>
+      <section class="panel"><div class="ph"><div><h2>Vencimientos en los próximos 12 meses</h2><p>Artículos con fecha anotada, por mes.</p></div>
+        <div class="legend"><span><i class="crit"></i>Vencido</span><span><i class="warn"></i>Vence en menos de 2 meses</span></div></div>
+        <div id="expchart"></div><div id="alerts" style="margin-top:12px"></div></section>
+      <section class="panel"><h2 class="label" style="margin:0 0 4px">Avance por sección</h2><ul class="seclist" id="seclist"></ul></section>
+      <section class="panel"><div class="tools"><button type="button" class="btn primary" id="copy">Copiar todo lo que falta</button></div><div id="copybox"></div></section>
+      <section class="panel"><h2 class="label" style="margin:0 0 6px">Cómo usarla</h2>
+        <p class="intro" style="margin:0">Toca el círculo cuando ya tengan completo un artículo. Usa − y + si tienen solo una parte. Anota cuándo vence cada medicina y cada lata: aquí verán lo que caduca pronto. Lo que marque uno lo ve el otro en su propio celular.</p></section>
+      <footer>Cálculo aproximado para unas 1 800–2 000 kcal por adulto al día. Revisen todo en enero y julio y usen primero lo más viejo. Pregunten al médico cómo ajustar las medicinas si comen menos de lo normal.</footer>`;
+  } else {
+    const s=SEC[tab];
+    v.innerHTML=`<div><h2 class="sec">${esc(s.name)}</h2><p class="intro">${esc(s.intro)}</p></div>
+      ${s.calc?configPanel():""}
+      <section class="panel prog" id="sum"></section>
+      <div id="list" style="display:flex;flex-direction:column;gap:12px"></div>
+      ${addForm(s)}`;
+  }
+  copyText=null;
+  renderData(true);
+}
+
+function renderData(force){
+  const ae=document.activeElement;
+  const list=document.getElementById("list");
+  if(!force&&ae&&list&&list.contains(ae)&&/INPUT|SELECT/.test(ae.tagName)){needsRender=true;renderTabs();return}
+  needsRender=false;
+  const fid=ae&&ae.id;
+  renderTabs(); syncConfig();
+  const sum=document.getElementById("sum");
+  if(tab==="resumen"){
+    let T=0,D=0; SECTIONS.forEach(s=>{const t=stats(s);T+=t.total;D+=t.done});
+    sum.innerHTML=`<div class="big">${Math.round(D/T*100)} % <small>listo · ${D} de ${T} artículos</small></div><div class="bar" aria-hidden="true"><span style="width:${(D/T*100).toFixed(1)}%"></span></div>`;
+    document.getElementById("seclist").innerHTML=SECTIONS.map(s=>{const t=stats(s);return `<li><button type="button" class="secrow" id="go-${s.id}" data-tab="${s.id}"><span class="nm">${esc(s.name)}</span><span class="ct">${t.miss===0?"Completo":`faltan ${t.miss}`} · ${t.done}/${t.total}</span><span class="bar thin" aria-hidden="true"><span style="width:${(t.done/t.total*100).toFixed(1)}%"></span></span></button></li>`}).join("");
+    const al=expiring();
+    const dated=SECTIONS.flatMap(s=>itemsOf(s)).filter(it=>it.exp&&have(it)>0);
+    const noDate=dated.filter(it=>!expOf(it)).length;
+    document.getElementById("alerts").innerHTML=(al.length?`<ul class="alerts">${al.map(a=>`<li><div><div class="name">${esc(a.it.name)}</div><div class="where">${esc(a.sec.short)} · ${esc(a.g.title)}</div></div><span class="chip ${a.st}">${a.st==="vencido"?"Venció":"Vence"} ${fmtYM(a.v)}</span></li>`).join("")}</ul>`:`<p class="intro" style="margin:0">Nada vencido ni por vencer.</p>`)
+      +(noDate?`<p class="hint">${noDate} ${noDate===1?"artículo que ya tienen no tiene":"artículos que ya tienen no tienen"} fecha de vencimiento anotada.</p>`:"");
+    renderDash();
+  } else {
+    const s=SEC[tab], t=stats(s);
+    sum.innerHTML=`<div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:baseline"><div class="big">${t.done} <small>de ${t.total} listos${t.miss?` · faltan ${t.miss}`:""}</small></div></div>
+      <div class="bar" aria-hidden="true"><span style="width:${(t.done/t.total*100).toFixed(1)}%"></span></div>
+      <div class="tools"><button type="button" class="btn" id="filter" aria-pressed="${onlyMissing}">Ver solo lo que falta</button><button type="button" class="btn primary" id="copy">Copiar lo que falta</button></div><div id="copybox"></div>`;
+    list.innerHTML=listHTML(s);
+  }
+  if(copyText!=null){const cb=document.getElementById("copybox"); if(cb) cb.innerHTML=`<textarea class="copy" id="copyta" readonly aria-label="Lista de lo que falta"></textarea>`; const ta=document.getElementById("copyta"); if(ta) ta.value=copyText;}
+  if(fid){const el=document.getElementById(fid); if(el&&!el.disabled) el.focus({preventScroll:true});}
+}
+
+/* ---------- panel de autonomía ---------- */
+function H(id){return Math.max(0,Number((docs[id]||{}).have)||0)}
+function fmtD(d){if(!isFinite(d)||d<=0) return "0"; if(d>=10) return String(Math.floor(d)); return (Math.floor(d*10)/10).toLocaleString("es")}
+function daysTxt(d){const s=fmtD(d);return s+(s==="1"?" día":" días")}
+function stCls(d){return d<3?"crit":d<cfg.days?"warn":"ok"}
+const ST_L={crit:"Crítico: menos de 3 días",warn:"Debajo de la meta",ok:"Cumple la meta"};
+const nf=n=>Math.round(n).toLocaleString("es");
+
+function resources(){
+  const heads=cfg.adults+cfg.kids, eq=cfg.adults+cfg.kids*KID;
+  const L=H("agua")*20;
+  let kcal=0,prot=0; for(const id in NUTR){kcal+=H(id)*NUTR[id][0];prot+=H(id)*NUTR[id][1]}
+  const r=[
+    {k:"agua",name:"Agua",sub:`${nf(L)} L · 4 L por persona al día`,d:L/(4*heads)},
+    {k:"comida",name:"Comida",sub:`${nf(kcal)} kcal guardadas`,d:kcal/(eq*KCAL_ADULT)},
+    {k:"prot",name:"Proteína",sub:`${nf(prot)} g guardados`,d:prot/(eq*PROT_ADULT)}];
+  [["m-dm","Medicina diabetes","Papá",0],["m-hta","Medicina presión","Papá",0],["m-insulina","Insulina","Papá",1],["m-mama","Medicinas de mamá","Mamá",1],["m-controlador","Controlador del asma","Hija menor",1]]
+    .forEach(([id,name,who,opt])=>{const h=H(id); if(opt&&!h) return; r.push({k:id,name,sub:`${who} · ${h} ${h===1?"reserva":"reservas"} de 30 días`,d:h*30})});
+  r.push({k:"tiras",name:"Tiras reactivas",sub:"Papá · midiendo 4 veces al día",d:H("m-tiras")*50/4});
+  r.push({k:"gas",name:"Gas para cocinar",sub:"1 cartucho cada 2 días",d:H("gas")*2});
+  r.push({k:"papel",name:"Papel higiénico",sub:"1 rollo por persona cada 3 días",d:H("h-papel")*4/(0.35*heads)});
+  return {r,L,kcal,heads,eq};
+}
+
+function hchart(rows,opt){
+  opt=opt||{}; const cap=opt.cap||30;
+  if(!rows.length) return `<p class="intro" style="margin:0">${opt.empty||"Sin datos todavía."}</p>`;
+  const mx=Math.max(opt.goal?opt.goal*1.2:0,...rows.map(r=>Math.min(r.d,cap)),1);
+  const step=mx<=8?1:mx<=16?2:7, axis=Math.max(step,Math.ceil(mx/step)*step);
+  const pct=v=>Math.min(100,Math.max(0,v)/axis*100);
+  const ticks=[]; for(let t=0;t<=axis;t+=step) ticks.push(t);
+  const tickHTML=ticks.map(t=>`<i class="tick" style="left:${pct(t)}%"></i>`).join("");
+  const goal=opt.goal?`<i class="goal" style="left:calc(${pct(opt.goal)}% - 1px)"></i>`:"";
+  const rowsHTML=rows.map((r,i)=>{
+    const cls=r.d<=0?"zero":(opt.plain?"plain":stCls(r.d));
+    const val=r.d>cap?`${cap}+ días`:daysTxt(r.d);
+    const tip=`${r.name}: ${val}${r.sub?" · "+r.sub:""}${opt.plain?"":" · "+ST_L[stCls(r.d)]}`;
+    return `<div class="hrow"><div class="hlab">${esc(r.name)}${r.sub?`<small>${esc(r.sub)}</small>`:""}</div>
+      <div class="htrack">${tickHTML}${goal}<span class="hbar ${cls}" style="width:${pct(Math.min(r.d,cap))}%" tabindex="0" data-tip="${esc(tip)}" aria-label="${esc(tip)}"></span></div>
+      <div class="hval">${val}</div></div>`;
+  }).join("");
+  const axisHTML=`<div class="hrow axis" aria-hidden="true"><div class="hlab"></div><div class="htrack">${ticks.map(t=>`<span class="tl" style="left:${pct(t)}%">${t}</span>`).join("")}</div><div class="hval" style="font-size:11px;color:var(--muted)">días</div></div>`;
+  const table=`<details class="tbl"><summary>Ver como tabla</summary><div class="tblwrap"><table><thead><tr><th>Recurso</th><th>Detalle</th><th>Días</th></tr></thead><tbody>${rows.map(r=>`<tr><td>${esc(r.name)}</td><td>${esc(r.sub||"")}</td><td class="n">${fmtD(r.d)}</td></tr>`).join("")}</tbody></table></div></details>`;
+  return `<div class="hchart">${rowsHTML}${axisHTML}</div>${table}`;
+}
+
+function renderDash(){
+  const {r,L,kcal,heads,eq}=resources();
+  const agua=r[0].d, comida=r[1].d, auto=Math.min(agua,comida), cls=stCls(auto);
+  const racion=Math.min(agua*2,comida/0.75);
+  const lim=auto<=0?"":(agua<=comida?"el agua":"la comida");
+  const falta=[];
+  if(agua<cfg.days){const l=cfg.days*4*heads-L; falta.push(`${nf(l)} L de agua (${Math.ceil(l/20)} garrafones de 20 L)`)}
+  if(comida<cfg.days){const k=cfg.days*eq*KCAL_ADULT-kcal; falta.push(`${nf(k)} kcal de comida, por ejemplo ${Math.ceil(k/3600)} bolsas de arroz de 1 kg y ${Math.ceil(k/2/320)} latas de frijol`)}
+  document.getElementById("hero").innerHTML=`<div class="hero">
+    <div class="num">${fmtD(auto)}<small>${fmtD(auto)==="1"?"día":"días"} de agua y comida</small></div>
+    <div class="txt"><span class="st ${cls}">${ST_L[cls]}</span>
+      <div class="lead">${auto<=0?"Todavía no han marcado agua ni comida.":`Lo primero que se acaba es ${lim}.`}</div>
+      <div class="note">Meta: ${cfg.days} días para ${heads} personas. Si racionan (comida al 75 % y agua solo para beber, 2 L por persona) les alcanza para <b>${daysTxt(racion)}</b>.</div>
+      ${falta.length?`<div class="note">Para llegar a la meta les falta: ${falta.map(esc).join("; ")}.</div>`:`<div class="note">Ya cumplen la meta de agua y comida.</div>`}
+    </div></div>`;
+  document.getElementById("reschart").innerHTML=hchart(r,{goal:cfg.days});
+
+  const food=Object.keys(NUTR).filter(id=>H(id)>0).map(id=>{const it=findItem(id);const h=H(id);return{name:it.name,sub:`${h} ${pkOf(it,h)}`,d:h*NUTR[id][0]/(eq*KCAL_ADULT)}}).sort((a,b)=>b.d-a.d);
+  document.getElementById("foodchart").innerHTML=hchart(food,{plain:true,cap:60,empty:"Marquen alimentos en la pestaña Comida para ver esta gráfica."});
+
+  const bagSec=SEC.mochilas;
+  document.getElementById("bags").innerHTML=groupsOf(bagSec).map(g=>{const t=g.items.length,d=g.items.filter(it=>have(it)>=need(it)).length,p=t?d/t*100:0;
+    return `<div class="mrow"><span class="name">${esc(g.title)}</span><span class="pc">${Math.round(p)} % · ${d}/${t}</span><span class="bar thin" aria-hidden="true"><span style="width:${p.toFixed(1)}%"></span></span></div>`}).join("");
+
+  // vencimientos por mes
+  const now=new Date(), months=[];
+  for(let i=0;i<12;i++){const d=new Date(now.getFullYear(),now.getMonth()+i,1);months.push(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`)}
+  const all=SECTIONS.flatMap(s=>itemsOf(s)).filter(it=>it.exp&&expOf(it));
+  const buckets=[{lab:"Venc.",full:"Ya vencidos",items:all.filter(it=>expStatus(expOf(it))==="vencido"),cls:"crit"},
+    ...months.map(ym=>({lab:MESES[+ym.slice(5)-1],full:fmtYM(ym),items:all.filter(it=>expOf(it)===ym&&expStatus(ym)!=="vencido"),cls:expStatus(ym)==="pronto"?"warn":""}))];
+  const later=all.filter(it=>expOf(it)>months[11]).length;
+  const mxc=Math.max(1,...buckets.map(b=>b.items.length));
+  document.getElementById("expchart").innerHTML=all.length?`<div class="vchart">${buckets.map(b=>{const c=b.items.length;
+      const names=b.items.slice(0,5).map(it=>it.name).join(", ")+(c>5?` y ${c-5} más`:"");
+      const tip=`${b.full}: ${c} ${c===1?"artículo":"artículos"}${c?" · "+names:""}`;
+      return `<div class="vcol" ${c?`tabindex="0" data-tip="${esc(tip)}" aria-label="${esc(tip)}"`:""}>${c?`<span class="vval">${c}</span><span class="vbar ${b.cls}" style="height:calc(${c/mxc*100}% - 22px);min-height:4px"></span>`:""}</div>`}).join("")}</div>
+      <div class="vlabs" aria-hidden="true">${buckets.map(b=>`<span>${b.lab}</span>`).join("")}</div>
+      ${later?`<p class="hint">${later} ${later===1?"artículo vence":"artículos vencen"} después de 12 meses.</p>`:""}`
+    :`<p class="intro" style="margin:0">Anoten fechas de vencimiento en las pestañas para ver esta gráfica.</p>`;
+}
+
+/* tooltip */
+const tipEl=document.createElement("div"); tipEl.id="tip"; tipEl.hidden=true; tipEl.setAttribute("role","tooltip"); document.body.appendChild(tipEl);
+function placeTip(x,y){tipEl.style.left="0px";tipEl.style.top="0px";const w=tipEl.offsetWidth,h=tipEl.offsetHeight;let l=x+14,t=y+14;if(l+w>innerWidth-8)l=Math.max(8,x-w-14);if(t+h>innerHeight-8)t=Math.max(8,y-h-14);tipEl.style.left=l+"px";tipEl.style.top=t+"px"}
+document.addEventListener("pointermove",e=>{const t=e.target.closest&&e.target.closest("[data-tip]");if(!t){tipEl.hidden=true;return}tipEl.textContent=t.dataset.tip;tipEl.hidden=false;placeTip(e.clientX,e.clientY)});
+document.addEventListener("focusin",e=>{const t=e.target.closest&&e.target.closest("[data-tip]");if(!t){tipEl.hidden=true;return}const r=t.getBoundingClientRect();tipEl.textContent=t.dataset.tip;tipEl.hidden=false;placeTip(r.left+r.width/2,r.bottom)});
+document.addEventListener("scroll",()=>{tipEl.hidden=true},{passive:true});
+
+/* ---------- guardar (Google Sheets) ---------- */
+let remote=false, lastSync=0, retryTimer=null;
+// URL de la app web de Apps Script. No se escribe en el código: cada dispositivo la guarda una vez.
+const APIKEY="despensa-api-url";
+const IN_GAS=!!(window.google&&google.script&&google.script.run);
+let API_URL=(()=>{try{return localStorage.getItem(APIKEY)||""}catch(e){return ""}})();
+function gs(fn,arg){
+  if(!IN_GAS&&!API_URL) return Promise.reject(new Error("falta pegar la URL de la app de Apps Script"));
+  if(IN_GAS)
+    return new Promise((res,rej)=>google.script.run.withSuccessHandler(res).withFailureHandler(rej)[fn](arg));
+  const req=fn==="cargar"
+    ?fetch(API_URL+"?action=cargar&t="+Date.now(),{redirect:"follow"})
+    :fetch(API_URL,{method:"POST",redirect:"follow",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify(arg)});
+  return req.then(r=>{if(!r.ok) throw new Error("HTTP "+r.status);return r.text()}).then(t=>{
+    let j; try{j=JSON.parse(t)}catch(e){throw new Error("La URL no devolvió datos. Revisa que el acceso sea 'Cualquier usuario' y que hayas implementado una nueva versión.")}
+    if(j&&j.error) throw new Error(j.error); return j});
+}
+function setStatus(t,kind){document.getElementById("status").className="status "+(kind||"");document.getElementById("status-t").textContent=t}
+function setItem(id,patch){
+  const body=Object.assign({},docs[id]||{},patch);
+  docs[id]=body; saveLocal(); queue(id,body); renderData();
+}
+function removeItem(id){delete docs[id]; saveLocal(); queue(id,null); renderData()}
+function setCfg(patch){cfg=Object.assign({},cfg,patch); saveLocal(); cfgPending=true; schedule(); renderData()}
+function queue(id,body){pend.set(id,body); schedule()}
+function schedule(){clearTimeout(timer); timer=setTimeout(flush,600); setStatus("Guardando…","")}
+function rowFor(id,b){
+  if(b===null) return {id,del:true};
+  const it=findItem(id);
+  return {id,sec:b.custom?b.sec:(it?secOf(id):""),name:it?it.name:(b.name||""),who:(it&&it.who)||b.who||"",
+    need:it?need(it):(b.n||1),have:Number(b.have)||0,exp:b.exp||"",custom:!!b.custom,n:b.custom?(b.n||1):"",created:b.created||""};
+}
+function secOf(id){for(const s of SECTIONS){if(itemsOf(s).some(x=>x.id===id)) return s.id} return ""}
+async function flush(){
+  if(writing){schedule();return}
+  if(!pend.size&&!cfgPending) return;
+  const sent=new Map(pend); pend.clear();
+  const payload={cfg:cfgPending?{adults:cfg.adults,kids:cfg.kids,days:cfg.days}:null,items:[...sent].map(([id,b])=>rowFor(id,b))};
+  const sentCfg=cfgPending; cfgPending=false; writing=true;
+  try{
+    const st=await gs("guardar",payload);
+    writing=false; apply(st);
+    if(!pend.size&&!cfgPending) setStatus("Guardado en Google Sheets · "+hora(),"ok");
+  }catch(e){
+    writing=false;
+    sent.forEach((b,id)=>{if(!pend.has(id)) pend.set(id,b)}); if(sentCfg) cfgPending=true;
+    setStatus("No se pudo guardar ("+errTxt(e)+"). Se reintentará; los cambios quedan en este dispositivo.","warn");
+    clearTimeout(retryTimer); retryTimer=setTimeout(flush,15000);
+  }
+}
+function errTxt(e){const m=(e&&(e.message||e.toString()))||"error desconocido";return m.length>220?m.slice(0,220)+"…":m}
+function hora(){return new Date().toLocaleTimeString("es",{hour:"2-digit",minute:"2-digit"})}
+function apply(st){
+  if(!st) return;
+  if(st.cfg&&!cfgPending) cfg={adults:Math.max(1,Number(st.cfg.adults)||3),kids:Number.isFinite(+st.cfg.kids)?Math.max(0,+st.cfg.kids):1,days:[3,7,14].includes(+st.cfg.days)?+st.cfg.days:7};
+  const fresh={};
+  (st.items||[]).forEach(r=>{
+    const d={have:Number(r.have)||0,exp:r.exp||""};
+    if(r.custom){Object.assign(d,{custom:true,sec:r.sec,name:r.name,n:Number(r.n)||1,who:r.who||"",created:Number(r.created)||0})}
+    fresh[r.id]=d;
+  });
+  pend.forEach((b,id)=>{if(b===null) delete fresh[id]; else fresh[id]=b});
+  docs=fresh; saveLocal(); lastSync=Date.now(); renderData();
+}
+async function sync(){
+  if(writing||pend.size||cfgPending) return;
+  try{const st=await gs("cargar"); if(!writing&&!pend.size&&!cfgPending){apply(st); setStatus("Sincronizado con Google Sheets · "+hora(),"ok")}}
+  catch(e){setStatus("Sin conexión con Google Sheets: "+errTxt(e),"warn")}
+}
+
+/* ---------- eventos ---------- */
+function go(t){if(t!==tab){tab=t;confirmDel=null;renderView();window.scrollTo({top:0})} }
+function fromHash(){const h=location.hash.slice(1);go(h==="resumen"||SEC[h]?h:"resumen")}
+window.addEventListener("hashchange",fromHash);
+
+function findItem(id){for(const s of SECTIONS){const it=itemsOf(s).find(x=>x.id===id); if(it) return it} return null}
+
+document.addEventListener("click",e=>{
+  const b=e.target.closest("button"); if(!b||b.disabled) return;
+  if(b.dataset.tab){const t=b.dataset.tab; if(location.hash.slice(1)!==t) location.hash=t; else go(t); return}
+  if(b.dataset.cfg){const k=b.dataset.cfg,min=k==="adults"?1:0;const v=Math.max(min,Math.min(20,cfg[k]+Number(b.dataset.d)));if(v!==cfg[k]) setCfg({[k]:v});return}
+  if(b.dataset.days){const v=+b.dataset.days;if(v!==cfg.days) setCfg({days:v});return}
+  if(b.id==="filter"){onlyMissing=!onlyMissing;try{localStorage.setItem(LSKEY+"-filter",onlyMissing?"1":"0")}catch(e){};renderData(true);return}
+  if(b.id==="copy"){doCopy(b);return}
+  const id=b.dataset.id, act=b.dataset.act; if(!id) return;
+  if(act==="del"){confirmDel=id;renderData(true);const n=document.getElementById("xn-"+id);n&&n.focus();return}
+  if(act==="delno"){confirmDel=null;renderData(true);return}
+  if(act==="delyes"){confirmDel=null;removeItem(id);return}
+  const it=findItem(id); if(!it) return;
+  const h=have(it), n=need(it); let v=h;
+  if(act==="toggle") v=h>=n?0:n;
+  if(act==="inc") v=h+1;
+  if(act==="dec") v=Math.max(0,h-1);
+  if(v!==h) setItem(id,{have:v});
+});
+document.addEventListener("change",e=>{
+  const el=e.target; if(!el.dataset||!el.dataset.exp) return;
+  const v=/^\d{4}-\d{2}$/.test(el.value)?el.value:"";
+  setItem(el.dataset.exp,{exp:v});
+});
+document.addEventListener("focusout",()=>{setTimeout(()=>{if(needsRender){const ae=document.activeElement,l=document.getElementById("list");if(!(ae&&l&&l.contains(ae)&&/INPUT|SELECT/.test(ae.tagName))) renderData()}},0)});
+document.addEventListener("submit",e=>{
+  if(e.target.id!=="add-form") return; e.preventDefault();
+  const name=document.getElementById("add-name").value.trim();
+  const msg=document.getElementById("add-msg");
+  if(!name){msg.textContent="Escribe el nombre del artículo.";msg.hidden=false;document.getElementById("add-name").focus();return}
+  msg.hidden=true;
+  const n=Math.max(1,Math.min(999,parseInt(document.getElementById("add-n").value,10)||1));
+  const whoEl=document.getElementById("add-who"), expV=document.getElementById("add-exp").value;
+  const id="c-"+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+  setItem(id,{custom:true,sec:tab,name:name.slice(0,80),n,who:whoEl?whoEl.value:"",have:0,exp:/^\d{4}-\d{2}$/.test(expV)?expV:"",created:Date.now()});
+  e.target.reset(); document.getElementById("add-name").focus();
+});
+
+function doCopy(btn){
+  const secs=tab==="resumen"?SECTIONS:[SEC[tab]];
+  const lines=[`Lo que nos falta · familia de ${cfg.adults+cfg.kids} · ${cfg.days} días`];
+  secs.forEach(s=>{
+    const gl=[];
+    groupsOf(s).forEach(g=>{const miss=g.items.filter(it=>have(it)<need(it)); if(!miss.length) return;
+      gl.push((s.byPerson?"  "+g.title:"  "+g.title)+":"); miss.forEach(it=>{const m=need(it)-have(it);gl.push(`  - ${it.name}${m>1||it.pk!==OK1?`: ${m} ${pkOf(it,m)}`:""}`)})});
+    if(gl.length) lines.push("",s.name.toUpperCase(),...gl);
+  });
+  if(lines.length===1) lines.push("","¡Ya tienen todo!");
+  const text=lines.join("\n");
+  const fallback=()=>{copyText=text;renderData(true);const ta=document.getElementById("copyta");if(ta){ta.focus();ta.select()}};
+  try{navigator.clipboard.writeText(text).then(()=>{copyText=null;btn.textContent="Copiado";setTimeout(()=>{const c=document.getElementById("copy");if(c)c.textContent=tab==="resumen"?"Copiar todo lo que falta":"Copiar lo que falta"},2000)},fallback)}catch(e){fallback()}
+}
+
+/* ---------- conexión ---------- */
+function connPanel(open){
+  const box=document.getElementById("conn"); if(IN_GAS){box.hidden=true;return}
+  box.hidden=!open;
+  if(open){const i=document.getElementById("api-url"); i.value=API_URL; i.focus()}
+}
+document.getElementById("conn-btn").hidden=IN_GAS;
+document.getElementById("conn-btn").addEventListener("click",()=>connPanel(document.getElementById("conn").hidden));
+document.getElementById("conn-cancel").addEventListener("click",()=>connPanel(false));
+document.getElementById("conn-form").addEventListener("submit",e=>{
+  e.preventDefault();
+  const v=document.getElementById("api-url").value.trim(), msg=document.getElementById("conn-msg");
+  if(!/^https:\/\/script\.google\.com\/macros\/s\/[\w-]+\/exec$/.test(v)){msg.textContent="La URL debe empezar con https://script.google.com/macros/s/ y terminar en /exec.";msg.hidden=false;return}
+  msg.hidden=true; API_URL=v; try{localStorage.setItem(APIKEY,v)}catch(err){}
+  connPanel(false); conectar();
+});
+
+/* ---------- inicio ---------- */
+tab=(location.hash.slice(1)==="resumen"||SEC[location.hash.slice(1)])?location.hash.slice(1):"resumen";
+renderView();
+async function conectar(){
+  if(!IN_GAS&&!API_URL){setStatus("Falta conectar con Google Sheets: pega la URL de la app","warn");connPanel(true);return}
+  setStatus("Conectando con Google Sheets…","");
+  try{
+    const st=await gs("cargar");
+    const empty=!(st.items||[]).length;
+    if(empty&&Object.keys(docs).length){Object.entries(docs).forEach(([id,b])=>pend.set(id,b)); cfgPending=true; flush();}
+    else {apply(st); setStatus("Sincronizado con Google Sheets · "+hora(),"ok")}
+  }catch(e){setStatus("No se pudo conectar con Google Sheets: "+errTxt(e),"warn")}
+}
+conectar();
+setInterval(()=>{if(document.visibilityState==="visible") sync()},20000);
+document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible") sync()});
+</script>
+</body>
+</html>
