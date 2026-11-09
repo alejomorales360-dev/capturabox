@@ -28,13 +28,13 @@ Los datos se guardan en un **Google Sheet** mediante **Google Apps Script**, as�
    - Ejecutar como: **Yo**
    - Quién tiene acceso: **Cualquier usuario** (obligatorio para usarla desde GitHub Pages; con "cualquier usuario con cuenta de Google" la URL pide iniciar sesión y no sincroniza).
 5. Copia la URL que termina en `/exec`.
-6. Abre la app (`https://<usuario>.github.io/capturabox/emergencia/`), toca **Conexión**, pega la URL y **Conectar**. Se hace una vez por dispositivo.
-7. Para los demás celulares: en **Conexión**, toca **Copiar enlace de conexión** y mándalo por WhatsApp. Al abrirlo, la app queda conectada sola (el enlace lleva el ID de la implementación después de `#c=`, que no se envía a GitHub y se borra de la barra de direcciones).
+6. Pon esa URL en `DEFAULT_API_URL` dentro de `index.html`. Así la app publicada (`https://<usuario>.github.io/capturabox/emergencia/`) se conecta sola en cualquier dispositivo, sin pedir nada.
+7. Si cambias de implementación, actualiza `DEFAULT_API_URL`. En un dispositivo concreto también se puede cambiar desde **Conexión**.
 
 Para actualizar el código sin cambiar la URL: **Implementar > Gestionar implementaciones > ✏️ > Versión: Nueva versión > Implementar**.
 
 ## Privacidad
 
-La URL `/exec` da acceso de lectura y escritura al inventario a quien la tenga. Por eso **no está escrita en el código** (este repositorio es público): cada dispositivo la guarda en su navegador. Compártela solo con la familia.
+La URL `/exec` da acceso de lectura y escritura al inventario a quien la tenga. Está escrita en `index.html` por decisión de la familia, para que ningún dispositivo la pida. Como el repositorio es público, cualquiera que lo revise puede ver y cambiar el inventario. Para cortar ese acceso, archiva la implementación en Apps Script y crea otra.
 
 > Las cantidades son aproximadas (unas 2 000 kcal por adulto al día y 4 L de agua por persona). No reemplaza las indicaciones médicas.

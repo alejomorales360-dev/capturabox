@@ -755,10 +755,13 @@ document.addEventListener("scroll",()=>{tipEl.hidden=true},{passive:true});
 
 /* ---------- guardar (Google Sheets) ---------- */
 let remote=false, lastSync=0, retryTimer=null;
-// URL de la app web de Apps Script. No se escribe en el código: cada dispositivo la guarda una vez.
+// URL de la app web de Apps Script (implementación con acceso "Cualquier usuario").
+// Viene escrita para que la app se conecte sola en cualquier dispositivo.
+// En "Conexión" se puede cambiar por otra en un dispositivo concreto.
+const DEFAULT_API_URL="https://script.google.com/macros/s/AKfycbzM5xDOdlt_s6BRDy_2fMzoz8PozUOR1CT16VDgoQW7zdmGEPVgLHIEufPHm_QrIZ37/exec";
 const APIKEY="despensa-api-url";
 const IN_GAS=!!(window.google&&google.script&&google.script.run);
-let API_URL=(()=>{try{return localStorage.getItem(APIKEY)||""}catch(e){return ""}})();
+let API_URL=(()=>{try{return localStorage.getItem(APIKEY)||DEFAULT_API_URL}catch(e){return DEFAULT_API_URL}})();
 // Enlace de conexión: …/emergencia/#c=ID_DE_LA_IMPLEMENTACION. Se guarda y se quita de la barra de direcciones.
 function leerEnlace(){
   const m=location.hash.match(/^#c=([\w-]{20,})$/); if(!m) return false;
