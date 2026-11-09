@@ -231,6 +231,12 @@ details.tbl td.n{text-align:right;font-family:var(--f-num)}
       <p class="formmsg" id="conn-msg" hidden></p>
       <div class="tools"><button type="submit" class="btn primary">Conectar</button><button type="button" class="btn" id="conn-cancel">Cancelar</button></div>
     </form>
+    <div id="share" hidden style="margin-top:14px;border-top:1px solid var(--line);padding-top:12px;display:flex;flex-direction:column;gap:8px">
+      <span class="label">Conectar otro celular</span>
+      <p class="hint" style="margin:0">Copia este enlace y mándalo por WhatsApp. Al abrirlo, la app queda conectada sin pegar nada. Compártelo solo con la familia: da acceso al inventario.</p>
+      <div class="tools"><button type="button" class="btn primary" id="share-btn">Copiar enlace de conexión</button></div>
+      <textarea class="copy" id="share-ta" readonly hidden style="min-height:70px" aria-label="Enlace de conexión"></textarea>
+    </div>
   </section>
 </div></header>
 
@@ -749,10 +755,23 @@ document.addEventListener("scroll",()=>{tipEl.hidden=true},{passive:true});
 
 /* ---------- guardar (Google Sheets) ---------- */
 let remote=false, lastSync=0, retryTimer=null;
-// URL de la app web de Apps Script. No se escribe en el código: cada dispositivo la guarda una vez.
+// URL de la app web de Apps Script (implementación con acceso "Cualquier usuario").
+// Viene escrita para que la app se conecte sola en cualquier dispositivo.
+// En "Conexión" se puede cambiar por otra en un dispositivo concreto.
+const DEFAULT_API_URL="https://script.google.com/macros/s/AKfycbzM5xDOdlt_s6BRDy_2fMzoz8PozUOR1CT16VDgoQW7zdmGEPVgLHIEufPHm_QrIZ37/exec";
 const APIKEY="despensa-api-url";
 const IN_GAS=!!(window.google&&google.script&&google.script.run);
-let API_URL=(()=>{try{return localStorage.getItem(APIKEY)||""}catch(e){return ""}})();
+let API_URL=(()=>{try{return localStorage.getItem(APIKEY)||DEFAULT_API_URL}catch(e){return DEFAULT_API_URL}})();
+// Enlace de conexión: …/emergencia/#c=ID_DE_LA_IMPLEMENTACION. Se guarda y se quita de la barra de direcciones.
+function leerEnlace(){
+  const m=location.hash.match(/^#c=([\w-]{20,})$/); if(!m) return false;
+  API_URL="https://script.google.com/macros/s/"+m[1]+"/exec";
+  try{localStorage.setItem(APIKEY,API_URL)}catch(e){}
+  history.replaceState(null,"",location.pathname+location.search);
+  return true;
+}
+leerEnlace();
+function enlaceConexion(){const m=API_URL.match(/\/s\/([\w-]+)\/exec$/);return m?location.origin+location.pathname+"#c="+m[1]:""}
 function gs(fn,arg){
   if(!IN_GAS&&!API_URL) return Promise.reject(new Error("falta pegar la URL de la app de Apps Script"));
   if(IN_GAS)
@@ -819,7 +838,7 @@ async function sync(){
 
 /* ---------- eventos ---------- */
 function go(t){if(t!==tab){tab=t;confirmDel=null;renderView();window.scrollTo({top:0})} }
-function fromHash(){const h=location.hash.slice(1);go(h==="resumen"||SEC[h]?h:"resumen")}
+function fromHash(){if(!IN_GAS&&leerEnlace()){conectar();return} const h=location.hash.slice(1);go(h==="resumen"||SEC[h]?h:"resumen")}
 window.addEventListener("hashchange",fromHash);
 
 function findItem(id){for(const s of SECTIONS){const it=itemsOf(s).find(x=>x.id===id); if(it) return it} return null}
@@ -880,8 +899,15 @@ function doCopy(btn){
 function connPanel(open){
   const box=document.getElementById("conn"); if(IN_GAS){box.hidden=true;return}
   box.hidden=!open;
-  if(open){const i=document.getElementById("api-url"); i.value=API_URL; i.focus()}
+  if(open){const i=document.getElementById("api-url"); i.value=API_URL; if(!API_URL) i.focus()}
+  document.getElementById("share").hidden=!API_URL;
+  document.getElementById("share-ta").hidden=true;
 }
+document.getElementById("share-btn").addEventListener("click",e=>{
+  const link=enlaceConexion(), btn=e.currentTarget, ta=document.getElementById("share-ta"); if(!link) return;
+  const fallback=()=>{ta.value=link;ta.hidden=false;ta.focus();ta.select();btn.textContent="Selecciona y copia el enlace"};
+  try{navigator.clipboard.writeText(link).then(()=>{btn.textContent="Enlace copiado";setTimeout(()=>btn.textContent="Copiar enlace de conexión",2500)},fallback)}catch(err){fallback()}
+});
 document.getElementById("conn-btn").hidden=IN_GAS;
 document.getElementById("conn-btn").addEventListener("click",()=>connPanel(document.getElementById("conn").hidden));
 document.getElementById("conn-cancel").addEventListener("click",()=>connPanel(false));
