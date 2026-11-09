@@ -28,7 +28,8 @@ Los datos se guardan en un **Google Sheet** mediante **Google Apps Script**, as�
    - Ejecutar como: **Yo**
    - Quién tiene acceso: **Cualquier usuario** (obligatorio para usarla desde GitHub Pages; con "cualquier usuario con cuenta de Google" la URL pide iniciar sesión y no sincroniza).
 5. Copia la URL que termina en `/exec`.
-6. Abre la app (`https://<usuario>.github.io/capturabox/emergencia/` cuando esto llegue a `main`), toca **Conexión**, pega la URL y **Conectar**. Se hace una vez en cada dispositivo.
+6. Abre la app (`https://<usuario>.github.io/capturabox/emergencia/`), toca **Conexión**, pega la URL y **Conectar**. Se hace una vez por dispositivo.
+7. Para los demás celulares: en **Conexión**, toca **Copiar enlace de conexión** y mándalo por WhatsApp. Al abrirlo, la app queda conectada sola (el enlace lleva el ID de la implementación después de `#c=`, que no se envía a GitHub y se borra de la barra de direcciones).
 
 Para actualizar el código sin cambiar la URL: **Implementar > Gestionar implementaciones > ✏️ > Versión: Nueva versión > Implementar**.
 
